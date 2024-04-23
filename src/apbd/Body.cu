@@ -1,5 +1,6 @@
 #include "apbd/Body.h"
 #include "se3/lib.h"
+#include "util.h"
 #include <limits>
 #include <svd3_cuda.h>
 
@@ -140,11 +141,13 @@ void Body::clearShock() {
   case BODY_AFFINE: {
     auto &data = this->data.affine;
     data.layer = UNSIGNED_MAX;
+    data.dxJacobiShock = vec12::Zero();
     break;
   }
   case BODY_RIGID: {
     auto &data = this->data.rigid;
     data.layer = UNSIGNED_MAX;
+    data.dxJacobiShock = vec7::Zero();
     break;
   }
   default:

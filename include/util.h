@@ -58,6 +58,21 @@
   {}
 #endif
 
+#ifndef NDEBUG
+#define DEBUG_ASSERT(val, message)                                             \
+  {                                                                            \
+    bool res = val;                                                            \
+    if (!res) {                                                                \
+      printf(__FILE__ ":%d - %s: Assert failed! '" message "': `" #val         \
+                      "` was %d\n",                                            \
+             __LINE__, __PRETTY_FUNCTION__, res);                              \
+    }                                                                          \
+  }
+#else
+#define DEBUG_ASSERT(val, message)                                             \
+  {}
+#endif
+
 // global objects to imitate the threadIdx and threadDim from CUDA on CPU
 extern thread_local size_t _thread_scene_id;
 extern size_t _global_scene_count;

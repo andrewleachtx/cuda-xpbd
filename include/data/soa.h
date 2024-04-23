@@ -157,6 +157,7 @@ struct _SOAStoreBodyRigid {
   _SOAStoreGeneric<float> density;
   _SOAStoreVec3 Mr;
   _SOAStoreGeneric<float> Mp;
+  _SOAStoreGeneric<unsigned int> layer;
 
   __host__ __device__ _SOAStoreBodyRigid() {}
   _SOAStoreBodyRigid(byte *data_store, size_t &offset, size_t count);
@@ -167,7 +168,8 @@ struct _SOAStoreBodyRigid {
            _SOAStoreQuaterion::size(count) * 2 +
            _SOAStoreGeneric<float>::size(count) * 3 +
            _SOAStoreGeneric<bool>::size(count) +
-           _SOAStoreGeneric<apbd::Shape>::size(count);
+           _SOAStoreGeneric<apbd::Shape>::size(count) +
+           _SOAStoreGeneric<unsigned int>::size(count);
   }
 
   __host__ __device__ void set(unsigned int index, const apbd::BodyRigid &data);
@@ -234,11 +236,12 @@ inline _SOAStoreBodyRigid::_SOAStoreBodyRigid(byte *data_store, size_t &offset,
       dxJacobiShock(data_store, offset, count),
       collide(data_store, offset, count), mu(data_store, offset, count),
       shape(data_store, offset, count), density(data_store, offset, count),
-      Mr(data_store, offset, count), Mp(data_store, offset, count) {}
+      Mr(data_store, offset, count), Mp(data_store, offset, count),
+      layer(data_store, offset, count) {}
 
 inline void _SOAStoreBodyRigid::set(unsigned int index,
                                     const apbd::BodyRigid &data) {
-  xdotInit.set(index, data.xInit);
+  xdotInit.set(index, data.xdotInit);
   position.set(index, data.x.block<3, 1>(4, 0));
   rotation.set(index, Eigen::Quaternionf(data.x.block<4, 1>(0, 0)));
   x0.set(index, data.x0);
@@ -252,6 +255,7 @@ inline void _SOAStoreBodyRigid::set(unsigned int index,
   density.set(index, data.density);
   Mr.set(index, data.Mr);
   Mp.set(index, data.Mp);
+  layer.set(index, data.layer);
 }
 
 inline _SOAStoreQuaterion::_SOAStoreQuaterion(byte *data_store, size_t &offset,

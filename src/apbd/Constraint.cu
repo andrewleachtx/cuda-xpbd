@@ -19,16 +19,16 @@ ConstraintGround::ConstraintGround(BodyRigidReference body, Eigen::Matrix4f Eg,
                                    Eigen::Vector3f xw, Eigen::Vector3f nw,
                                    Eigen::Vector3f vw)
     : C(Vector3f::Zero()), lambda(Vector3f::Zero()), nw(nw),
-      lambdaSF(Vector3f::Zero()), d(d), shockProp(false), body(body), Eg(Eg),
-      xl(xl), xw(xw), vw(vw) {}
+      lambdaSF(Vector3f::Zero()), d(d), body(body), Eg(Eg), xl(xl), xw(xw),
+      vw(vw) {}
 
 ConstraintRigid::ConstraintRigid(BodyRigidReference body1,
                                  BodyRigidReference body2, float d,
                                  Eigen::Vector3f nw, Eigen::Vector3f x1,
                                  Eigen::Vector3f x2)
     : C(Vector3f::Zero()), lambda(Vector3f::Zero()), nw(nw),
-      lambdaSF(Vector3f::Zero()), d(d), shockProp(false), body1(body1),
-      body2(body2), x1(x1), x2(x2) {}
+      lambdaSF(Vector3f::Zero()), d(d), body1(body1), body2(body2), x1(x1),
+      x2(x2) {}
 
 Constraint &Constraint::operator=(const Constraint &other) {
   this->type = other.type;
@@ -92,7 +92,7 @@ void Constraint::solve(const float hs, const bool doShockProp) {
   }
   case CONSTRAINT_COLLISION_RIGID: {
     ConstraintRigid *c = &data.rigid;
-    c->solveNorPos(hs);
+    c->solveNorPos(hs, doShockProp);
     c->applyJacobi();
     break;
   }
@@ -199,7 +199,7 @@ void ConstraintRigid::applyJacobi() {
   this->body2.applyJacobi();
 }
 
-void ConstraintRigid::solveNorPos(const float hs) {
+void ConstraintRigid::solveNorPos(const float hs, bool shockProp) {
   const float penetration_resolution_speed = 0.1;
   const float allowable_penetration = 1e-3;
   const Vector3f v1w = this->body1.computePointVel(this->x1, hs);
@@ -255,12 +255,16 @@ void ConstraintRigid::solveNorPos(const float hs) {
     Vector4f dq1, dq2;
     Vector3f dp1, dp2;
     this->computeDx(dlambda, frictionalContactNormal, &dq1, &dp1, &dq2, &dp2);
-    if (this->shockProp) {
-      this->body1.dxJacobiShock(dq1, dp1);
+    if (shockProp) {
+      this->body1.dxJacobiShock(
+          this->body1.dxJacobiShock().block<4, 1>(0, 0) + dq1,
+          this->body1.dxJacobiShock().block<3, 1>(4, 0) + dp1);
     } else {
-      this->body1.dxJacobi(dq1, dp1);
+      this->body1.dxJacobi(this->body1.dxJacobi().block<4, 1>(0, 0) + dq1,
+                           this->body1.dxJacobi().block<3, 1>(4, 0) + dp1);
     }
-    this->body2.dxJacobi(dq2, dp2);
+    this->body2.dxJacobi(this->body2.dxJacobi().block<4, 1>(0, 0) + dq2,
+                         this->body2.dxJacobi().block<3, 1>(4, 0) + dp2);
   }
 }
 float ConstraintRigid::solvePosDir2(const float c, const Eigen::Vector3f nw) {

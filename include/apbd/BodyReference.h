@@ -18,6 +18,7 @@ using NarrowphaseReturn =
  */
 #define IMPLEMENT_DELEGATED_FUNCTION(signature, call)                          \
   signature {                                                                  \
+    DEBUG_ASSERT(type != BODY_INVALID, "recieved invalid body!");              \
     switch (type) {                                                            \
     case BODY_RIGID: {                                                         \
       auto data = get_rigid();                                                 \
@@ -32,9 +33,9 @@ using NarrowphaseReturn =
   }
 
 class BodyRigidReference {
+public:
   unsigned int index;
 
-public:
   __host__ __device__ BodyRigidReference(const unsigned int index)
       : index(data::soa_index(index)) {}
   // access the data elements in BodyRigid
@@ -67,10 +68,11 @@ public:
   __host__ __device__ void Mr(const Eigen::Vector3f new_val);
   __host__ __device__ float Mp() const;
   __host__ __device__ void Mp(const float new_val);
+  __host__ __device__ unsigned int layer() const;
+  __host__ __device__ void layer(unsigned int new_val);
   // readonly elements
   __host__ __device__ bool collide() const;
   __host__ __device__ float mu() const;
-  // __host__ __device__ unsigned int layer();
   __host__ __device__ Shape shape() const;
   __host__ __device__ float density() const;
 
@@ -129,6 +131,15 @@ public:
   BODY_TYPE type;
 
   __host__ __device__ BodyReference() {}
+  __host__ __device__ BodyReference(const BodyRigidReference &br)
+      : index(0), type(BODY_RIGID) {
+#ifdef __CUDA_ARCH__
+    const size_t scene_count = blockDim.x * gridDim.x;
+    index = br.index / scene_count;
+#else
+    index = br.index / _global_scene_count;
+#endif
+  }
   __host__ __device__ BodyReference(const unsigned int index,
                                     const BODY_TYPE type)
       : index(index), type(type) {}
@@ -141,6 +152,11 @@ public:
 
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ bool collide() const,
                                data.collide());
+  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ unsigned int layer() const,
+                               data.layer());
+  IMPLEMENT_DELEGATED_FUNCTION(
+      __host__ __device__ void layer(unsigned int new_val),
+      data.layer(new_val));
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void stepBDF1(
                                    const unsigned int step,
                                    const unsigned int substep, const float hs,
@@ -241,6 +257,7 @@ IMPLEMENT_READONLY_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid,
                                     density)
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, Mr)
 IMPLEMENT_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid, Mp)
+IMPLEMENT_ACCESS_FUNCTIONS(unsigned int, BodyRigidReference, BodyRigid, layer)
 
 inline void BodyRigidReference::init(vec7 xInit) {
   this->computeInertiaConst();

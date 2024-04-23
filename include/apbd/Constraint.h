@@ -21,7 +21,6 @@ struct ConstraintGround {
   Eigen::Vector3f nw;
   Eigen::Vector3f lambdaSF;
   float d;
-  bool shockProp;
   BodyRigidReference body;
   Eigen::Matrix4f Eg;
   Eigen::Vector3f xl;
@@ -49,7 +48,6 @@ struct ConstraintRigid {
   Eigen::Vector3f nw;
   Eigen::Vector3f lambdaSF;
   float d;
-  bool shockProp;
   BodyRigidReference body1;
   BodyRigidReference body2;
   Eigen::Vector3f x1;
@@ -60,7 +58,7 @@ struct ConstraintRigid {
                                       Eigen::Vector3f nw, Eigen::Vector3f x1,
                                       Eigen::Vector3f x2);
 
-  __host__ __device__ void solveNorPos(float hs);
+  __host__ __device__ void solveNorPos(float hs, bool doShockProp);
   __host__ __device__ float solvePosDir2(float c, Eigen::Vector3f nw);
   __host__ __device__ void computeDx(float dlambda, Eigen::Vector3f nw,
                                      Eigen::Vector4f *dq1, Eigen::Vector3f *dp1,
@@ -72,7 +70,6 @@ struct ConstraintRigid {
 struct ConstraintJointRevolve {
   Eigen::Vector3f C;
   Eigen::Vector3f lambda;
-  bool shockProp;
   BodyRigidReference body1;
   BodyRigidReference body2;
   Eigen::Vector4f ql1;
@@ -105,6 +102,52 @@ public:
   __host__ __device__ void clear();
 
   __host__ __device__ void solve(float hs, bool doShockProp);
+  __host__ __device__ bool handle_layer(unsigned int layer,
+                                        BodyReference *body_layers,
+                                        size_t *body_layer_sizes,
+                                        size_t &body_count);
 };
+
+inline bool Constraint::handle_layer(unsigned int layer,
+                                     BodyReference *body_layers,
+                                     size_t *body_layer_sizes,
+                                     size_t &body_count) {
+  // if any bodies affected by this constraint are on `layer-1`,
+  //   and the other body is on a higher layer,
+  //   then set the other body to this layer, and add it to the layer list
+  // TODO: should the comparison to test if greater be just to test if the body
+  // has not been assigned a layer yet?
+  switch (this->type) {
+  case CONSTRAINT_COLLISION_RIGID: {
+    auto &data = this->data.rigid;
+    unsigned int b1l = data.body1.layer();
+    unsigned int b2l = data.body2.layer();
+    if (b1l == layer - 1) {
+      if (b2l > b1l) {
+        data.body2.layer(layer);
+        body_layers[body_count++] = data.body2;
+        body_layer_sizes[layer]++;
+        return true;
+      }
+    }
+    if (b2l == layer - 1) {
+      if (b1l > b1l) {
+        data.body1.layer(layer);
+        body_layers[body_count++] = data.body1;
+        body_layer_sizes[layer]++;
+        return true;
+      }
+    }
+    return false;
+  }
+  case CONSTRAINT_JOINT_REVOLVE: {
+    // TODO
+    return false;
+  }
+  case CONSTRAINT_COLLISION_GROUND:
+  default:
+    return false;
+  }
+}
 
 } // namespace apbd

@@ -72,6 +72,7 @@ void Collider::broadphase(Model *model) {
 
 void Collider::narrowphase(Model *model) {
   auto &Eg = model->ground_E;
+  DEBUG_ASSERT(this->collision_count == 0, "");
 
   for (size_t i = 0; i < this->bp_count_1; i++) {
     auto body = this->bpList1[i];
@@ -92,6 +93,7 @@ void Collider::narrowphase(Model *model) {
       }
     }
   }
+  this->ground_collision_count = this->collision_count;
 
   for (size_t i = 0; i < this->bp_count_2; i += 2) {
     auto body1 = this->bpList2[i];

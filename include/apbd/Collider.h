@@ -25,6 +25,7 @@ class Collider {
   __device__ __host__ void narrowphase(Model *model);
 
 public:
+  size_t ground_collision_count;
   size_t collision_count;
   Constraint *collisions;
   Collider(Model *model);

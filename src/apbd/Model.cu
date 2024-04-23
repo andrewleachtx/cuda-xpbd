@@ -9,35 +9,28 @@ namespace apbd {
 Model::Model()
     : h(1. / 30.), tEnd(1), substeps(10), bodies(nullptr), body_count(0),
       constraints(nullptr), constraint_count(0), constraint_layers(nullptr),
-      layer_count(0), constraint_layer_sizes(nullptr), body_layers(nullptr),
-      body_layer_sizes(nullptr), gravity(0.0, 0.0, -980.0), iters(1),
+      layer_count(0), constraint_layer_sizes(), body_layers(nullptr),
+      body_layer_sizes(), gravity(0.0, 0.0, -980.0), iters(1),
       ground_E(Eigen::Matrix4f::Zero()), ground_size(10), steps(0) {}
 
 Model::Model(const Model &other)
-    : h(other.h), tEnd(other.tEnd), substeps(other.substeps), bodies(nullptr),
-      body_count(other.body_count), constraints(other.constraints),
+    : h(other.h), tEnd(other.tEnd), substeps(other.substeps),
+      bodies(other.bodies), body_count(other.body_count), constraints(nullptr),
       constraint_count(other.constraint_count), constraint_layers(nullptr),
-      layer_count(other.layer_count), constraint_layer_sizes(nullptr),
-      body_layers(nullptr), body_layer_sizes(nullptr), gravity(other.gravity),
+      layer_count(other.layer_count), constraint_layer_sizes(),
+      body_layers(nullptr), body_layer_sizes(), gravity(other.gravity),
       iters(other.iters), ground_E(other.ground_E),
-      ground_size(other.ground_size), steps(other.steps) {
-#ifdef __CUDA_ARCH__
-  // we are on the device; don't copy the bodies
-#else
-  cudaPointerAttributes attributes;
-  CUDA_CHECK(cudaPointerGetAttributes(&attributes, other.bodies));
-  if (attributes.type == cudaMemoryTypeDevice) {
-    bodies = alloc_device<BodyReference>(other.body_count);
-    memcpy_device(bodies, other.bodies, other.body_count);
-  } else {
-    size_t size = other.body_count * sizeof(BodyReference);
-    if (other.bodies != nullptr) {
-      bodies = new BodyReference[other.body_count];
-      memcpy(bodies, other.bodies, size);
-    }
-  }
-#endif
-}
+      ground_size(other.ground_size), steps(other.steps) {}
+
+Model::Model(const Model &&other)
+    : h(other.h), tEnd(other.tEnd), substeps(other.substeps),
+      bodies(other.bodies), body_count(other.body_count),
+      constraints(other.constraints), constraint_count(other.constraint_count),
+      constraint_layers(other.constraint_layers),
+      layer_count(other.layer_count), constraint_layer_sizes(),
+      body_layers(other.body_layers), body_layer_sizes(),
+      gravity(other.gravity), iters(other.iters), ground_E(other.ground_E),
+      ground_size(other.ground_size), steps(other.steps) {}
 
 void Model::create_store(size_t scene_count) {
   // TODO: handle other types of bodies
@@ -69,6 +62,34 @@ void Model::copy_data_to_store(Body *body_array) {
   this->write_state(0);
 }
 
+ModelBuffers Model::allocate_buffers(size_t count, const Model &model) {
+  ModelBuffers buffers;
+  if (model.constraint_count > 0)
+    buffers.constraints =
+        alloc_device<Constraint>(count * model.constraint_count);
+  else
+    buffers.constraints = nullptr;
+  buffers.body_layers = alloc_device<BodyReference>(count * MAX_LAYER_OBJECTS);
+  buffers.constraint_layers =
+      alloc_device<Constraint *>(count * MAX_LAYER_OBJECTS);
+  return buffers;
+}
+
+Model Model::clone_with_buffers(const ModelBuffers &buffers, size_t offset) {
+  Model new_model = Model(*this);
+  DEBUG_ASSERT(&new_model != this, "Model not cloned!");
+  if (this->constraint_count > 0) {
+    new_model.constraints =
+        &buffers.constraints[offset * this->constraint_count];
+    memcpy_device(new_model.constraints, this->constraints,
+                  this->constraint_count);
+  }
+  new_model.body_layers = &buffers.body_layers[offset * MAX_LAYER_OBJECTS];
+  new_model.constraint_layers =
+      &buffers.constraint_layers[offset * MAX_LAYER_OBJECTS];
+  return new_model;
+}
+
 void Model::init(/*Body *body_array*/) {
   // bodies are initialized when data is copied to store
   for (size_t i = 0; i < this->constraint_count; i++) {
@@ -82,7 +103,6 @@ void Model::init(/*Body *body_array*/) {
 void Model::move_to_device() {
   bodies = move_array_to_device(bodies, body_count);
   constraints = move_array_to_device(constraints, constraint_count);
-  // TODO: layers
 }
 
 void Model::simulate(Collider *collider) {
@@ -91,10 +111,10 @@ void Model::simulate(Collider *collider) {
   for (unsigned int step = 0; step < this->steps; step++) {
     this->clearBodyShockPropInfo();
     collider->run(this);
-    this->constructConstraintGraph();
+    this->constructConstraintGraph(collider);
     for (unsigned int substep = 0; substep < this->substeps; substep++) {
       this->stepBDF1(step, substep, hs);
-      this->solveConSP(collider, hs);
+      this->solveConSP(hs);
       this->solveConGS(collider, hs);
       time += hs;
     }
@@ -118,7 +138,8 @@ void Model::clearBodyShockPropInfo() {
     this->bodies[body_i].clearShock();
   }
 }
-void Model::constructConstraintGraph() {
+// TODO: make duplicates of the layer buffers
+void Model::constructConstraintGraph(Collider *collider) {
   // TODO
   // Constructs a graph of constraints, working from the ground layer up
   // needs a list of constraints and bodies
@@ -127,7 +148,7 @@ void Model::constructConstraintGraph() {
   // body needs:
   //  - layer
   //  - shock parent constraint
-  //  - constraint
+  //  - constraints
   //
   //  collect static constraints and collision constraints
   //  for each constraint:
@@ -147,52 +168,105 @@ void Model::constructConstraintGraph() {
   // a last layer constraint list. the shock parent list is more difficult, but
   // does not seem to be used for anything other than setting shockProp to true;
   // so we can do this here
+  // first, reset all counts
+  this->layer_constraint_count = 0;
+  this->layer_body_count = 0;
+  for (size_t i = 0; i < this->layer_count; i++) {
+    this->body_layer_sizes[i] = 0;
+    this->constraint_layer_sizes[i] = 0;
+  }
+  this->layer_count = 0;
+  // TODO: add if (!layer_constraint_count > MAX_LAYER_OBJECTS) etc.
+
+  unsigned int current_layer_body_count = 0;
+  for (size_t i = 0; i < collider->ground_collision_count; i++) {
+    auto &constraint = collider->collisions[i];
+    DEBUG_ASSERT(constraint.type == CONSTRAINT_COLLISION_GROUND,
+                 "Wrong constraint detected!");
+    constraint.data.ground.body.layer(0);
+    this->constraint_layers[this->layer_constraint_count++] = &constraint;
+    this->constraint_layer_sizes[0]++;
+    this->body_layers[this->layer_body_count++] = constraint.data.ground.body;
+
+    this->body_layer_sizes[0] += 1;
+    current_layer_body_count++;
+  }
+
+  unsigned int layer = 1;
+  while (current_layer_body_count > 0) {
+    current_layer_body_count = 0;
+    // loop through all other constraints
+    for (size_t i = collider->ground_collision_count;
+         i < collider->collision_count; i++) {
+      auto &constraint = collider->collisions[i];
+      if (constraint.handle_layer(layer, this->body_layers,
+                                  this->body_layer_sizes,
+                                  this->layer_body_count)) {
+        this->constraint_layers[this->layer_constraint_count++] = &constraint;
+        this->constraint_layer_sizes[layer]++;
+        current_layer_body_count++;
+      }
+    }
+    for (size_t i = 0; i < this->constraint_count; i++) {
+      auto &constraint = collider->collisions[i];
+      if (constraint.handle_layer(layer, this->body_layers,
+                                  this->body_layer_sizes,
+                                  this->layer_body_count)) {
+        this->constraint_layers[this->layer_constraint_count++] = &constraint;
+        this->constraint_layer_sizes[layer++];
+        current_layer_body_count++;
+      }
+    }
+    layer++;
+  }
+  this->layer_count = layer - 1;
+
+  // walk through constraints, create list of constraints and layer sizes.
+  // - go through ground constraints and set bodies to layer 1.
+  // - while the number of bodies in the previous layer is at least 1
+  //   - loop through all other constraints, if one body is on the current
+  //   layer, set the other body to the next (unless it is already handled)
+  // set layer on each body so it knows which layer it is on.
+  // if a constraint has 2 bodies, make sure body2 is on a higher layer (and the
+  // same as the constraint)
 }
-void Model::solveConSP(Collider *collider, float hs) {
+
+void Model::solveConSP(float hs) {
   for (size_t constraint_i = 0; constraint_i < this->constraint_count;
        constraint_i++) {
     this->constraints[constraint_i].clear();
   }
 
-  // TODO: remove and add graph creation
-  for (size_t i = 0; i < collider->collision_count; i++) {
-    collider->collisions[i].solve(hs, true);
-  }
-  for (size_t i = 0; i < this->constraint_count; i++) {
-    this->constraints[i].solve(hs, true);
-  }
-  for (size_t i = 0; i < this->body_count; i++) {
-    this->bodies[i].applyJacobiShock();
-  }
-  for (size_t i = 0; i < collider->collision_count; i++) {
-    collider->collisions[i].solve(hs, true);
-  }
-  for (size_t i = 0; i < this->constraint_count; i++) {
-    this->constraints[i].solve(hs, true);
-  }
-
-  for (size_t i = 0; i < this->layer_count; i++) {
+  // Solve all constraints in the graph with shock propagation in order of the
+  // constraint layers. The exact layer sizes don't matter at this step, so we
+  // don't bother walking through each layer individually.
+  for (size_t i = 0; i < this->layer_constraint_count; i++) {
     for (int iter = 0; iter < this->iters; iter++) {
-      for (size_t j = 0; j < this->constraint_layer_sizes[i]; j++) {
-        this->constraints[this->constraint_layers[i * MAX_LAYER_SIZE + j]]
-            .solve(hs, true);
-      }
+      this->constraint_layers[i]->solve(hs, true);
     }
   }
 
+  size_t current_layer_body_offset = this->layer_body_count;
+  size_t current_layer_constraint_offset = this->layer_constraint_count;
   for (long i = this->layer_count - 1; i >= 0; i--) {
+    DEBUG_ASSERT(this->body_layer_sizes[i] <= current_layer_body_offset, "");
+    DEBUG_ASSERT(
+        this->constraint_layer_sizes[i] <= current_layer_constraint_offset, "");
+    current_layer_body_offset -= this->body_layer_sizes[i];
+    current_layer_constraint_offset -= this->constraint_layer_sizes[i];
     for (size_t j = 0; j < this->body_layer_sizes[i]; j++) {
-      this->bodies[this->body_layers[i * MAX_LAYER_SIZE + j]]
-          .applyJacobiShock();
+      DEBUG_ASSERT(j < this->body_layer_sizes[i], "body_layer_sizes changed");
+      this->body_layers[current_layer_body_offset + j].applyJacobiShock();
     }
     for (int iter = 0; iter < this->iters; iter++) {
       for (size_t j = 0; j < this->constraint_layer_sizes[i]; j++) {
-        this->constraints[this->constraint_layers[i * MAX_LAYER_SIZE + j]]
-            .solve(hs, true);
+        this->constraint_layers[current_layer_constraint_offset + j]->solve(
+            hs, true);
       }
     }
   }
 }
+
 void Model::solveConGS(Collider *collider, float hs) {
   for (int iter = 0; iter < this->iters; iter++) {
     for (size_t constraint_i = 0; constraint_i < this->constraint_count;

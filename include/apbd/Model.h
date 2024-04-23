@@ -8,10 +8,11 @@
 namespace apbd {
 class Collider;
 
-/// Maximum number of shock propagation layers
-const size_t MAX_LAYERS = 8;
-/// Maximum number of objects in each layer
-const size_t MAX_LAYER_SIZE = 4;
+struct ModelBuffers {
+  Constraint *constraints;
+  Constraint **constraint_layers;
+  BodyReference *body_layers;
+};
 
 /**
  * A simulation model, contains all information necessary to run a single
@@ -33,11 +34,16 @@ public:
   size_t constraint_count;
 
   // layer objects used to calculate collision graph
-  size_t *constraint_layers;
   size_t layer_count;
-  size_t *constraint_layer_sizes;
-  size_t *body_layers;
-  size_t *body_layer_sizes;
+  /// A list of constraints; each layer is concatenated and the sizes are stored
+  /// in constraint_layer_sizes
+  Constraint **constraint_layers;
+  size_t constraint_layer_sizes[MAX_LAYERS];
+  /// the total number of constraints in all layers
+  size_t layer_constraint_count;
+  BodyReference *body_layers;
+  size_t body_layer_sizes[MAX_LAYERS];
+  size_t layer_body_count;
 
   Eigen::Vector3f gravity;
   unsigned int iters;
@@ -52,8 +58,8 @@ public:
   __host__ __device__ void stepBDF1(unsigned int step, unsigned int substep,
                                     float hs);
   __host__ __device__ void clearBodyShockPropInfo();
-  __host__ __device__ void constructConstraintGraph();
-  __host__ __device__ void solveConSP(Collider *collider, float hs);
+  __host__ __device__ void constructConstraintGraph(Collider *collider);
+  __host__ __device__ void solveConSP(float hs);
   __host__ __device__ void solveConGS(Collider *collider, float hs);
   __host__ __device__ void computeEnergies();
 
@@ -65,6 +71,11 @@ public:
    * Constructs a copy of the model, only duplicating data that cannot be shared
    */
   __host__ __device__ Model(const Model &other);
+  /**
+   * Constructs a copy of the model, moving all data from other to this.
+   * Note: does not handle layer counts
+   */
+  __host__ __device__ Model(const Model &&other);
   /**
    * Moves the arrays allocated in this model to device storage.
    */
@@ -94,5 +105,16 @@ public:
    * Copies the data in this model that uses SOA to the global store
    */
   __host__ __device__ void copy_data_to_store(Body *body_array);
+  /**
+   * Allocates a set of buffers necessary to hold `count` number of `model`'s
+   * data.
+   */
+  static ModelBuffers allocate_buffers(size_t count, const Model &model);
+
+  /**
+   * Clones a model using the given buffers as a backing data store.
+   */
+  __host__ __device__ Model clone_with_buffers(const ModelBuffers &buffers,
+                                               size_t offset);
 };
 } // namespace apbd
