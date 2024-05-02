@@ -11,6 +11,8 @@ target_compile_options(performance PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
                        --generate-line-info
                        >)
 
+add_compile_options(-use_fast_math)
+
 set_property(TARGET integration PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 set_property(TARGET performance PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 set_property(TARGET integration PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
