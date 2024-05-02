@@ -60,7 +60,7 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     Eigen::Vector3f sides{w, w, w};
     model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
     model.ground_E = Eigen::Matrix4f::Identity();
-    float mu = 0.1;
+    float mu = 0.5;
 
     model.ground_size = 10;
     // model.axis = 5 * Eigen::Matrix<float, 6, 1>(-1, 1, -1, 1, 0, 1);

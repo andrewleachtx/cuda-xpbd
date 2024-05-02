@@ -13,12 +13,14 @@ __global__ void kernel(apbd::Model model, apbd::ModelBuffers buffers,
                        apbd::Body *body_buffer,
                        apbd::BodyReference *body_ptr_buffer,
                        apbd::Constraint *constraint_buffer, int sims) {
+  extern __shared__ unsigned char shared_memory[];
   // get this scene ID
   size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;
   if (scene_id >= sims)
     return;
   // make a copy of the model
   model.copy_data_to_store(body_buffer);
+  model.populate_shared_mem(shared_memory);
   Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
   // Eigen::Matrix3f R = se3::aaToMat(
@@ -26,17 +28,15 @@ __global__ void kernel(apbd::Model model, apbd::ModelBuffers buffers,
   //     4);
   // E.block<3, 3>(0, 0) = R;
 
-  // for (size_t index = 0; index < model.body_count; index++) {
-  //   auto &body = model.bodies[index];
-  //   E.block<3, 1>(0, 3) = body.get_rigid().position() +
-  //                         Eigen::Vector3f(0,
-  //                                         (static_cast<float>(scene_id) - 4)
-  //                                         *
-  //                                             static_cast<float>(index) *
-  //                                             0.1,
-  //                                         0);
-  //   body.setInitTransform(E);
-  // }
+  for (size_t index = 0; index < model.body_count; index++) {
+    auto &body = model.bodies[index];
+    E.block<3, 1>(0, 3) = body.get_rigid().position() +
+                          Eigen::Vector3f(0,
+                                          (static_cast<float>(scene_id) - 4) *
+                                              static_cast<float>(index) * 0.1,
+                                          0);
+    body.setInitTransform(E);
+  }
   apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
 
   // create a thread-local collider
@@ -49,7 +49,7 @@ __global__ void kernel(apbd::Model model, apbd::ModelBuffers buffers,
 void run_kernel(apbd::Model model, apbd::Body *bodies, int sims) {
   cout << "# thread blocks: " << (sims + BLOCK_SIZE - 1) / BLOCK_SIZE << endl;
 
-  const size_t shared_size = 0;
+  const size_t shared_size = model.get_shared_memory_size();
 
   apbd::BodyReference *body_ptr_buffer = nullptr;
   apbd::Constraint *constraint_buffer = nullptr;

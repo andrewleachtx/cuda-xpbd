@@ -116,5 +116,19 @@ public:
    */
   __host__ __device__ Model clone_with_buffers(const ModelBuffers &buffers,
                                                size_t offset);
+
+  /**
+   * Gets the total shared memory size needed to store data for this model.
+   * Shared memory size includes all threads in a block, as all data is
+   * identical between threads and treated as read-only.
+   */
+  __host__ __device__ size_t get_shared_memory_size();
+
+  /**
+   * Stores data from this model into shared memory. Assumes that this
+   * function is being run by all threads, and that shared_memory is the
+   * size given by get_shared_memory_size.
+   */
+  __device__ void populate_shared_mem(void *shared_memory);
 };
 } // namespace apbd

@@ -319,4 +319,21 @@ void Model::print_config() {
          ground_size, h, tEnd, steps, substeps, iters);
 }
 
+size_t Model::get_shared_memory_size() {
+  return sizeof(BodyReference) * this->body_count;
+}
+
+__device__ void Model::populate_shared_mem(void *shared_memory) {
+  BodyReference *shared_bodies =
+      reinterpret_cast<BodyReference *>(shared_memory);
+
+  if (threadIdx.x == 0)
+    for (size_t i = 0; i < this->body_count; i++) {
+      shared_bodies[i] = this->bodies[i];
+    }
+  __syncthreads();
+
+  this->bodies = shared_bodies;
+}
+
 } // namespace apbd
