@@ -24,10 +24,11 @@ using NarrowphaseReturn =
       auto data = get_rigid();                                                 \
       return call;                                                             \
     }                                                                          \
-    case BODY_AFFINE: {                                                        \
-      auto data = get_affine(); /* TODO: return call; */                       \
-    }                                                                          \
+      /*case BODY_AFFINE: {*/                                                  \
+      /*auto data = get_affine();*/ /* TODO: return call; */                   \
+    /*}*/                                                                      \
     default: {                                                                 \
+      unreachable();                                                           \
     }                                                                          \
     }                                                                          \
   }

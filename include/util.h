@@ -64,14 +64,28 @@
     bool res = val;                                                            \
     if (!res) {                                                                \
       printf(__FILE__ ":%d - %s: Assert failed! '" message "': `" #val         \
-                      "` was %d\n",                                            \
-             __LINE__, __PRETTY_FUNCTION__, res);                              \
+                      "` was false\n",                                         \
+             __LINE__, __PRETTY_FUNCTION__);                                   \
     }                                                                          \
   }
 #else
 #define DEBUG_ASSERT(val, message)                                             \
   {}
 #endif
+
+__host__ __device__ [[noreturn]] inline void unreachable() {
+#ifdef _MSC_VER
+#define UNREACHABLE() __assume(0)
+#else
+#define UNREACHABLE() __builtin_unreachable()
+#endif
+#ifdef __CUDA_ARCH__
+  for (;;) {
+  }
+#else
+  std::abort();
+#endif
+}
 
 // global objects to imitate the threadIdx and threadDim from CUDA on CPU
 extern thread_local size_t _thread_scene_id;

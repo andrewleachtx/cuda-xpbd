@@ -14,7 +14,7 @@ __host__ __device__ size_t soa_index(unsigned int index);
 /// Determines the optimal buffer alignment for a given type.
 template <typename T>
 constexpr __host__ __device__ size_t get_aligned_size(size_t count) {
-  const size_t alignment_count = 32 * sizeof(T);
+  const size_t alignment_count = 32;
   const size_t byte_size = count * sizeof(T);
   if (byte_size % alignment_count == 0)
     return byte_size;
@@ -26,6 +26,7 @@ constexpr __host__ __device__ size_t get_aligned_size(size_t count) {
 /// of elements
 template <typename T>
 T *get_aligned_buffer_segment(byte *data_store, size_t &offset, size_t count) {
+  DEBUG_ASSERT(offset % 32 == 0, "Offset not aligned in get aligned buffer!");
   T *buffer_segment = reinterpret_cast<T *>(data_store + offset);
   offset += get_aligned_size<T>(count);
   return buffer_segment;

@@ -144,18 +144,6 @@ __host__ __device__ static __inline fReal dCalcVectorDot3(const fReal *a,
                                                           const fReal *b) {
   return _dCalcVectorDot3(a, b, 1, 1);
 }
-__host__ __device__ static __inline fReal dCalcVectorDot3_13(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 1, 3);
-}
-__host__ __device__ static __inline fReal dCalcVectorDot3_31(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 3, 1);
-}
-__host__ __device__ static __inline fReal dCalcVectorDot3_33(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 3, 3);
-}
 __host__ __device__ static __inline fReal dCalcVectorDot3_14(const fReal *a,
                                                              const fReal *b) {
   return _dCalcVectorDot3(a, b, 1, 4);
