@@ -9,10 +9,10 @@
 using std::cout, std::endl, std::string, std::runtime_error;
 typedef std::chrono::high_resolution_clock Clock;
 
-__global__ void kernel(apbd::Model model, apbd::ModelBuffers buffers,
-                       apbd::Body *body_buffer,
-                       apbd::BodyReference *body_ptr_buffer,
-                       apbd::Constraint *constraint_buffer, int sims) {
+__global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
+    kernel(apbd::Model model, apbd::ModelBuffers buffers,
+           apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
+           apbd::Constraint *constraint_buffer, int sims) {
   extern __shared__ unsigned char shared_memory[];
   // get this scene ID
   size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;

@@ -61,7 +61,6 @@ public:
   __host__ __device__ void constructConstraintGraph(Collider *collider);
   __host__ __device__ void solveConSP(float hs);
   __host__ __device__ void solveConGS(Collider *collider, float hs);
-  __host__ __device__ void computeEnergies();
 
   /**
    * Constructs default data structures

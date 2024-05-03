@@ -120,31 +120,31 @@ void ConstraintGround::solveNorPos(const float hs) {
   const Vector3f vNormalizedContactFrame = frame_tmp.transpose() * vNormalized;
 
   float dlambda = solvePosDir1(vNorm, vNormalized);
-  C = vNorm * vNormalizedContactFrame;
+  this->C = vNorm * vNormalizedContactFrame;
 
   float dlambdaNor = dlambda * vNormalizedContactFrame(0);
-  Vector3f lambda = this->lambda;
-  const float lambdaNor = lambda(0) + dlambdaNor;
+  Vector3f lambda_local = this->lambda;
+  const float lambdaNor = lambda_local(0) + dlambdaNor;
   if (lambdaNor < 0) {
-    dlambdaNor = -lambda(0);
+    dlambdaNor = -lambda_local(0);
   }
-  lambda(0) += dlambdaNor;
+  lambda_local(0) += dlambdaNor;
   const float mu = this->body.mu();
   Vector2f dlambdaTan = Vector2f::Zero();
   if (mu > 0) {
     const float dlambdaTx = dlambda * vNormalizedContactFrame(1);
     const float dlambdaTy = dlambda * vNormalizedContactFrame(2);
-    const float lambdaNorLenMu = mu * lambda(0);
+    const float lambdaNorLenMu = mu * lambda_local(0);
     const Vector2f lambdaTan =
-        Vector2f(lambda(1) + dlambdaTx, lambda(2) + dlambdaTy);
+        Vector2f(lambda_local(1) + dlambdaTx, lambda_local(2) + dlambdaTy);
     const float lambdaTanLen = lambdaTan.norm();
     dlambdaTan = Vector2f(dlambdaTx, dlambdaTy);
     if (lambdaTanLen > lambdaNorLenMu) {
       dlambdaTan = (lambdaTan / lambdaTanLen * lambdaNorLenMu -
-                    Vector2f(lambda(1), lambda(2)));
+                    Vector2f(lambda_local(1), lambda_local(2)));
     }
-    lambda.block<2, 1>(1, 0) += dlambdaTan;
-    this->lambda = lambda;
+    lambda_local.block<2, 1>(1, 0) += dlambdaTan;
+    this->lambda = lambda_local;
   }
 
   Vector3f frictionalContactLambda =
@@ -220,12 +220,12 @@ void ConstraintRigid::solveNorPos(const float hs, bool shockProp) {
   this->C = vNorm * vNormalizedContactFrame;
 
   float dlambdaNor = dlambda * vNormalizedContactFrame(0);
-  Vector3f lambda = this->lambda;
-  const float lambdaNor = lambda(0) + dlambdaNor;
+  Vector3f lambda_local = this->lambda;
+  const float lambdaNor = lambda_local(0) + dlambdaNor;
   if (lambdaNor < 0) {
-    dlambdaNor = -lambda(0);
+    dlambdaNor = -lambda_local(0);
   }
-  lambda(0) += dlambdaNor;
+  lambda_local(0) += dlambdaNor;
   const float mu1 = this->body1.mu();
   const float mu2 = this->body2.mu();
   const float mu = 0.5 * (mu1 + mu2);
@@ -233,16 +233,17 @@ void ConstraintRigid::solveNorPos(const float hs, bool shockProp) {
   if (mu > 0) {
     const float dlambdaTx = dlambda * vNormalizedContactFrame(1);
     const float dlambdaTy = dlambda * vNormalizedContactFrame(2);
-    const float lambdaNorLenMu = mu * lambda(0);
-    const Vector2f lambdaTan{lambda(1) + dlambdaTx, lambda(2) + dlambdaTy};
+    const float lambdaNorLenMu = mu * lambda_local(0);
+    const Vector2f lambdaTan{lambda_local(1) + dlambdaTx,
+                             lambda_local(2) + dlambdaTy};
     const float lambdaTanLen = lambdaTan.norm();
     dlambdaTan = Vector2f(dlambdaTx, dlambdaTy);
     if (lambdaTanLen > lambdaNorLenMu) {
       dlambdaTan = lambdaTan / lambdaTanLen * lambdaNorLenMu -
-                   Vector2f(lambda(1), lambda(2));
+                   Vector2f(lambda_local(1), lambda_local(2));
     }
-    lambda.block<2, 1>(1, 0) += dlambdaTan;
-    this->lambda = lambda;
+    lambda_local.block<2, 1>(1, 0) += dlambdaTan;
+    this->lambda = lambda_local;
   }
 
   Vector3f frictionalContactLambda;

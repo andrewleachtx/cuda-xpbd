@@ -33,7 +33,6 @@ Model::Model(const Model &&other)
       ground_size(other.ground_size), steps(other.steps) {}
 
 void Model::create_store(size_t scene_count) {
-  // TODO: handle other types of bodies
   data::SOAStore data_store(this->body_count, scene_count);
 
 #ifdef USE_CUDA
@@ -118,7 +117,6 @@ void Model::simulate(Collider *collider) {
       this->solveConGS(collider, hs);
       time += hs;
     }
-    this->computeEnergies();
     this->write_state(step + 1);
   }
 }
@@ -131,24 +129,15 @@ void Model::stepBDF1(unsigned int step, unsigned int substep, float hs) {
   }
 }
 void Model::clearBodyShockPropInfo() {
-  // TODO
   // clears the shock propagation info from each body; this may not be necessary
-  // depending on implementation
   for (size_t body_i = 0; body_i < this->body_count; body_i++) {
     this->bodies[body_i].clearShock();
   }
 }
-// TODO: make duplicates of the layer buffers
+
 void Model::constructConstraintGraph(Collider *collider) {
-  // TODO
   // Constructs a graph of constraints, working from the ground layer up
   // needs a list of constraints and bodies
-  // constraints needs:
-  //  - list of bodies
-  // body needs:
-  //  - layer
-  //  - shock parent constraint
-  //  - constraints
   //
   //  collect static constraints and collision constraints
   //  for each constraint:
@@ -176,7 +165,6 @@ void Model::constructConstraintGraph(Collider *collider) {
     this->constraint_layer_sizes[i] = 0;
   }
   this->layer_count = 0;
-  // TODO: add if (!layer_constraint_count > MAX_LAYER_OBJECTS) etc.
 
   unsigned int current_layer_body_count = 0;
   for (size_t i = 0; i < collider->ground_collision_count; i++) {
@@ -184,8 +172,12 @@ void Model::constructConstraintGraph(Collider *collider) {
     DEBUG_ASSERT(constraint.type == CONSTRAINT_COLLISION_GROUND,
                  "Wrong constraint detected!");
     constraint.data.ground.body.layer(0);
+    DEBUG_ASSERT(this->layer_constraint_count < MAX_LAYER_OBJECTS,
+                 "Layer object storage overflow!");
     this->constraint_layers[this->layer_constraint_count++] = &constraint;
     this->constraint_layer_sizes[0]++;
+    DEBUG_ASSERT(this->layer_body_count < MAX_LAYER_OBJECTS,
+                 "Layer object storage overflow!");
     this->body_layers[this->layer_body_count++] = constraint.data.ground.body;
 
     this->body_layer_sizes[0] += 1;
@@ -193,7 +185,7 @@ void Model::constructConstraintGraph(Collider *collider) {
   }
 
   unsigned int layer = 1;
-  while (current_layer_body_count > 0) {
+  while (current_layer_body_count > 0 && layer < MAX_LAYERS) {
     current_layer_body_count = 0;
     // loop through all other constraints
     for (size_t i = collider->ground_collision_count;
@@ -202,6 +194,8 @@ void Model::constructConstraintGraph(Collider *collider) {
       if (constraint.handle_layer(layer, this->body_layers,
                                   this->body_layer_sizes,
                                   this->layer_body_count)) {
+        DEBUG_ASSERT(this->layer_constraint_count < MAX_LAYER_OBJECTS,
+                     "Layer object storage overflow!");
         this->constraint_layers[this->layer_constraint_count++] = &constraint;
         this->constraint_layer_sizes[layer]++;
         current_layer_body_count++;
@@ -212,6 +206,8 @@ void Model::constructConstraintGraph(Collider *collider) {
       if (constraint.handle_layer(layer, this->body_layers,
                                   this->body_layer_sizes,
                                   this->layer_body_count)) {
+        DEBUG_ASSERT(this->layer_constraint_count < MAX_LAYER_OBJECTS,
+                     "Layer object storage overflow!");
         this->constraint_layers[this->layer_constraint_count++] = &constraint;
         this->constraint_layer_sizes[layer++];
         current_layer_body_count++;
@@ -220,15 +216,6 @@ void Model::constructConstraintGraph(Collider *collider) {
     layer++;
   }
   this->layer_count = layer - 1;
-
-  // walk through constraints, create list of constraints and layer sizes.
-  // - go through ground constraints and set bodies to layer 1.
-  // - while the number of bodies in the previous layer is at least 1
-  //   - loop through all other constraints, if one body is on the current
-  //   layer, set the other body to the next (unless it is already handled)
-  // set layer on each body so it knows which layer it is on.
-  // if a constraint has 2 bodies, make sure body2 is on a higher layer (and the
-  // same as the constraint)
 }
 
 void Model::solveConSP(float hs) {
@@ -277,8 +264,6 @@ void Model::solveConGS(Collider *collider, float hs) {
       collider->collisions[i].solve(hs, false);
     }
   }
-}
-void Model::computeEnergies() { /*TODO*/
 }
 
 void Model::write_state(unsigned int step) {

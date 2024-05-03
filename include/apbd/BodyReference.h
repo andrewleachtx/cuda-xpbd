@@ -24,9 +24,6 @@ using NarrowphaseReturn =
       auto data = get_rigid();                                                 \
       return call;                                                             \
     }                                                                          \
-      /*case BODY_AFFINE: {*/                                                  \
-      /*auto data = get_affine();*/ /* TODO: return call; */                   \
-    /*}*/                                                                      \
     default: {                                                                 \
       unreachable();                                                           \
     }                                                                          \
@@ -301,8 +298,10 @@ inline void BodyRigidReference::stepBDF1(const unsigned int step,
   this->x1(this->rotation().coeffs(), this->position());
 }
 
+constexpr unsigned int UNSIGNED_MAX = std::numeric_limits<unsigned int>::max();
 inline void BodyRigidReference::clearShock() {
-  // TODO: sets layer to max
+  this->layer(UNSIGNED_MAX);
+  this->dxJacobiShock(vec7::Zero());
 }
 
 inline void BodyRigidReference::applyJacobiShock() {

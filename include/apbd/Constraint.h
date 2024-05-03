@@ -115,8 +115,6 @@ inline bool Constraint::handle_layer(unsigned int layer,
   // if any bodies affected by this constraint are on `layer-1`,
   //   and the other body is on a higher layer,
   //   then set the other body to this layer, and add it to the layer list
-  // TODO: should the comparison to test if greater be just to test if the body
-  // has not been assigned a layer yet?
   switch (this->type) {
   case CONSTRAINT_COLLISION_RIGID: {
     auto &data = this->data.rigid;
@@ -125,6 +123,8 @@ inline bool Constraint::handle_layer(unsigned int layer,
     if (b1l == layer - 1) {
       if (b2l > b1l) {
         data.body2.layer(layer);
+        DEBUG_ASSERT(body_count < MAX_LAYER_OBJECTS,
+                     "Layer object storage overflow!");
         body_layers[body_count++] = data.body2;
         body_layer_sizes[layer]++;
         return true;
@@ -133,6 +133,8 @@ inline bool Constraint::handle_layer(unsigned int layer,
     if (b2l == layer - 1) {
       if (b1l > b1l) {
         data.body1.layer(layer);
+        DEBUG_ASSERT(body_count < MAX_LAYER_OBJECTS,
+                     "Layer object storage overflow!");
         body_layers[body_count++] = data.body1;
         body_layer_sizes[layer]++;
         return true;
