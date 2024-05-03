@@ -1,10 +1,8 @@
 #pragma once
-#include <stddef.h>
-#define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
-#include "apbd/Body.h"
-#include "apbd/Shape.h"
 #include "util.h"
+#define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
 #include <Eigen/Dense>
+#include <stddef.h>
 
 namespace data {
 

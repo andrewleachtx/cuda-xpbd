@@ -1,5 +1,5 @@
 #pragma once
-#include "BodyReference.h"
+#include "BodyReference_impl.h"
 #include "Collider.h"
 #include "Constraint.h"
 #include "data/soa.h"

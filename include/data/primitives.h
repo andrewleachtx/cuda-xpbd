@@ -91,6 +91,32 @@ struct _SOAStoreVec7 {
   __host__ __device__ void set(unsigned int index, vec7 new_val);
 };
 
+/**
+ * SOA Store for an Eigen::Matrix4f.
+ */
+struct _SOAStoreMat4 {
+  // see
+  // https://developer.nvidia.com/blog/cuda-pro-tip-increase-performance-with-vectorized-memory-access/
+  // for motivation for the sizes of these buffers
+  float4 *x1;
+  float4 *x2;
+  float4 *x3;
+  float4 *x4;
+
+  /// A default uninitialized constructor. Accessing data without using the full
+  /// constructor is undefined behavior.
+  __host__ __device__ _SOAStoreMat4() {}
+  _SOAStoreMat4(byte *data_store, size_t &offset, size_t count);
+  /// Calculates the size necessary to store the data in this buffer with count
+  /// elements.
+  static constexpr size_t size(size_t count) {
+    return get_aligned_size<float4>(count) * 4;
+  }
+
+  __host__ __device__ Eigen::Matrix4f get(unsigned int index) const;
+  __host__ __device__ void set(unsigned int index, Eigen::Matrix4f new_val);
+};
+
 inline _SOAStoreQuaterion::_SOAStoreQuaterion(byte *data_store, size_t &offset,
                                               size_t count) {
   this->data = get_aligned_buffer_segment<float4>(data_store, offset, count);
@@ -143,6 +169,35 @@ inline void _SOAStoreVec7::set(unsigned int index, vec7 new_val) {
   x03[index] = make_float4(new_val(0), new_val(1), new_val(2), new_val(3));
   x45[index] = make_float2(new_val(4), new_val(5));
   x6[index] = new_val(6);
+}
+
+inline _SOAStoreMat4::_SOAStoreMat4(byte *data_store, size_t &offset,
+                                    size_t count) {
+  this->x1 = get_aligned_buffer_segment<float4>(data_store, offset, count);
+  this->x2 = get_aligned_buffer_segment<float4>(data_store, offset, count);
+  this->x3 = get_aligned_buffer_segment<float4>(data_store, offset, count);
+  this->x4 = get_aligned_buffer_segment<float4>(data_store, offset, count);
+}
+
+inline Eigen::Matrix4f _SOAStoreMat4::get(unsigned int index) const {
+  Eigen::Matrix4f output;
+  float4 *const data_ptr = reinterpret_cast<float4 *>(output.data());
+  data_ptr[0] = x1[index];
+  data_ptr[1] = x2[index];
+  data_ptr[2] = x3[index];
+  data_ptr[3] = x4[index];
+  return output;
+}
+
+inline void _SOAStoreMat4::set(unsigned int index, Eigen::Matrix4f new_val) {
+  x1[index] =
+      make_float4(new_val(0, 0), new_val(0, 1), new_val(0, 2), new_val(0, 3));
+  x2[index] =
+      make_float4(new_val(1, 0), new_val(1, 1), new_val(1, 2), new_val(1, 3));
+  x3[index] =
+      make_float4(new_val(2, 0), new_val(2, 1), new_val(2, 2), new_val(2, 3));
+  x4[index] =
+      make_float4(new_val(3, 0), new_val(3, 1), new_val(3, 2), new_val(3, 3));
 }
 
 template <typename T>

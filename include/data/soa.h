@@ -1,8 +1,61 @@
 #pragma once
+#include "apbd/Body.h"
+#include "apbd/BodyReference.h"
+#include "apbd/Constraint.h"
+#include "apbd/Shape.h"
 #include "data/primitives.h"
 #include "data/utilities.h"
 
 namespace data {
+
+struct _SOAStoreConstraintGround {
+  _SOAStoreMat4 Eg;
+  _SOAStoreVec3 C;
+  _SOAStoreVec3 lambda;
+  _SOAStoreVec3 nw;
+  _SOAStoreVec3 xl;
+  _SOAStoreVec3 xw;
+  _SOAStoreVec3 vw;
+  _SOAStoreGeneric<float> d;
+  _SOAStoreGeneric<apbd::BodyRigidReference> body;
+
+  __host__ __device__ _SOAStoreConstraintGround() {}
+  _SOAStoreConstraintGround(byte *data_store, size_t &offset, size_t count);
+  /// Calculates the size necessary to store the data in this buffer with count
+  /// elements.
+  static constexpr size_t size(size_t count) {
+    return _SOAStoreMat4::size(count) + _SOAStoreVec3::size(count) * 6 +
+           _SOAStoreGeneric<float>::size(count) +
+           _SOAStoreGeneric<apbd::BodyRigidReference>::size(count);
+  }
+
+  __host__ __device__ void set(unsigned int index,
+                               const apbd::ConstraintGround &data);
+};
+
+struct _SOAStoreConstraintRigid {
+  _SOAStoreVec3 C;
+  _SOAStoreVec3 lambda;
+  _SOAStoreVec3 nw;
+  _SOAStoreVec3 x1;
+  _SOAStoreVec3 x2;
+  _SOAStoreGeneric<float> d;
+  _SOAStoreGeneric<apbd::BodyRigidReference> body1;
+  _SOAStoreGeneric<apbd::BodyRigidReference> body2;
+
+  __host__ __device__ _SOAStoreConstraintRigid() {}
+  _SOAStoreConstraintRigid(byte *data_store, size_t &offset, size_t count);
+  /// Calculates the size necessary to store the data in this buffer with count
+  /// elements.
+  static constexpr size_t size(size_t count) {
+    return _SOAStoreVec3::size(count) * 5 +
+           _SOAStoreGeneric<float>::size(count) +
+           _SOAStoreGeneric<apbd::BodyRigidReference>::size(count) * 2;
+  }
+
+  __host__ __device__ void set(unsigned int index,
+                               const apbd::ConstraintRigid &data);
+};
 
 /**
  * SOA Store for a BodyRigid object. Provides access to lower-level SOA types
@@ -48,14 +101,21 @@ struct _SOAStoreBodyRigid {
 class SOAStore {
 public:
   struct _SOAStoreBodyRigid BodyRigid;
+  struct _SOAStoreConstraintGround ConstraintGround;
+  struct _SOAStoreConstraintRigid ConstraintRigid;
 
   __host__ __device__ SOAStore() {}
-  SOAStore(size_t body_rigid_count, size_t scene_count);
+  SOAStore(size_t body_rigid_count, size_t constraint_ground_count,
+           size_t constraint_rigid_count, size_t scene_count);
 
   void deallocate();
 };
 
-inline SOAStore::SOAStore(size_t body_rigid_count, size_t scene_count) {
+inline SOAStore::SOAStore(size_t body_rigid_count,
+                          size_t constraint_ground_count,
+                          size_t constraint_rigid_count, size_t scene_count) {
+  // Note: this is block size instead of 32 because we are aligning to the
+  // number of actual kernel threads, not for memory performance
   const size_t alignment_count = BLOCK_SIZE;
   size_t aligned_scene_count = 0;
   if (scene_count % alignment_count == 0)
@@ -63,16 +123,71 @@ inline SOAStore::SOAStore(size_t body_rigid_count, size_t scene_count) {
   else
     aligned_scene_count = (scene_count / alignment_count + 1) * alignment_count;
 
-  const size_t object_count = body_rigid_count * aligned_scene_count;
-  // we need three aligned buffers of floats
-  const size_t total_buffer_size = _SOAStoreBodyRigid::size(object_count);
+  const size_t aligned_body_rigid_count =
+      body_rigid_count * aligned_scene_count;
+  const size_t aligned_constraint_ground_count =
+      constraint_ground_count * aligned_scene_count;
+  const size_t aligned_constraint_rigid_count =
+      constraint_rigid_count * aligned_scene_count;
+
+  const size_t total_buffer_size =
+      _SOAStoreBodyRigid::size(aligned_body_rigid_count) +
+      _SOAStoreConstraintGround::size(aligned_constraint_ground_count) +
+      _SOAStoreConstraintRigid::size(aligned_body_rigid_count);
   byte *const data_store = alloc_device<byte>(total_buffer_size);
 
   size_t offset = 0;
-  this->BodyRigid = _SOAStoreBodyRigid(data_store, offset, object_count);
+  this->BodyRigid =
+      _SOAStoreBodyRigid(data_store, offset, aligned_body_rigid_count);
+  this->ConstraintGround = _SOAStoreConstraintGround(
+      data_store, offset, aligned_constraint_ground_count);
+  this->ConstraintRigid = _SOAStoreConstraintRigid(
+      data_store, offset, aligned_constraint_rigid_count);
 }
 
 inline void SOAStore::deallocate() {}
+
+inline _SOAStoreConstraintGround::_SOAStoreConstraintGround(byte *data_store,
+                                                            size_t &offset,
+                                                            size_t count)
+    : Eg(data_store, offset, count), C(data_store, offset, count),
+      lambda(data_store, offset, count), nw(data_store, offset, count),
+      xl(data_store, offset, count), xw(data_store, offset, count),
+      vw(data_store, offset, count), d(data_store, offset, count),
+      body(data_store, offset, count) {}
+
+inline void _SOAStoreConstraintGround::set(unsigned int index,
+                                           const apbd::ConstraintGround &data) {
+  Eg.set(index, data.Eg);
+  C.set(index, data.C);
+  lambda.set(index, data.lambda);
+  nw.set(index, data.nw);
+  xl.set(index, data.xl);
+  xw.set(index, data.xw);
+  vw.set(index, data.vw);
+  d.set(index, data.d);
+  body.set(index, data.body);
+}
+
+inline _SOAStoreConstraintRigid::_SOAStoreConstraintRigid(byte *data_store,
+                                                          size_t &offset,
+                                                          size_t count)
+    : C(data_store, offset, count), lambda(data_store, offset, count),
+      nw(data_store, offset, count), x1(data_store, offset, count),
+      x2(data_store, offset, count), d(data_store, offset, count),
+      body1(data_store, offset, count), body2(data_store, offset, count) {}
+
+inline void _SOAStoreConstraintRigid::set(unsigned int index,
+                                          const apbd::ConstraintRigid &data) {
+  C.set(index, data.C);
+  lambda.set(index, data.lambda);
+  nw.set(index, data.nw);
+  x1.set(index, data.x1);
+  x2.set(index, data.x2);
+  d.set(index, data.d);
+  body1.set(index, data.body1);
+  body2.set(index, data.body2);
+}
 
 inline _SOAStoreBodyRigid::_SOAStoreBodyRigid(byte *data_store, size_t &offset,
                                               size_t count)
