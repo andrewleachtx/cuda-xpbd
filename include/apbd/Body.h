@@ -60,6 +60,10 @@ struct BodyRigid {
   Eigen::Vector3f Mr;
   /// Mass/Inertia
   float Mp;
+  /// Translational velocity
+  Eigen::Vector3f v;
+  /// Rotational velocity
+  Eigen::Vector3f w;
 
   BodyRigid(Shape shape, float density);
   BodyRigid(Shape shape, float density, bool collide, float mu);

@@ -66,6 +66,26 @@ struct _SOAStoreVec3 {
 };
 
 /**
+ * SOA Store for an Eigen::Vector3f.
+ */
+struct _SOAStoreVec4 {
+  float4 *x;
+
+  /// A default uninitialized constructor. Accessing data without using the full
+  /// constructor is undefined behavior.
+  __host__ __device__ _SOAStoreVec4() {}
+  _SOAStoreVec4(byte *data_store, size_t &offset, size_t count);
+  /// Calculates the size necessary to store the data in this buffer with count
+  /// elements.
+  static constexpr size_t size(size_t count) {
+    return get_aligned_size<float4>(count);
+  }
+
+  __host__ __device__ Eigen::Vector4f get(unsigned int index) const;
+  __host__ __device__ void set(unsigned int index, Eigen::Vector4f new_val);
+};
+
+/**
  * SOA Store for an Eigen::Vector7f.
  */
 struct _SOAStoreVec7 {
@@ -149,6 +169,15 @@ inline Eigen::Vector3f _SOAStoreVec3::get(unsigned int index) const {
 inline void _SOAStoreVec3::set(unsigned int index, Eigen::Vector3f new_val) {
   x01[index] = make_float2(new_val(0), new_val(1));
   x2[index] = new_val(2);
+}
+
+inline Eigen::Vector4f _SOAStoreVec4::get(unsigned int index) const {
+  const float4 el = x[index];
+  return Eigen::Vector4f(el.x, el.y, el.z, el.w);
+}
+
+inline void _SOAStoreVec4::set(unsigned int index, Eigen::Vector4f new_val) {
+  x[index] = make_float4(new_val(0), new_val(1), new_val(2), new_val(3));
 }
 
 inline _SOAStoreVec7::_SOAStoreVec7(byte *data_store, size_t &offset,

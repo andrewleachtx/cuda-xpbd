@@ -77,14 +77,20 @@ struct _SOAStoreBodyRigid {
   _SOAStoreVec3 Mr;
   _SOAStoreGeneric<float> Mp;
   _SOAStoreGeneric<unsigned int> layer;
+  _SOAStoreVec3 v;
+  _SOAStoreVec3 w;
+  _SOAStoreVec3 deltaBody2Worldp;
+  _SOAStoreQuaterion deltaBody2Worldq;
+  _SOAStoreVec3 deltaAngDt;
+  _SOAStoreVec3 deltaLinDt;
 
   __host__ __device__ _SOAStoreBodyRigid() {}
   _SOAStoreBodyRigid(byte *data_store, size_t &offset, size_t count);
   /// Calculates the size necessary to store the data in this buffer with count
   /// elements.
   static constexpr size_t size(size_t count) {
-    return _SOAStoreVec7::size(count) * 5 + _SOAStoreVec3::size(count) * 2 +
-           _SOAStoreQuaterion::size(count) * 2 +
+    return _SOAStoreVec7::size(count) * 5 + _SOAStoreVec3::size(count) * 7 +
+           _SOAStoreQuaterion::size(count) * 3 +
            _SOAStoreGeneric<float>::size(count) * 3 +
            _SOAStoreGeneric<bool>::size(count) +
            _SOAStoreGeneric<apbd::Shape>::size(count) +
@@ -131,18 +137,18 @@ inline SOAStore::SOAStore(size_t body_rigid_count,
       constraint_rigid_count * aligned_scene_count;
 
   const size_t total_buffer_size =
-      _SOAStoreBodyRigid::size(aligned_body_rigid_count) +
-      _SOAStoreConstraintGround::size(aligned_constraint_ground_count) +
-      _SOAStoreConstraintRigid::size(aligned_body_rigid_count);
+      _SOAStoreBodyRigid::size(aligned_body_rigid_count); // +
+  // _SOAStoreConstraintGround::size(aligned_constraint_ground_count) +
+  // _SOAStoreConstraintRigid::size(aligned_body_rigid_count);
   byte *const data_store = alloc_device<byte>(total_buffer_size);
 
   size_t offset = 0;
   this->BodyRigid =
       _SOAStoreBodyRigid(data_store, offset, aligned_body_rigid_count);
-  this->ConstraintGround = _SOAStoreConstraintGround(
-      data_store, offset, aligned_constraint_ground_count);
-  this->ConstraintRigid = _SOAStoreConstraintRigid(
-      data_store, offset, aligned_constraint_rigid_count);
+  // this->ConstraintGround = _SOAStoreConstraintGround(
+  //     data_store, offset, aligned_constraint_ground_count);
+  // this->ConstraintRigid = _SOAStoreConstraintRigid(
+  //     data_store, offset, aligned_constraint_rigid_count);
 }
 
 inline void SOAStore::deallocate() {}
@@ -199,7 +205,11 @@ inline _SOAStoreBodyRigid::_SOAStoreBodyRigid(byte *data_store, size_t &offset,
       collide(data_store, offset, count), mu(data_store, offset, count),
       shape(data_store, offset, count), density(data_store, offset, count),
       Mr(data_store, offset, count), Mp(data_store, offset, count),
-      layer(data_store, offset, count) {}
+      layer(data_store, offset, count), v(data_store, offset, count),
+      w(data_store, offset, count), deltaBody2Worldp(data_store, offset, count),
+      deltaBody2Worldq(data_store, offset, count),
+      deltaAngDt(data_store, offset, count),
+      deltaLinDt(data_store, offset, count) {}
 
 inline void _SOAStoreBodyRigid::set(unsigned int index,
                                     const apbd::BodyRigid &data) {
@@ -218,6 +228,12 @@ inline void _SOAStoreBodyRigid::set(unsigned int index,
   Mr.set(index, data.Mr);
   Mp.set(index, data.Mp);
   layer.set(index, data.layer);
+  v.set(index, Eigen::Vector3f::Zero());
+  w.set(index, Eigen::Vector3f::Zero());
+  deltaBody2Worldp.set(index, Eigen::Vector3f::Zero());
+  deltaBody2Worldq.set(index, Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0));
+  deltaAngDt.set(index, Eigen::Vector3f::Zero());
+  deltaLinDt.set(index, Eigen::Vector3f::Zero());
 }
 
 #ifdef __CUDA_ARCH__

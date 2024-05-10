@@ -28,15 +28,17 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
   //     4);
   // E.block<3, 3>(0, 0) = R;
 
-  for (size_t index = 0; index < model.body_count; index++) {
-    auto &body = model.bodies[index];
-    E.block<3, 1>(0, 3) = body.get_rigid().position() +
-                          Eigen::Vector3f(0,
-                                          (static_cast<float>(scene_id) - 4) *
-                                              static_cast<float>(index) * 0.1,
-                                          0);
-    body.setInitTransform(E);
-  }
+  // for (size_t index = 0; index < model.body_count; index++) {
+  //   auto &body = model.bodies[index];
+  //   E.block<3, 1>(0, 3) = body.get_rigid().position() +
+  //                         Eigen::Vector3f(0,
+  //                                         (static_cast<float>(scene_id) - 4)
+  //                                         *
+  //                                             static_cast<float>(index) *
+  //                                             0.1,
+  //                                         0);
+  //   body.setInitTransform(E);
+  // }
   apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
 
   // create a thread-local collider
@@ -82,15 +84,16 @@ void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
     //     Eigen::Vector3f(1, 1, 1), static_cast<float>(i) * 0.5 * M_PI / 4);
     // E.block<3, 3>(0, 0) = R;
 
-    for (size_t index = 0; index < model->body_count; index++) {
-      auto &body = model->bodies[index];
-      E.block<3, 1>(0, 3) = body.get_rigid().position() +
-                            Eigen::Vector3f(0,
-                                            (static_cast<float>(i) - 4) *
-                                                static_cast<float>(index) * 0.1,
-                                            0);
-      body.setInitTransform(E);
-    }
+    // for (size_t index = 0; index < model->body_count; index++) {
+    //   auto &body = model->bodies[index];
+    //   E.block<3, 1>(0, 3) = body.get_rigid().position() +
+    //                         Eigen::Vector3f(0,
+    //                                         (static_cast<float>(i) - 4) *
+    //                                             static_cast<float>(index) *
+    //                                             0.1,
+    //                                         0);
+    //   body.setInitTransform(E);
+    // }
     auto collider = apbd::Collider(model);
     model->simulate(&collider);
   }

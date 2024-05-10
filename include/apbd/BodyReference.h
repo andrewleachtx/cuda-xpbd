@@ -37,8 +37,10 @@ public:
   __host__ __device__ BodyRigidReference(const unsigned int index)
       : index(data::soa_index(index)) {}
   // access the data elements in BodyRigid
+  // TODO: remove unnecessary elements
 
   __host__ __device__ vec7 x() const;
+  __host__ __device__ void x(const vec7 new_val);
   __host__ __device__ vec7 xdotInit() const;
   __host__ __device__ void xdotInit(const vec7 new_val);
   __host__ __device__ Eigen::Vector3f position() const;
@@ -68,6 +70,20 @@ public:
   __host__ __device__ void Mp(const float new_val);
   __host__ __device__ unsigned int layer() const;
   __host__ __device__ void layer(unsigned int new_val);
+  __host__ __device__ Eigen::Vector3f v() const;
+  __host__ __device__ void v(const Eigen::Vector3f new_val);
+  __host__ __device__ Eigen::Vector3f w() const;
+  __host__ __device__ void w(const Eigen::Vector3f new_val);
+  __host__ __device__ Eigen::Matrix<float, 6, 1> vw() const;
+  __host__ __device__ void vw(const Eigen::Matrix<float, 6, 1> new_val);
+  __host__ __device__ Eigen::Vector3f deltaBody2Worldp() const;
+  __host__ __device__ void deltaBody2Worldp(const Eigen::Vector3f new_val);
+  __host__ __device__ Eigen::Quaternionf deltaBody2Worldq() const;
+  __host__ __device__ void deltaBody2Worldq(const Eigen::Quaternionf new_val);
+  __host__ __device__ Eigen::Vector3f deltaAngDt() const;
+  __host__ __device__ void deltaAngDt(const Eigen::Vector3f new_val);
+  __host__ __device__ Eigen::Vector3f deltaLinDt() const;
+  __host__ __device__ void deltaLinDt(const Eigen::Vector3f new_val);
   // readonly elements
   __host__ __device__ bool collide() const;
   __host__ __device__ float mu() const;
@@ -77,8 +93,7 @@ public:
   // delegated implementations
   __host__ __device__ void init(const vec7 xInit);
 
-  __host__ __device__ void stepBDF1(const unsigned int step,
-                                    const unsigned int substep, const float hs,
+  __host__ __device__ void stepBDF1(const float hs,
                                     const Eigen::Vector3f gravity);
 
   __host__ __device__ void clearShock();
@@ -104,13 +119,19 @@ public:
 
   __host__ __device__ vec7 computeVelocity(const unsigned int step,
                                            const unsigned int substep,
-                                           const float hs) const;
+                                           const float hs);
   __host__ __device__ void computeInertiaConst();
 
   __host__ __device__ Eigen::Vector3f computePointVel(const Eigen::Vector3f xl,
                                                       const float hs) const;
   __host__ __device__ void applyJacobi();
+  __host__ __device__ void clearJacobi();
   __host__ __device__ void write_state();
+
+  __host__ __device__ void updateStates(float hs);
+  __host__ __device__ void applyVelJacobi();
+  __host__ __device__ void integrateStates();
+  __host__ __device__ Eigen::Vector3f transformPoint(Eigen::Vector3f xl);
 };
 
 class BodyAffineReference { /* TODO */
@@ -155,13 +176,14 @@ public:
   IMPLEMENT_DELEGATED_FUNCTION(
       __host__ __device__ void layer(unsigned int new_val),
       data.layer(new_val));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void stepBDF1(
-                                   const unsigned int step,
-                                   const unsigned int substep, const float hs,
-                                   const Eigen::Vector3f gravity),
-                               data.stepBDF1(step, substep, hs, gravity));
+  IMPLEMENT_DELEGATED_FUNCTION(
+      __host__ __device__ void stepBDF1(const float hs,
+                                        const Eigen::Vector3f gravity),
+      data.stepBDF1(hs, gravity));
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void clearShock(),
                                data.clearShock());
+  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void clearJacobi(),
+                               data.clearJacobi());
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void applyJacobiShock(),
                                data.applyJacobiShock());
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void regularize(),
@@ -191,6 +213,12 @@ public:
                                data.computeTransform());
   IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void write_state(),
                                data.write_state());
+  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void updateStates(float hs),
+                               data.updateStates(hs));
+  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void applyVelJacobi(),
+                               data.applyVelJacobi());
+  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void integrateStates(),
+                               data.integrateStates());
 };
 
 } // namespace apbd

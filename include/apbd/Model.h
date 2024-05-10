@@ -55,12 +55,12 @@ public:
   /// and tEnd
   unsigned int steps;
 
-  __host__ __device__ void stepBDF1(unsigned int step, unsigned int substep,
-                                    float hs);
+  __host__ __device__ void stepBDF1(float hs);
   __host__ __device__ void clearBodyShockPropInfo();
   __host__ __device__ void constructConstraintGraph(Collider *collider);
   __host__ __device__ void solveConSP(float hs);
   __host__ __device__ void solveConGS(Collider *collider, float hs);
+  __host__ __device__ void solveConTGS(Collider *collider, float hs);
 
   /**
    * Constructs default data structures

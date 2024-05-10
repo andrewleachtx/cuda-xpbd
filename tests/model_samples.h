@@ -37,9 +37,9 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
     Eigen::Matrix3f R = se3::aaToMat(Eigen::Vector3f(1, 1, 1), 0.3 * M_PI / 4);
     E.block<3, 3>(0, 0) = R;
-    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0, 0.51);
+    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0, 1.51);
     bodies[0].setInitTransform(E);
-    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0.0, 1.51);
+    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0.0, 3.51);
     bodies[1].setInitTransform(E);
     // Eigen::Vector3f x1 = R.transpose() * Eigen::Vector3f(3, -4, 5);
     // Eigen::Vector3f x2 = R.transpose() * Eigen::Vector3f(0, 0, 5);

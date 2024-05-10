@@ -47,14 +47,14 @@ Shape::narrowphaseGround(const Eigen::Matrix4f E,
     const Eigen::Vector3f s = data.sides / 2;
     // local space
     Eigen::Matrix<float, 4, 8> xl = Eigen::Matrix<float, 4, 8>::Ones();
-    xl.block<3, 1>(0, 0) = Eigen::Vector3f(-s(0), -s(1), -s(2));
-    xl.block<3, 1>(0, 1) = Eigen::Vector3f(s(0), -s(1), -s(2));
-    xl.block<3, 1>(0, 2) = Eigen::Vector3f(s(0), s(1), -s(2));
-    xl.block<3, 1>(0, 3) = Eigen::Vector3f(-s(0), s(1), -s(2));
-    xl.block<3, 1>(0, 4) = Eigen::Vector3f(-s(0), -s(1), s(2));
-    xl.block<3, 1>(0, 5) = Eigen::Vector3f(s(0), -s(1), s(2));
-    xl.block<3, 1>(0, 6) = Eigen::Vector3f(s(0), s(1), s(2));
-    xl.block<3, 1>(0, 7) = Eigen::Vector3f(-s(0), s(1), s(2));
+    xl.block<3, 1>(0, 0) = Eigen::Vector3f(-s(0), s(1), -s(2));
+    xl.block<3, 1>(0, 1) = Eigen::Vector3f(-s(0), -s(1), -s(2));
+    xl.block<3, 1>(0, 2) = Eigen::Vector3f(s(0), -s(1), -s(2));
+    xl.block<3, 1>(0, 3) = Eigen::Vector3f(s(0), s(1), -s(2));
+    xl.block<3, 1>(0, 4) = Eigen::Vector3f(-s(0), s(1), s(2));
+    xl.block<3, 1>(0, 5) = Eigen::Vector3f(-s(0), -s(1), s(2));
+    xl.block<3, 1>(0, 6) = Eigen::Vector3f(s(0), -s(1), s(2));
+    xl.block<3, 1>(0, 7) = Eigen::Vector3f(s(0), s(1), s(2));
 
     const Eigen::Matrix<float, 4, 8> xw = E * xl;
     const Eigen::Matrix<float, 4, 8> xg = Eg.inverse() * xw;
@@ -63,7 +63,7 @@ Shape::narrowphaseGround(const Eigen::Matrix4f E,
     for (size_t i = 0; i < 8; i++) {
       // This only supports vertex collisions
       const float d = xg(2, i);
-      if (d < 0) {
+      if (d < 0.2) {
         Eigen::Vector4f xgproj = xg.block<4, 1>(0, i);
         // project onto the floor plane
         xgproj(2) = 0;
@@ -128,7 +128,7 @@ bool ShapeCuboid::broadphaseShapeCuboid(const Eigen::Matrix4f E1,
   float d = (p1 - p2).norm();
   float r1 = (this->sides / 2).norm(); // dist to a corner
   float r2 = (other.sides / 2).norm(); // dist to a corner
-  return d < 1.5 * (r1 + r2);
+  return d <= 1.5 * (r1 + r2);
 }
 
 cuda::std::pair<cuda::std::array<CollisionRigid, 8>, size_t>

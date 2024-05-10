@@ -3,9 +3,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "collideBoxBox/odeBoxBox.h"
+#define _USE_MATH_DEFINES
 #include "util.h"
-#include <math.h>
-// #include <string.h>
+#include <cmath>
 
 /* debugging:
  *   IASSERT  is an internal assertion, i.e. a consistency check. if it fails
@@ -143,6 +143,18 @@ __host__ __device__ static __inline fReal _dCalcVectorDot3(const fReal *a,
 __host__ __device__ static __inline fReal dCalcVectorDot3(const fReal *a,
                                                           const fReal *b) {
   return _dCalcVectorDot3(a, b, 1, 1);
+}
+__host__ __device__ static __inline fReal dCalcVectorDot3_13(const fReal *a,
+                                                             const fReal *b) {
+  return _dCalcVectorDot3(a, b, 1, 3);
+}
+__host__ __device__ static __inline fReal dCalcVectorDot3_31(const fReal *a,
+                                                             const fReal *b) {
+  return _dCalcVectorDot3(a, b, 3, 1);
+}
+__host__ __device__ static __inline fReal dCalcVectorDot3_33(const fReal *a,
+                                                             const fReal *b) {
+  return _dCalcVectorDot3(a, b, 3, 3);
 }
 __host__ __device__ static __inline fReal dCalcVectorDot3_14(const fReal *a,
                                                              const fReal *b) {
@@ -808,6 +820,169 @@ __host__ __device__ int dBoxBox(const fVector3 p1, const fMatrix3 R1,
   return cnum;
 }
 
+// given two boxes (p1,R1,side1) and (p2,R2,side2), collide them together and
+// generate the shortest distance and the direction between shortest points.
+fReal dBoxBoxDistance(const fVector3 p1, const fMatrix3 R1,
+                      const fVector3 side1, const fVector3 p2,
+                      const fMatrix3 R2, const fVector3 side2, fVector3 normal,
+                      int flags) {
+  const fReal fudge_factor = REAL(1.05);
+  fVector3 p, pp, normalC = {0, 0, 0};
+  const fReal *normalR = 0;
+  fReal A[3], B[3], R11, R12, R13, R21, R22, R23, R31, R32, R33, Q11, Q12, Q13,
+      Q21, Q22, Q23, Q31, Q32, Q33, s, s2, l, expr1_val;
+  int invert_normal, code;
+
+  // get vector from centers of box 1 to box 2, relative to box 1
+  p[0] = p2[0] - p1[0];
+  p[1] = p2[1] - p1[1];
+  p[2] = p2[2] - p1[2];
+  dMultiply1_331(pp, R1, p); // get pp = p relative to body 1
+
+  // get side lengths / 2
+  A[0] = side1[0] * REAL(0.5);
+  A[1] = side1[1] * REAL(0.5);
+  A[2] = side1[2] * REAL(0.5);
+  B[0] = side2[0] * REAL(0.5);
+  B[1] = side2[1] * REAL(0.5);
+  B[2] = side2[2] * REAL(0.5);
+
+  // Rij is R1'*R2, i.e. the relative rotation between R1 and R2
+  R11 = dCalcVectorDot3_44(R1 + 0, R2 + 0);
+  R12 = dCalcVectorDot3_44(R1 + 0, R2 + 1);
+  R13 = dCalcVectorDot3_44(R1 + 0, R2 + 2);
+  R21 = dCalcVectorDot3_44(R1 + 1, R2 + 0);
+  R22 = dCalcVectorDot3_44(R1 + 1, R2 + 1);
+  R23 = dCalcVectorDot3_44(R1 + 1, R2 + 2);
+  R31 = dCalcVectorDot3_44(R1 + 2, R2 + 0);
+  R32 = dCalcVectorDot3_44(R1 + 2, R2 + 1);
+  R33 = dCalcVectorDot3_44(R1 + 2, R2 + 2);
+
+  Q11 = dFabs(R11);
+  Q12 = dFabs(R12);
+  Q13 = dFabs(R13);
+  Q21 = dFabs(R21);
+  Q22 = dFabs(R22);
+  Q23 = dFabs(R23);
+  Q31 = dFabs(R31);
+  Q32 = dFabs(R32);
+  Q33 = dFabs(R33);
+
+  // for all 15 possible separating axes:
+  //   * see if the axis separates the boxes. if so, return 0.
+  //   * find the depth of the penetration along the separating axis (s2)
+  //   * if this is the largest depth so far, record it.
+  // the normal vector will be set to the separating axis with the smallest
+  // depth. note: normalR is set to point to a column of R1 or R2 if that is
+  // the smallest depth normal so far. otherwise normalR is 0 and normalC is
+  // set to a vector relative to body 1. invert_normal is 1 if the sign of
+  // the normal should be flipped.
+
+  do {
+#define TST(expr1, expr2, norm, cc)                                            \
+  expr1_val = (expr1); /* Avoid duplicate evaluation of expr1 */               \
+  s2 = dFabs(expr1_val) - (expr2);                                             \
+  if (s2 > REAL(0.2))                                                          \
+    return 0;                                                                  \
+  if (s2 > s) {                                                                \
+    s = s2;                                                                    \
+    normalR = norm;                                                            \
+    invert_normal = ((expr1_val) < 0);                                         \
+    code = (cc);                                                               \
+    if (flags & CONTACTS_UNIMPORTANT)                                          \
+      break;                                                                   \
+  }
+
+    s = -dInfinity;
+    invert_normal = 0;
+    code = 0;
+
+    // separating axis = u1,u2,u3
+    TST(pp[0], (A[0] + B[0] * Q11 + B[1] * Q12 + B[2] * Q13), R1 + 0, 1);
+    TST(pp[1], (A[1] + B[0] * Q21 + B[1] * Q22 + B[2] * Q23), R1 + 1, 2);
+    TST(pp[2], (A[2] + B[0] * Q31 + B[1] * Q32 + B[2] * Q33), R1 + 2, 3);
+
+    // separating axis = v1,v2,v3
+    TST(dCalcVectorDot3_41(R2 + 0, p),
+        (A[0] * Q11 + A[1] * Q21 + A[2] * Q31 + B[0]), R2 + 0, 4);
+    TST(dCalcVectorDot3_41(R2 + 1, p),
+        (A[0] * Q12 + A[1] * Q22 + A[2] * Q32 + B[1]), R2 + 1, 5);
+    TST(dCalcVectorDot3_41(R2 + 2, p),
+        (A[0] * Q13 + A[1] * Q23 + A[2] * Q33 + B[2]), R2 + 2, 6);
+
+    // note: cross product axes need to be scaled when s is computed.
+    // normal (n1,n2,n3) is relative to box 1.
+#undef TST
+#define TST(expr1, expr2, n1, n2, n3, cc)                                      \
+  expr1_val = (expr1); /* Avoid duplicate evaluation of expr1 */               \
+  s2 = dFabs(expr1_val) - (expr2);                                             \
+  if (s2 > REAL(0.2))                                                          \
+    return 0;                                                                  \
+  l = dSqrt((n1) * (n1) + (n2) * (n2) + (n3) * (n3));                          \
+  if (l > 0) {                                                                 \
+    s2 /= l;                                                                   \
+    if (s2 > s) {                                                              \
+      s = s2;                                                                  \
+      normalR = 0;                                                             \
+      normalC[0] = (n1) / l;                                                   \
+      normalC[1] = (n2) / l;                                                   \
+      normalC[2] = (n3) / l;                                                   \
+      invert_normal = ((expr1_val) < 0);                                       \
+      code = (cc);                                                             \
+      if (flags & CONTACTS_UNIMPORTANT)                                        \
+        break;                                                                 \
+    }                                                                          \
+  }
+
+    // We only need to check 3 edges per box
+    // since parallel edges are equivalent.
+
+    // separating axis = u1 x (v1,v2,v3)
+    TST(pp[2] * R21 - pp[1] * R31,
+        (A[1] * Q31 + A[2] * Q21 + B[1] * Q13 + B[2] * Q12), 0, -R31, R21, 7);
+    TST(pp[2] * R22 - pp[1] * R32,
+        (A[1] * Q32 + A[2] * Q22 + B[0] * Q13 + B[2] * Q11), 0, -R32, R22, 8);
+    TST(pp[2] * R23 - pp[1] * R33,
+        (A[1] * Q33 + A[2] * Q23 + B[0] * Q12 + B[1] * Q11), 0, -R33, R23, 9);
+
+    // separating axis = u2 x (v1,v2,v3)
+    TST(pp[0] * R31 - pp[2] * R11,
+        (A[0] * Q31 + A[2] * Q11 + B[1] * Q23 + B[2] * Q22), R31, 0, -R11, 10);
+    TST(pp[0] * R32 - pp[2] * R12,
+        (A[0] * Q32 + A[2] * Q12 + B[0] * Q23 + B[2] * Q21), R32, 0, -R12, 11);
+    TST(pp[0] * R33 - pp[2] * R13,
+        (A[0] * Q33 + A[2] * Q13 + B[0] * Q22 + B[1] * Q21), R33, 0, -R13, 12);
+
+    // separating axis = u3 x (v1,v2,v3)
+    TST(pp[1] * R11 - pp[0] * R21,
+        (A[0] * Q21 + A[1] * Q11 + B[1] * Q33 + B[2] * Q32), -R21, R11, 0, 13);
+    TST(pp[1] * R12 - pp[0] * R22,
+        (A[0] * Q22 + A[1] * Q12 + B[0] * Q33 + B[2] * Q31), -R22, R12, 0, 14);
+    TST(pp[1] * R13 - pp[0] * R23,
+        (A[0] * Q23 + A[1] * Q13 + B[0] * Q32 + B[1] * Q31), -R23, R13, 0, 15);
+#undef TST
+  } while (0);
+
+  if (!code)
+    return 0;
+
+  // if we get to this point, the boxes interpenetrate. compute the normal
+  // in global coordinates.
+  if (normalR) {
+    normal[0] = normalR[0];
+    normal[1] = normalR[4];
+    normal[2] = normalR[8];
+  } else {
+    dMultiply0_331(normal, R1, normalC);
+  }
+  if (invert_normal) {
+    normal[0] = -normal[0];
+    normal[1] = -normal[1];
+    normal[2] = -normal[2];
+  }
+  return s;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -815,8 +990,10 @@ __host__ __device__ int dBoxBox(const fVector3 p1, const fMatrix3 R1,
 
 using namespace Eigen;
 
-Contacts odeBoxBox(const Matrix4f &Ma, const Vector3f &scaleA,
-                   const Matrix4f &Mb, const Vector3f &scaleB) {
+__host__ __device__ Contacts odeBoxBox(const Matrix4f &Ma,
+                                       const Vector3f &scaleA,
+                                       const Matrix4f &Mb,
+                                       const Vector3f &scaleB) {
   // dBoxBox expects vec4 and mat43 (transposed)
   float pa4[4], pb4[4], Ra4[12], Rb4[12];
   Ra4[0] = Ma(0, 0);
@@ -865,21 +1042,61 @@ Contacts odeBoxBox(const Matrix4f &Ma, const Vector3f &scaleA,
   int rc = 0;
   float depthMax = 0;
   float normal[3] = {0};
+  float distance = dBoxBoxDistance(pa4, Ra4, sidesA, pb4, Rb4, sidesB, normal,
+                                   nContactGeoms);
+
+  if (distance > 0)
+    distance += 2e-1;
+  else
+    distance = 2e-1;
+
+  pa4[0] += distance * normal[0];
+  pa4[1] += distance * normal[1];
+  pa4[2] += distance * normal[2];
+
   int hits = dBoxBox(pa4, Ra4, sidesA, pb4, Rb4, sidesB, normal, &depthMax, &rc,
                      nContactGeoms, contactGeoms);
-
-  // Structure to be returned
+  // int hits = 0;
+  //  Structure to be returned
   Contacts contacts;
   contacts.count = hits;
-  contacts.depthMax = depthMax;
+  contacts.depthMax = rc;
   contacts.normal << normal[0], normal[1], normal[2];
 
   for (int k = 0; k < hits; ++k) {
     // Get contact point and normal in world space
     dContactGeom *contactGeom = &contactGeoms[k];
-    contacts.positions[k] << contactGeom->pos[0], contactGeom->pos[1],
-        contactGeom->pos[2];
-    contacts.depths[k] = contactGeom->depth;
+
+    if (rc <= 3)
+      contacts.positions[k]
+          << contactGeom->pos[0] + (contactGeom->depth - distance) * normal[0],
+          contactGeom->pos[1] + (contactGeom->depth - distance) * normal[1],
+          contactGeom->pos[2] + (contactGeom->depth - distance) * normal[2];
+    else if (3 < rc && rc <= 6)
+      contacts.positions[k] << contactGeom->pos[0] - distance * normal[0],
+          contactGeom->pos[1] - distance * normal[1],
+          contactGeom->pos[2] - distance * normal[2];
+    else
+      contacts.positions[k]
+          << contactGeom->pos[0] +
+                 (0.5 * contactGeom->depth - distance) * normal[0],
+          contactGeom->pos[1] +
+              (0.5 * contactGeom->depth - distance) * normal[1],
+          contactGeom->pos[2] +
+              (0.5 * contactGeom->depth - distance) * normal[2];
+    // if(rc <= 3)
+    // 	contacts.positions[k] << contactGeom->pos[0] + (contactGeom->depth -
+    // distance) * normal[0], contactGeom->pos[1] + (contactGeom->depth -
+    // distance) * normal[1], contactGeom->pos[2] + (contactGeom->depth -
+    // distance) * normal[2]; else 	contacts.positions[k] <<
+    // contactGeom->pos[0]
+    // + (0.5*contactGeom->depth - distance) * normal[0], contactGeom->pos[1] +
+    // (0.5 * contactGeom->depth - distance) * normal[1], contactGeom->pos[2] +
+    // (0.5 * contactGeom->depth - distance) * normal[2];
+
+    // contacts.positions[k] << contactGeom->pos[0], contactGeom->pos[1],
+    // contactGeom->pos[2];
+    contacts.depths[k] = contactGeom->depth - distance;
   }
   return contacts;
 }

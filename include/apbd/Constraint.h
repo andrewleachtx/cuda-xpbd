@@ -16,6 +16,7 @@ enum CONSTRAINT_TYPE {
  * Represents a collision with the ground.
  */
 struct ConstraintGround {
+  // TODO: remove unnecessary data
   Eigen::Vector3f C;
   Eigen::Vector3f lambda;
   Eigen::Vector3f nw;
@@ -36,13 +37,18 @@ struct ConstraintGround {
   computeDx(float dlambda, Eigen::Vector3f frictionalContactNormal) const;
   __host__ __device__ float solvePosDir1(float c, Eigen::Vector3f nw) const;
   __host__ __device__ void solveNorPos(float hs);
+  __host__ __device__ void solve2(const float hs, const float biasCoef,
+                                  const unsigned int iters, const bool doTanVel,
+                                  const bool doInit);
   __host__ __device__ void applyJacobi();
+  __host__ __device__ void applyLambdaSP();
 };
 
 /**
  * Represents a collision between a rigid object and another rigid object.
  */
 struct ConstraintRigid {
+  // TODO: remove unnecessary data
   Eigen::Vector3f C;
   Eigen::Vector3f lambda;
   Eigen::Vector3f nw;
@@ -53,18 +59,25 @@ struct ConstraintRigid {
   Eigen::Vector3f x1;
   Eigen::Vector3f x2;
 
+  Eigen::Vector3f shockDv;
+  Eigen::Vector3f shockDw;
+
   __host__ __device__ ConstraintRigid(BodyRigidReference body1,
                                       BodyRigidReference body2, float d,
                                       Eigen::Vector3f nw, Eigen::Vector3f x1,
                                       Eigen::Vector3f x2);
 
   __host__ __device__ void solveNorPos(float hs, bool doShockProp);
+  __host__ __device__ void solve2(const float hs, const float biasCoef,
+                                  const unsigned int iters, const bool doTanVel,
+                                  const bool shockProp, const bool doInit);
   __host__ __device__ float solvePosDir2(float c, Eigen::Vector3f nw);
   __host__ __device__ void computeDx(float dlambda, Eigen::Vector3f nw,
                                      Eigen::Vector4f *dq1, Eigen::Vector3f *dp1,
                                      Eigen::Vector4f *dq2,
                                      Eigen::Vector3f *dp2);
   __host__ __device__ void applyJacobi();
+  __host__ __device__ void applyLambdaSP();
 };
 
 struct ConstraintJointRevolve {
@@ -100,8 +113,12 @@ public:
 
   /// Sets C and lambda to 0
   __host__ __device__ void clear();
+  __host__ __device__ void applyLambdaSP();
 
   __host__ __device__ void solve(float hs, bool doShockProp);
+  __host__ __device__ void solve2(const float hs, const float biasCoef,
+                                  const unsigned int iters, const bool doTanVel,
+                                  const bool shockProp, const bool doInit);
   __host__ __device__ bool handle_layer(unsigned int layer,
                                         BodyReference *body_layers,
                                         size_t *body_layer_sizes,

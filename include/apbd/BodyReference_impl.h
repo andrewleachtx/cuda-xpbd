@@ -34,6 +34,12 @@ inline vec7 BodyRigidReference::x() const {
   auto q = data::global_store.BodyRigid.rotation.get(index).coeffs();
   return vec7(q(0), q(1), q(2), q(3), p(0), p(1), p(2));
 }
+inline void BodyRigidReference::x(const vec7 new_val) {
+  data::global_store.BodyRigid.rotation.set(
+      index, Eigen::Quaternionf(new_val.block<4, 1>(0, 0)));
+  data::global_store.BodyRigid.position.set(
+      index, Eigen::Vector3f(new_val.block<3, 1>(4, 0)));
+}
 IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, x0)
 IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, x1)
 inline void BodyRigidReference::x1(Eigen::Vector4f new_q,
@@ -67,6 +73,29 @@ IMPLEMENT_READONLY_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid,
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, Mr)
 IMPLEMENT_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid, Mp)
 IMPLEMENT_ACCESS_FUNCTIONS(unsigned int, BodyRigidReference, BodyRigid, layer)
+// TODO: test making vw the canonical storage method and splitting data into v
+// and w like dxJacobi
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, v)
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, w)
+inline Eigen::Matrix<float, 6, 1> BodyRigidReference::vw() const {
+  auto v = data::global_store.BodyRigid.v.get(index);
+  auto w = data::global_store.BodyRigid.w.get(index);
+  return Eigen::Matrix<float, 6, 1>(v(0), v(1), v(2), w(0), w(1), w(2));
+}
+inline void BodyRigidReference::vw(const Eigen::Matrix<float, 6, 1> new_val) {
+  data::global_store.BodyRigid.v.set(
+      index, Eigen::Vector3f(new_val.block<3, 1>(0, 0)));
+  data::global_store.BodyRigid.w.set(
+      index, Eigen::Vector3f(new_val.block<3, 1>(3, 0)));
+}
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
+                           deltaBody2Worldp)
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Quaternionf, BodyRigidReference, BodyRigid,
+                           deltaBody2Worldq)
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
+                           deltaAngDt)
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
+                           deltaLinDt)
 
 inline void BodyRigidReference::init(vec7 xInit) {
   this->computeInertiaConst();
@@ -75,38 +104,61 @@ inline void BodyRigidReference::init(vec7 xInit) {
   this->x0(xInit);
 }
 
-inline void BodyRigidReference::stepBDF1(const unsigned int step,
-                                         const unsigned int substep,
-                                         const float hs,
+inline void BodyRigidReference::stepBDF1(const float hs,
                                          const Eigen::Vector3f gravity) {
-  const auto xdot = this->computeVelocity(step, substep, hs);
-  Eigen::Vector4f qdot = xdot.block<4, 1>(0, 0);
-  Eigen::Vector3f v = xdot.block<3, 1>(4, 0); // pdot
+  // const auto xdot = this->computeVelocity(step, substep, hs);
+  // Eigen::Vector4f qdot = xdot.block<4, 1>(0, 0);
+  // Eigen::Vector3f v = xdot.block<3, 1>(4, 0); // pdot
+  // this->x0(this->x());
+  // Eigen::Vector4f q = this->rotation().coeffs();
+  // Eigen::Vector3f p = this->position();
+  // auto w = se3::qdotToW(q, qdot); // angular velocity in body coords
+  // Eigen::Vector3f f =
+  //     Eigen::Vector3f::Zero(); // translational force in world space
+  // Eigen::Vector3f t = Eigen::Vector3f::Zero(); // angular torque in body
+  // space const auto m = this->Mp();                   // scalar mass const
+  // auto I = this->Mr();                   // inertia in body space const
+  // Eigen::Vector3f Iw =
+  //     I.array() * w.array(); // angular momentum in body space
+  // f = f + m * gravity;       // Gravity
+  // t = t + Iw.cross(w);       // Coriolis
+  // // Integrate velocities
+  // w = w + hs * Eigen::Vector3f(t.array() / I.array());
+  // v = v + hs * (f / m);
+  // qdot = se3::wToQdot(q, w);
+  // // Integrate positions
+  // q = q + hs * qdot;
+  // p = p + hs * v;
+  // q = q / q.norm();
+  // this->rotation(Eigen::Quaternionf(q));
+  // this->position(p);
+  // this->x1_0_rot(this->rotation());
+  // this->x1(this->rotation().coeffs(), this->position());
   this->x0(this->x());
-  Eigen::Vector4f q = this->rotation().coeffs();
-  Eigen::Vector3f p = this->position();
-  auto w = se3::qdotToW(q, qdot); // angular velocity in body coords
-  Eigen::Vector3f f =
-      Eigen::Vector3f::Zero(); // translational force in world space
-  Eigen::Vector3f t = Eigen::Vector3f::Zero(); // angular torque in body space
-  const auto m = this->Mp();                   // scalar mass
-  const auto I = this->Mr();                   // inertia in body space
-  const Eigen::Vector3f Iw =
-      I.array() * w.array(); // angular momentum in body space
-  f = f + m * gravity;       // Gravity
-  t = t + Iw.cross(w);       // Coriolis
-  // Integrate velocities
-  w = w + hs * Eigen::Vector3f(t.array() / I.array());
+  auto v = this->v();
+  auto q = this->rotation();
+  auto p = this->position();
+  auto R = q.matrix();
+
+  auto w = this->w();
+  Eigen::Vector3f f = Eigen::Vector3f::Zero();
+  Eigen::Vector3f t = Eigen::Vector3f::Zero();
+  auto m = this->Mp();
+
+  Eigen::Matrix3f I =
+      R * Eigen::DiagonalMatrix<float, 3>(this->Mr()) * R.transpose();
+  Eigen::Vector3f Iw = I * w;
+  f = f + m * gravity;
+  t = t + Iw.cross(w);
+  w = w + hs * (I.inverse() * t);
   v = v + hs * (f / m);
-  qdot = se3::wToQdot(q, w);
-  // Integrate positions
-  q = q + hs * qdot;
-  p = p + hs * v;
-  q = q / q.norm();
-  this->rotation(Eigen::Quaternionf(q));
-  this->position(p);
-  this->x1_0_rot(this->rotation());
-  this->x1(this->rotation().coeffs(), this->position());
+
+  auto sqrtIntertia = R *
+                      Eigen::DiagonalMatrix<float, 3>(
+                          Eigen::Vector3f(this->Mr().array().sqrt())) *
+                      R.transpose();
+  this->w(sqrtIntertia * w);
+  this->v(v);
 }
 
 constexpr unsigned int UNSIGNED_MAX = std::numeric_limits<unsigned int>::max();
@@ -114,19 +166,20 @@ inline void BodyRigidReference::clearShock() {
   this->layer(UNSIGNED_MAX);
   this->dxJacobiShock(vec7::Zero());
 }
+inline void BodyRigidReference::clearJacobi() { this->dxJacobi(vec7::Zero()); }
 
 inline void BodyRigidReference::applyJacobiShock() {
   this->x1(this->x1() + this->dxJacobiShock());
   this->dxJacobiShock(vec7::Zero());
 }
 
-inline void BodyRigidReference::regularize() {
-  const auto x1_ = this->x1();
-  this->position(x1_.block<3, 1>(4, 0));
-  Eigen::Vector4f q = x1_.block<4, 1>(0, 0);
-  q /= q.norm();
-  this->rotation(Eigen::Quaternionf(q));
-}
+// inline void BodyRigidReference::regularize() {
+//   const auto x1_ = this->x1();
+//   this->position(x1_.block<3, 1>(4, 0));
+//   Eigen::Vector4f q = x1_.block<4, 1>(0, 0);
+//   q /= q.norm();
+//   this->rotation(Eigen::Quaternionf(q));
+// }
 
 inline bool
 BodyRigidReference::broadphaseGround(const Eigen::Matrix4f Eg) const {
@@ -160,11 +213,20 @@ inline Eigen::Matrix4f BodyRigidReference::computeTransform() const {
 
 inline vec7 BodyRigidReference::computeVelocity(const unsigned int step,
                                                 const unsigned int substep,
-                                                const float hs) const {
-  if (step == 0 && substep == 0)
-    return this->xdotInit();
-  else
-    return (this->x() - this->x0()) / hs;
+                                                const float hs) {
+  const vec7 _x = this->x();
+  const vec7 _x0 = this->x0();
+  vec7 xdot = (_x - _x0);
+  this->v(Eigen::Vector3f(xdot.block<3, 1>(4, 0) / hs));
+  xdot.block<4, 1>(0, 0) = (Eigen::Quaternionf(_x.block<4, 1>(0, 0)) *
+                            Eigen::Quaternionf(_x0.block<4, 1>(0, 0)).inverse())
+                               .coeffs();
+  Eigen::Vector3f _w(2 * xdot.block<3, 1>(0, 0) / hs);
+  if (xdot(3) < 0) {
+    _w = -_w;
+  }
+  this->w(_w);
+  return xdot;
 }
 inline void BodyRigidReference::computeInertiaConst() {
   const auto d = this->density();
@@ -177,20 +239,21 @@ inline void BodyRigidReference::computeInertiaConst() {
 inline Eigen::Vector3f
 BodyRigidReference::computePointVel(const Eigen::Vector3f xl,
                                     const float hs) const {
-  const vec7 xdot = (this->x() - this->x0()) / hs;
-  const Eigen::Vector4f qdot = xdot.block<4, 1>(0, 0);
-  const Eigen::Vector3f pdot = xdot.block<3, 1>(4, 0); // in world coords
-  const Eigen::Quaternionf q = this->rotation();
-  const Eigen::Vector3f w =
-      se3::qdotToW(q.coeffs(), qdot); // angular velocity in body coords
-  return (q * w.cross(xl)) + pdot;
+  Eigen::Vector3f rw = this->rotation() * xl;
+  return this->w().cross(rw) + this->v();
 }
 
 inline void BodyRigidReference::applyJacobi() {
-  this->x1(this->x1() + this->dxJacobi());
+  this->x(this->x() + this->dxJacobi());
+  // normalize the rotation
+  this->rotation(this->rotation().normalized());
   this->dxJacobi(vec7::Zero());
-  this->regularize();
 }
+
+// inline void BodyRigidReference::applyVelJacobi() {
+//   this->vw(this->vw() + this->dphiJacobi());
+//   this->dphiJacobi(vec6::Zero());
+// }
 
 inline void BodyRigidReference::write_state() {
   auto r = rotation().coeffs();
@@ -204,6 +267,58 @@ inline void BodyRigidReference::setInitTransform(const Eigen::Matrix4f E) {
     this->rotation(Eigen::Quaternionf(-this->rotation().coeffs()));
   }
   this->position(E.block<3, 1>(0, 3));
+}
+
+inline void BodyRigidReference::updateStates(float hs) {
+  const Eigen::Vector4f q = this->x0().block<4, 1>(0, 0);
+  auto R = Eigen::Quaternionf(q).matrix();
+  Eigen::Matrix3f invsqrtI = R *
+                             Eigen::DiagonalMatrix<float, 3>(
+                                 Eigen::Vector3f(1. / this->Mr().array())) *
+                             R.transpose();
+  Eigen::Vector3f angularMotionVel = invsqrtI * this->w();
+  float wNorm = angularMotionVel.norm();
+  if (wNorm > 0) {
+    float halfWDt = 0.5 * wNorm * hs;
+    Eigen::Vector3f dqvec = angularMotionVel * sin(halfWDt) / wNorm;
+    Eigen::Quaternionf dq(0.0, dqvec(0), dqvec(1), dqvec(2));
+    Eigen::Quaternionf _deltaBody2Worldq = this->deltaBody2Worldq();
+    Eigen::Vector4f result = (dq * _deltaBody2Worldq).coeffs();
+    result += _deltaBody2Worldq.coeffs() * cos(halfWDt);
+    this->deltaBody2Worldq(Eigen::Quaternionf(result).normalized());
+  }
+  this->deltaBody2Worldp(this->deltaBody2Worldp() + this->v() * hs);
+
+  this->deltaAngDt(this->deltaAngDt() + this->w() * hs);
+  this->deltaLinDt(this->deltaLinDt() + this->v() * hs);
+
+  this->rotation(this->deltaBody2Worldq() *
+                 Eigen::Quaternionf(this->x0().block<4, 1>(0, 0)));
+  this->position(this->x0().block<3, 1>(4, 0) + this->deltaBody2Worldp());
+}
+
+inline void BodyRigidReference::integrateStates() {
+  const Eigen::Quaternionf q = Eigen::Quaternionf(this->x0().block<4, 1>(0, 0));
+  auto R = q.matrix();
+  Eigen::Matrix3f invsqrtI = R *
+                             Eigen::DiagonalMatrix<float, 3>(Eigen::Vector3f(
+                                 (1. / this->Mr().array()).sqrt())) *
+                             R.transpose();
+  this->w(invsqrtI * this->w());
+  this->rotation(this->deltaBody2Worldq() * q);
+  this->position(this->x0().block<3, 1>(4, 0) + this->deltaBody2Worldp());
+  this->deltaBody2Worldp(Eigen::Vector3f::Zero());
+  this->deltaBody2Worldq(Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0));
+
+  this->deltaLinDt(Eigen::Vector3f::Zero());
+  this->deltaAngDt(Eigen::Vector3f::Zero());
+
+  this->layer(UNSIGNED_MAX);
+  // TODO: clear this neighbors?
+}
+
+inline Eigen::Vector3f BodyRigidReference::transformPoint(Eigen::Vector3f xl) {
+  return this->rotation() * xl + this->position();
 }
 
 } // namespace apbd

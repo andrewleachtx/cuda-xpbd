@@ -110,24 +110,19 @@ void Model::simulate(Collider *collider) {
   float time = 0;
   float hs = this->h / static_cast<float>(this->substeps);
   for (unsigned int step = 0; step < this->steps; step++) {
-    this->clearBodyShockPropInfo();
+    this->stepBDF1(hs);
     collider->run(this);
     this->constructConstraintGraph(collider);
-    for (unsigned int substep = 0; substep < this->substeps; substep++) {
-      this->stepBDF1(step, substep, hs);
-      this->solveConSP(hs);
-      this->solveConGS(collider, hs);
-      time += hs;
-    }
+    this->solveConTGS(collider, hs);
     this->write_state(step + 1);
   }
 }
 
 /** Private Functions **/
 
-void Model::stepBDF1(unsigned int step, unsigned int substep, float hs) {
+void Model::stepBDF1(float hs) {
   for (size_t body_i = 0; body_i < this->body_count; body_i++) {
-    this->bodies[body_i].stepBDF1(step, substep, hs, this->gravity);
+    this->bodies[body_i].stepBDF1(hs, this->gravity);
   }
 }
 void Model::clearBodyShockPropInfo() {
@@ -265,6 +260,70 @@ void Model::solveConGS(Collider *collider, float hs) {
     for (size_t i = 0; i < collider->collision_count; i++) {
       collider->collisions[i].solve(hs, false);
     }
+  }
+}
+
+void Model::solveConTGS(Collider *collider, float hs) {
+  this->stepBDF1(hs);
+  collider->run(this);
+  float biasCoefficient = 2 * sqrt(hs / this->h);
+
+  // We solve contstraints in the layer order. The exact layer sizes don't
+  // matter at this step, so we don't bother walking through each layer
+  // individually.
+
+  // Shock propagation
+  for (size_t i = 0; i < this->layer_constraint_count; i++) {
+    // TODO: allow the iters (5) to be a model parameter
+    this->constraint_layers[i]->solve2(hs, biasCoefficient, 5, false, true,
+                                       true);
+  }
+
+  // work backward now
+  for (long int i = this->layer_constraint_count - 1; i >= 0; i--) {
+    // TODO: allow the iters (15) to be a model parameter
+    this->constraint_layers[i]->solve2(hs, biasCoefficient, 15, false, true,
+                                       false);
+    this->constraint_layers[i]->applyLambdaSP();
+  }
+
+  unsigned int ks = 0;
+  while (ks < this->substeps) {
+    for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+         constraint_i++) {
+      // TODO: this may no longer be needed?
+      this->constraints[constraint_i].clear();
+    }
+
+    // clear the Jacobi updates
+    for (size_t i = 0; i < this->body_count; i++) {
+      this->bodies[i].clearJacobi();
+    }
+    // Gauss-Seidel solve for non-collision constraints
+    for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+         constraint_i++) {
+      this->constraints[constraint_i].solve(hs, false);
+    }
+
+    // Gauss-Seidel for collisions
+    for (size_t i = 0; i < this->layer_constraint_count; i++) {
+      this->constraint_layers[i]->solve2(hs, biasCoefficient, 1, true, false,
+                                         false);
+    }
+
+    for (size_t i = 0; i < this->body_count; i++) {
+      this->bodies[i].updateStates(hs);
+    }
+    ks++;
+  }
+
+  for (size_t i = 0; i < this->layer_constraint_count; i++) {
+    this->constraint_layers[i]->solve2(hs, biasCoefficient, 1, true, false,
+                                       false);
+  }
+
+  for (size_t i = 0; i < this->body_count; i++) {
+    this->bodies[i].integrateStates();
   }
 }
 

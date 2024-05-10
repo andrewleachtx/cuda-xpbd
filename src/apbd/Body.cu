@@ -235,6 +235,8 @@ void Body::setInitVelocity(Eigen::Matrix<float, 6, 1> velocity) {
     data.xdotInit.block<3, 1>(4, 0) = (q * velocity.block<3, 1>(3, 0));
     data.xdotInit.block<4, 1>(0, 0) =
         se3::wToQdot(q.coeffs(), velocity.block<3, 1>(0, 0));
+    data.v = velocity.block<3, 1>(3, 0);
+    data.w = velocity.block<3, 1>(0, 0);
     break;
   }
   default:
@@ -352,13 +354,15 @@ BodyRigid::BodyRigid(Shape shape, float density)
       x0(vec7::Zero()), x1(vec7::Zero()), x1_0(vec7::Zero()),
       dxJacobi(vec7::Zero()), dxJacobiShock(vec7::Zero()), collide(false),
       mu(0.0), layer(99), shape(shape), density(density),
-      Mr(Eigen::Vector3f::Zero()), Mp(0) {}
+      Mr(Eigen::Vector3f::Zero()), Mp(0), v(Vector3f::Zero()),
+      w(Vector3f::Zero()) {}
 BodyRigid::BodyRigid(Shape shape, float density, bool collide, float mu)
     : xInit(vec7::Zero()), xdotInit(vec7::Zero()), x(vec7::Zero()),
       x0(vec7::Zero()), x1(vec7::Zero()), x1_0(vec7::Zero()),
       dxJacobi(vec7::Zero()), dxJacobiShock(vec7::Zero()), collide(collide),
       mu(mu), layer(99), shape(shape), density(density),
-      Mr(Eigen::Vector3f::Zero()), Mp(0) {}
+      Mr(Eigen::Vector3f::Zero()), Mp(0), v(Vector3f::Zero()),
+      w(Vector3f::Zero()) {}
 
 vec7 BodyRigid::computeVelocity(unsigned int step, unsigned int substep,
                                 float hs) {
