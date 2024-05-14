@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
   exit(1);
 #endif
   apbd::Body *bodies;
-  apbd::Model model = createModelSample(atoi(argv[1]), bodies, 1);
+  apbd::Model model = createModelSample(atoi(argv[1]), 1e-2, 20, bodies, 1);
   _global_scene_count = 1;
   _thread_scene_id = 0;
   model.copy_data_to_store(bodies);

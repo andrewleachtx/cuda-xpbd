@@ -127,16 +127,16 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims) {
 }
 
 struct MainState {
-  bool visualize;
-  string output_file;
   int model_id;
   unsigned long scene_count;
+  unsigned long substeps;
 };
 
 const char *HELP = "\
 arguments:          \n\
   -i, --model_id ID    The model scene to use\n\
   -s, --scene-count N  The number of simulations to run\n\
+  -t, --substeps N     The number of substeps to use\n\
   -h, --help           Show this help text\n\
 ";
 
@@ -144,15 +144,17 @@ MainState parse_arguments(int argc, char *argv[]) {
   struct MainState state = {
       .model_id = 0,
       .scene_count = 1,
+      .substeps = 20,
   };
 
   option longopts[] = {{"model_id", required_argument, NULL, 'm'},
                        {"scene-count", required_argument, NULL, 's'},
+                       {"substeps", required_argument, NULL, 't'},
                        {"help", no_argument, NULL, 'h'},
                        {0}};
 
   while (1) {
-    const int opt = getopt_long(argc, argv, "hvo:m:s:a:", longopts, 0);
+    const int opt = getopt_long(argc, argv, "hm:s:t:", longopts, 0);
 
     if (opt == -1) {
       break;
@@ -176,6 +178,13 @@ MainState parse_arguments(int argc, char *argv[]) {
       cout << "# scene-count: " << optarg << endl;
       state.scene_count = std::stoul(optarg);
       break;
+    case 't':
+      if (optarg == NULL) {
+        break;
+      }
+      cout << "# substeps: " << optarg << endl;
+      state.substeps = std::stoul(optarg);
+      break;
     case '?':
     default:
       cout << "unknown option." << endl;
@@ -187,7 +196,8 @@ MainState parse_arguments(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   auto state = parse_arguments(argc, argv);
   apbd::Body *bodies;
-  auto model = createModelSample(state.model_id, bodies, state.scene_count);
+  auto model = createModelSample(state.model_id, 1e-2, state.substeps, bodies,
+                                 state.scene_count);
 
   auto t1 = Clock::now();
 #ifdef USE_CUDA
