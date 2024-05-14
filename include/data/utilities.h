@@ -4,6 +4,25 @@
 #include <Eigen/Dense>
 #include <stddef.h>
 
+/**
+ * Implements only the getter for an SOAStore stored attribute.
+ */
+#define IMPLEMENT_READONLY_ACCESS_FUNCTIONS(AttributeType, RefType, Type,      \
+                                            attribute)                         \
+  inline AttributeType RefType::attribute() const {                            \
+    return data::global_store.Type.attribute.get(index);                       \
+  }
+/**
+ * Implements the getter and setter for an SOAStore stored attribute.
+ */
+#define IMPLEMENT_ACCESS_FUNCTIONS(AttributeType, RefType, Type, attribute)    \
+  inline AttributeType RefType::attribute() const {                            \
+    return data::global_store.Type.attribute.get(index);                       \
+  }                                                                            \
+  inline void RefType::attribute(AttributeType const new_val) {                \
+    data::global_store.Type.attribute.set(index, new_val);                     \
+  }
+
 namespace data {
 
 typedef Eigen::Matrix<float, 7, 1> vec7;

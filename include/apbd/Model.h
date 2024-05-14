@@ -1,5 +1,5 @@
 #pragma once
-#include "BodyReference_impl.h"
+#include "BodyReference.h"
 #include "Collider.h"
 #include "Constraint.h"
 #include "data/soa.h"
@@ -10,8 +10,6 @@ class Collider;
 
 struct ModelBuffers {
   Constraint *constraints;
-  Constraint **constraint_layers;
-  BodyReference *body_layers;
 };
 
 /**
@@ -33,20 +31,9 @@ public:
   Constraint *constraints;
   size_t constraint_count;
 
-  // layer objects used to calculate collision graph
-  size_t layer_count;
-  /// A list of constraints; each layer is concatenated and the sizes are stored
-  /// in constraint_layer_sizes
-  Constraint **constraint_layers;
-  size_t constraint_layer_sizes[MAX_LAYERS];
-  /// the total number of constraints in all layers
-  size_t layer_constraint_count;
-  BodyReference *body_layers;
-  size_t body_layer_sizes[MAX_LAYERS];
-  size_t layer_body_count;
-
   Eigen::Vector3f gravity;
-  unsigned int iters;
+  unsigned int forward_iters;
+  unsigned int reverse_iters;
 
   Eigen::Matrix4f ground_E;
   float ground_size;
@@ -56,7 +43,6 @@ public:
   unsigned int steps;
 
   __host__ __device__ void stepBDF1(float hs);
-  __host__ __device__ void clearBodyShockPropInfo();
   __host__ __device__ void constructConstraintGraph(Collider *collider);
   __host__ __device__ void solveConSP(float hs);
   __host__ __device__ void solveConGS(Collider *collider, float hs);
@@ -129,5 +115,12 @@ public:
    * size given by get_shared_memory_size.
    */
   __device__ void populate_shared_mem(void *shared_memory);
+
+  /**
+   * Gets the index of a collision within the Collider that corresponds to these
+   * bodies
+   */
+  __host__ __device__ unsigned int get_collision_index(BodyReference body1,
+                                                       BodyReference body2);
 };
 } // namespace apbd

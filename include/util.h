@@ -74,14 +74,9 @@
 #endif
 
 __host__ __device__ [[noreturn]] inline void unreachable() {
-#ifdef _MSC_VER
-#define UNREACHABLE() __assume(0)
-#else
-#define UNREACHABLE() __builtin_unreachable()
-#endif
 #ifdef __CUDA_ARCH__
-  for (;;) {
-  }
+  TRACE();
+  __trap();
 #else
   std::abort();
 #endif

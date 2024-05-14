@@ -4,26 +4,6 @@
 
 namespace apbd {
 
-/**
- * Implements only the getter for an SOAStore stored attribute.
- */
-#define IMPLEMENT_READONLY_ACCESS_FUNCTIONS(AttributeType, RefType, Type,      \
-                                            attribute)                         \
-  inline AttributeType RefType::attribute() const {                            \
-    return data::global_store.Type.attribute.get(index);                       \
-  }
-/**
- * Implements the getter and setter for an SOAStore stored attribute.
- */
-#define IMPLEMENT_ACCESS_FUNCTIONS(AttributeType, RefType, Type, attribute)    \
-  inline AttributeType RefType::attribute() const {                            \
-    return data::global_store.Type.attribute.get(index);                       \
-  }                                                                            \
-  inline void RefType::attribute(const AttributeType new_val) {                \
-    data::global_store.Type.attribute.set(index, new_val);                     \
-  }
-
-IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, xdotInit)
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
                            position)
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Quaternionf, BodyRigidReference, BodyRigid,
@@ -41,29 +21,6 @@ inline void BodyRigidReference::x(const vec7 new_val) {
       index, Eigen::Vector3f(new_val.block<3, 1>(4, 0)));
 }
 IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, x0)
-IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, x1)
-inline void BodyRigidReference::x1(Eigen::Vector4f new_q,
-                                   Eigen::Vector3f new_p) {
-  data::global_store.BodyRigid.x1.set(index, vec7(new_q(0), new_q(1), new_q(2),
-                                                  new_q(3), new_p(0), new_p(1),
-                                                  new_p(2)));
-}
-IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Quaternionf, BodyRigidReference, BodyRigid,
-                           x1_0_rot)
-IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dxJacobi)
-inline void BodyRigidReference::dxJacobi(Eigen::Vector4f new_q,
-                                         Eigen::Vector3f new_p) {
-  data::global_store.BodyRigid.dxJacobi.set(
-      index, vec7(new_q(0), new_q(1), new_q(2), new_q(3), new_p(0), new_p(1),
-                  new_p(2)));
-}
-IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dxJacobiShock)
-inline void BodyRigidReference::dxJacobiShock(Eigen::Vector4f new_q,
-                                              Eigen::Vector3f new_p) {
-  data::global_store.BodyRigid.dxJacobiShock.set(
-      index, vec7(new_q(0), new_q(1), new_q(2), new_q(3), new_p(0), new_p(1),
-                  new_p(2)));
-}
 IMPLEMENT_READONLY_ACCESS_FUNCTIONS(bool, BodyRigidReference, BodyRigid,
                                     collide)
 IMPLEMENT_READONLY_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid, mu)
@@ -74,7 +31,7 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, Mr)
 IMPLEMENT_ACCESS_FUNCTIONS(float, BodyRigidReference, BodyRigid, Mp)
 IMPLEMENT_ACCESS_FUNCTIONS(unsigned int, BodyRigidReference, BodyRigid, layer)
 // TODO: test making vw the canonical storage method and splitting data into v
-// and w like dxJacobi
+// and w
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, v)
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid, w)
 inline Eigen::Matrix<float, 6, 1> BodyRigidReference::vw() const {
@@ -104,36 +61,8 @@ inline void BodyRigidReference::init(vec7 xInit) {
   this->x0(xInit);
 }
 
-inline void BodyRigidReference::stepBDF1(const float hs,
+inline void BodyRigidReference::stepBDF1(const float h,
                                          const Eigen::Vector3f gravity) {
-  // const auto xdot = this->computeVelocity(step, substep, hs);
-  // Eigen::Vector4f qdot = xdot.block<4, 1>(0, 0);
-  // Eigen::Vector3f v = xdot.block<3, 1>(4, 0); // pdot
-  // this->x0(this->x());
-  // Eigen::Vector4f q = this->rotation().coeffs();
-  // Eigen::Vector3f p = this->position();
-  // auto w = se3::qdotToW(q, qdot); // angular velocity in body coords
-  // Eigen::Vector3f f =
-  //     Eigen::Vector3f::Zero(); // translational force in world space
-  // Eigen::Vector3f t = Eigen::Vector3f::Zero(); // angular torque in body
-  // space const auto m = this->Mp();                   // scalar mass const
-  // auto I = this->Mr();                   // inertia in body space const
-  // Eigen::Vector3f Iw =
-  //     I.array() * w.array(); // angular momentum in body space
-  // f = f + m * gravity;       // Gravity
-  // t = t + Iw.cross(w);       // Coriolis
-  // // Integrate velocities
-  // w = w + hs * Eigen::Vector3f(t.array() / I.array());
-  // v = v + hs * (f / m);
-  // qdot = se3::wToQdot(q, w);
-  // // Integrate positions
-  // q = q + hs * qdot;
-  // p = p + hs * v;
-  // q = q / q.norm();
-  // this->rotation(Eigen::Quaternionf(q));
-  // this->position(p);
-  // this->x1_0_rot(this->rotation());
-  // this->x1(this->rotation().coeffs(), this->position());
   this->x0(this->x());
   auto v = this->v();
   auto q = this->rotation();
@@ -145,48 +74,40 @@ inline void BodyRigidReference::stepBDF1(const float hs,
   Eigen::Vector3f t = Eigen::Vector3f::Zero();
   auto m = this->Mp();
 
-  Eigen::Matrix3f I =
-      R * Eigen::DiagonalMatrix<float, 3>(this->Mr()) * R.transpose();
+  Eigen::Matrix3f diag(Eigen::Matrix3f::Zero());
+  Eigen::Vector3f Mr = this->Mr();
+  diag(0, 0) = Mr(0);
+  diag(1, 1) = Mr(1);
+  diag(2, 2) = Mr(2);
+
+  Eigen::Matrix3f I = R * diag * R.transpose();
   Eigen::Vector3f Iw = I * w;
   f = f + m * gravity;
   t = t + Iw.cross(w);
-  w = w + hs * (I.inverse() * t);
-  v = v + hs * (f / m);
+  // Note: this needs to be saved in a Matrix3f before multiplication,
+  // otherwise a non-cuda compatible function is called
+  Eigen::Matrix3f Iinv = I.inverse();
+  w = w + h * (Iinv * t);
+  v = v + h * (f / m);
+  Eigen::Vector3f sqrtMr = Mr.array().sqrt();
+  diag(0, 0) = sqrtMr(0);
+  diag(1, 1) = sqrtMr(1);
+  diag(2, 2) = sqrtMr(2);
 
-  auto sqrtIntertia = R *
-                      Eigen::DiagonalMatrix<float, 3>(
-                          Eigen::Vector3f(this->Mr().array().sqrt())) *
-                      R.transpose();
+  auto sqrtIntertia = R * diag * R.transpose();
   this->w(sqrtIntertia * w);
   this->v(v);
 }
 
 constexpr unsigned int UNSIGNED_MAX = std::numeric_limits<unsigned int>::max();
-inline void BodyRigidReference::clearShock() {
-  this->layer(UNSIGNED_MAX);
-  this->dxJacobiShock(vec7::Zero());
-}
-inline void BodyRigidReference::clearJacobi() { this->dxJacobi(vec7::Zero()); }
-
-inline void BodyRigidReference::applyJacobiShock() {
-  this->x1(this->x1() + this->dxJacobiShock());
-  this->dxJacobiShock(vec7::Zero());
-}
-
-// inline void BodyRigidReference::regularize() {
-//   const auto x1_ = this->x1();
-//   this->position(x1_.block<3, 1>(4, 0));
-//   Eigen::Vector4f q = x1_.block<4, 1>(0, 0);
-//   q /= q.norm();
-//   this->rotation(Eigen::Quaternionf(q));
-// }
+inline void BodyRigidReference::clearShock() { this->layer(UNSIGNED_MAX); }
 
 inline bool
 BodyRigidReference::broadphaseGround(const Eigen::Matrix4f Eg) const {
   const Eigen::Matrix4f E = this->computeTransform();
   return this->shape().broadphaseGround(E, Eg);
 }
-inline GroundNarrowphaseReturn
+inline NarrowphaseReturn
 BodyRigidReference::narrowphaseGround(const Eigen::Matrix4f Eg) const {
   const Eigen::Matrix4f E = this->computeTransform();
   return this->shape().narrowphaseGround(E, Eg);
@@ -243,18 +164,6 @@ BodyRigidReference::computePointVel(const Eigen::Vector3f xl,
   return this->w().cross(rw) + this->v();
 }
 
-inline void BodyRigidReference::applyJacobi() {
-  this->x(this->x() + this->dxJacobi());
-  // normalize the rotation
-  this->rotation(this->rotation().normalized());
-  this->dxJacobi(vec7::Zero());
-}
-
-// inline void BodyRigidReference::applyVelJacobi() {
-//   this->vw(this->vw() + this->dphiJacobi());
-//   this->dphiJacobi(vec6::Zero());
-// }
-
 inline void BodyRigidReference::write_state() {
   auto r = rotation().coeffs();
   printf("%f %f %f r %f %f %f %f", position()(0), position()(1), position()(2),
@@ -272,10 +181,13 @@ inline void BodyRigidReference::setInitTransform(const Eigen::Matrix4f E) {
 inline void BodyRigidReference::updateStates(float hs) {
   const Eigen::Vector4f q = this->x0().block<4, 1>(0, 0);
   auto R = Eigen::Quaternionf(q).matrix();
-  Eigen::Matrix3f invsqrtI = R *
-                             Eigen::DiagonalMatrix<float, 3>(
-                                 Eigen::Vector3f(1. / this->Mr().array())) *
-                             R.transpose();
+  Eigen::Matrix3f diag(Eigen::Matrix3f::Zero());
+  Eigen::Vector3f Mr = this->Mr();
+  Eigen::Vector3f isqrtMr = (1.0 / Mr.array()).sqrt();
+  diag(0, 0) = isqrtMr(0);
+  diag(1, 1) = isqrtMr(1);
+  diag(2, 2) = isqrtMr(2);
+  Eigen::Matrix3f invsqrtI = R * diag * R.transpose();
   Eigen::Vector3f angularMotionVel = invsqrtI * this->w();
   float wNorm = angularMotionVel.norm();
   if (wNorm > 0) {
@@ -300,10 +212,13 @@ inline void BodyRigidReference::updateStates(float hs) {
 inline void BodyRigidReference::integrateStates() {
   const Eigen::Quaternionf q = Eigen::Quaternionf(this->x0().block<4, 1>(0, 0));
   auto R = q.matrix();
-  Eigen::Matrix3f invsqrtI = R *
-                             Eigen::DiagonalMatrix<float, 3>(Eigen::Vector3f(
-                                 (1. / this->Mr().array()).sqrt())) *
-                             R.transpose();
+  Eigen::Matrix3f diag(Eigen::Matrix3f::Zero());
+  Eigen::Vector3f Mr = this->Mr();
+  Eigen::Vector3f isqrtMr = (1.0 / Mr.array()).sqrt();
+  diag(0, 0) = isqrtMr(0);
+  diag(1, 1) = isqrtMr(1);
+  diag(2, 2) = isqrtMr(2);
+  Eigen::Matrix3f invsqrtI = R * diag * R.transpose();
   this->w(invsqrtI * this->w());
   this->rotation(this->deltaBody2Worldq() * q);
   this->position(this->x0().block<3, 1>(4, 0) + this->deltaBody2Worldp());

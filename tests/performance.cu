@@ -12,7 +12,8 @@ typedef std::chrono::high_resolution_clock Clock;
 __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     kernel(apbd::Model model, apbd::ModelBuffers buffers,
            apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
-           apbd::Constraint *constraint_buffer, int sims) {
+           apbd::Collision *collision_buffer,
+           unsigned int *active_collision_buffer, int sims) {
   extern __shared__ unsigned char shared_memory[];
   // get this scene ID
   size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -43,7 +44,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
 
   // create a thread-local collider
   auto collider = apbd::Collider(&thread_model, scene_id, body_ptr_buffer,
-                                 constraint_buffer);
+                                 collision_buffer, active_collision_buffer);
   // simulate
   thread_model.simulate(&collider);
 }
@@ -54,9 +55,10 @@ void run_kernel(apbd::Model model, apbd::Body *bodies, int sims) {
   const size_t shared_size = model.get_shared_memory_size();
 
   apbd::BodyReference *body_ptr_buffer = nullptr;
-  apbd::Constraint *constraint_buffer = nullptr;
+  apbd::Collision *collision_buffer = nullptr;
+  unsigned int *active_collision_buffer = nullptr;
   apbd::Collider::allocate_buffers(model, sims, body_ptr_buffer,
-                                   constraint_buffer);
+                                   collision_buffer, active_collision_buffer);
   auto buffers = apbd::Model::allocate_buffers(sims, model);
 
   model.move_to_device();
@@ -65,7 +67,8 @@ void run_kernel(apbd::Model model, apbd::Body *bodies, int sims) {
   auto t1 = Clock::now();
 
   kernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE, shared_size>>>(
-      model, buffers, bodies, body_ptr_buffer, constraint_buffer, sims);
+      model, buffers, bodies, body_ptr_buffer, collision_buffer,
+      active_collision_buffer, sims);
   CUDA_CHECK(cudaGetLastError());
   CUDA_CHECK(cudaDeviceSynchronize());
 

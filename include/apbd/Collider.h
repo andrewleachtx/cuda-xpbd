@@ -18,6 +18,9 @@ class Collider {
   size_t bp_count_2;
   BodyReference *bpList1;
   BodyReference *bpList2;
+  size_t collision_cap;
+  size_t ground_constraint_count;
+  size_t rigid_constraint_count;
 
   /// Initial check of bodies that may have collisions
   __device__ __host__ void broadphase(Model *model);
@@ -25,19 +28,23 @@ class Collider {
   __device__ __host__ void narrowphase(Model *model);
 
 public:
-  size_t ground_collision_count;
-  size_t collision_count;
-  Constraint *collisions;
+  Collision *collisions;
+  size_t active_collision_count;
+  unsigned int *activeCollisions;
   Collider(Model *model);
   __device__ __host__ Collider(Model *model, size_t scene_id,
                                BodyReference *body_ptr_buffer,
-                               Constraint *constraint_buffer);
+                               Collision *collision_buffer,
+                               unsigned int *active_collision_buffer);
 
   /// Computes all collisions
   __device__ __host__ void run(Model *model);
+  /// Builds the constraint graph
+  __device__ __host__ void constructCollisionOrder(Model *model);
   static void allocate_buffers(Model &model, int sim_count,
                                BodyReference *&body_ptr_buffer,
-                               Constraint *&constraint_buffer);
+                               Collision *&collision_buffer,
+                               unsigned int *&active_collision_buffer);
   static __device__ __host__ void generateTangents(const Eigen::Vector3f nor,
                                                    Eigen::Vector3f *out_tx,
                                                    Eigen::Vector3f *out_ty);

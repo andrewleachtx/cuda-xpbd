@@ -12,10 +12,11 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
   switch (modelID) {
 
   case -1: {
-    model.h = 5e-3;
-    model.tEnd = 00.1;
-    model.substeps = 1;
-    model.iters = 1;
+    model.h = 0.005;
+    model.tEnd = 0.1;
+    model.substeps = 10;
+    model.forward_iters = 5;
+    model.reverse_iters = 15;
     float density = 1.0;
     float w = 1;
     Eigen::Vector3f sides{w, w, w};
@@ -23,7 +24,7 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     model.ground_E = Eigen::Matrix4f::Identity();
     float mu = 0.1;
 
-    model.ground_size = 10;
+    model.ground_size = 20;
     // model.axis = 5 * Eigen::Matrix<float, 6, 1>(-1, 1, -1, 1, 0, 1);
 
     model.body_count = 2;
@@ -35,11 +36,11 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
         apbd::BodyRigid(apbd::ShapeCuboid{sides}, density, true, mu));
 
     Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
-    Eigen::Matrix3f R = se3::aaToMat(Eigen::Vector3f(1, 1, 1), 0.3 * M_PI / 4);
+    Eigen::Matrix3f R = se3::aaToMat(Eigen::Vector3f(1, 1, 1), M_PI / 4);
     E.block<3, 3>(0, 0) = R;
-    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0, 1.51);
+    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0, 0.75);
     bodies[0].setInitTransform(E);
-    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0.0, 3.51);
+    E.block<3, 1>(0, 3) = Eigen::Vector3f(0, 0.0, 2);
     bodies[1].setInitTransform(E);
     // Eigen::Vector3f x1 = R.transpose() * Eigen::Vector3f(3, -4, 5);
     // Eigen::Vector3f x2 = R.transpose() * Eigen::Vector3f(0, 0, 5);
@@ -54,7 +55,8 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     model.tEnd = 1;
     model.h = 5e-3;
     model.substeps = 1;
-    model.iters = 30;
+    model.forward_iters = 5;
+    model.reverse_iters = 15;
     float density = 1.0;
     float w = 1;
     Eigen::Vector3f sides{w, w, w};
@@ -87,6 +89,47 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     }
     break;
   }
+  case 7: {
+    // model.name = 'Rigid Collisions';
+    // model.plotH = false;
+    model.tEnd = 0.75;
+    model.h = 1.0 / 100.0;
+    model.substeps = 20;
+    model.forward_iters = 5;
+    model.reverse_iters = 15;
+    float density = 1.0;
+    float w = 1;
+    Eigen::Vector3f sides{w, w, w};
+    model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+    model.ground_E = Eigen::Matrix4f::Identity();
+    float mu = 0.5;
+
+    model.ground_size = 20;
+    // model.axis = 5 * Eigen::Matrix<float, 6, 1>(-1, 1, -1, 1, 0, 1);
+    // model.drawHz = 10000;
+
+    // model.view = [0 0];
+
+    size_t n = 10;
+    bodies = new apbd::Body[n];
+    model.body_count = n;
+    model.bodies = new apbd::BodyReference[n];
+    for (size_t i = 0; i < n; i++) {
+      bodies[i] = apbd::Body(
+          apbd::BodyRigid(apbd::ShapeCuboid{sides}, density, true, mu));
+      Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+      float x = 0.04 * (i + 1);
+      float y = 0;
+      float z = (i + 0.5) * w;
+      E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+      bodies[i].setInitTransform(E);
+      if (i == 1) {
+        bodies[i].setInitVelocity(
+            Eigen::Matrix<float, 6, 1>(0, 0, 0, 100, 0, 0));
+      }
+    }
+    break;
+  }
 
   case 10: {
     // model.name = 'Rigid Body';
@@ -94,7 +137,8 @@ apbd::Model createModelSample(int modelID, apbd::Body *&bodies,
     model.tEnd = 1;
     model.h = 1. / 30.;
     model.substeps = 10;
-    model.iters = 1;
+    model.forward_iters = 5;
+    model.reverse_iters = 15;
     float density = 1.0;
     float l = 5;
     float w = 1;

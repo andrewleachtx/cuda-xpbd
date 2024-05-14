@@ -144,18 +144,6 @@ __host__ __device__ static __inline fReal dCalcVectorDot3(const fReal *a,
                                                           const fReal *b) {
   return _dCalcVectorDot3(a, b, 1, 1);
 }
-__host__ __device__ static __inline fReal dCalcVectorDot3_13(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 1, 3);
-}
-__host__ __device__ static __inline fReal dCalcVectorDot3_31(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 3, 1);
-}
-__host__ __device__ static __inline fReal dCalcVectorDot3_33(const fReal *a,
-                                                             const fReal *b) {
-  return _dCalcVectorDot3(a, b, 3, 3);
-}
 __host__ __device__ static __inline fReal dCalcVectorDot3_14(const fReal *a,
                                                              const fReal *b) {
   return _dCalcVectorDot3(a, b, 1, 4);
@@ -822,11 +810,11 @@ __host__ __device__ int dBoxBox(const fVector3 p1, const fMatrix3 R1,
 
 // given two boxes (p1,R1,side1) and (p2,R2,side2), collide them together and
 // generate the shortest distance and the direction between shortest points.
-fReal dBoxBoxDistance(const fVector3 p1, const fMatrix3 R1,
-                      const fVector3 side1, const fVector3 p2,
-                      const fMatrix3 R2, const fVector3 side2, fVector3 normal,
-                      int flags) {
-  const fReal fudge_factor = REAL(1.05);
+__host__ __device__ fReal dBoxBoxDistance(const fVector3 p1, const fMatrix3 R1,
+                                          const fVector3 side1,
+                                          const fVector3 p2, const fMatrix3 R2,
+                                          const fVector3 side2, fVector3 normal,
+                                          int flags) {
   fVector3 p, pp, normalC = {0, 0, 0};
   const fReal *normalR = 0;
   fReal A[3], B[3], R11, R12, R13, R21, R22, R23, R31, R32, R33, Q11, Q12, Q13,

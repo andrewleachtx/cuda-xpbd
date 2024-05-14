@@ -36,10 +36,10 @@ bool Shape::broadphaseGround(Eigen::Matrix4f E, Eigen::Matrix4f Eg) const {
   }
 }
 
-cuda::std::pair<cuda::std::array<CollisionGround, 8>, size_t>
+cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
 Shape::narrowphaseGround(const Eigen::Matrix4f E,
                          const Eigen::Matrix4f Eg) const {
-  auto cdata = cuda::std::array<CollisionGround, 8>();
+  auto cdata = cuda::std::array<Contact, 8>();
   switch (type) {
   case SHAPE_CUBOID: {
     const auto data = this->data.cuboid;
@@ -67,15 +67,12 @@ Shape::narrowphaseGround(const Eigen::Matrix4f E,
         Eigen::Vector4f xgproj = xg.block<4, 1>(0, i);
         // project onto the floor plane
         xgproj(2) = 0;
-        cdata[cdata_count++] = CollisionGround{
-            .d = d,
-            .xl = xl.block<3, 1>(0, i),
-            // transform to world space
-            .xw = Eg.block<3, 4>(0, 0) * xgproj,
+        cdata[cdata_count++] = Contact{
             // normal
             .nw = Eg.block<3, 1>(0, 2),
-            // unused for now, assuming the ground doesn't move
-            .vw = Eigen::Vector3f::Zero(),
+            .x1 = xl.block<3, 1>(0, i),
+            // transform to world space
+            .x2 = Eg.block<3, 4>(0, 0) * xgproj,
         };
       }
     }
@@ -102,7 +99,7 @@ bool Shape::broadphaseShape(const Eigen::Matrix4f E1, const Shape &other,
   }
 }
 
-cuda::std::pair<cuda::std::array<CollisionRigid, 8>, size_t>
+cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
 Shape::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other,
                         const Eigen::Matrix4f E2) const {
   switch (type) {
@@ -112,10 +109,10 @@ Shape::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other,
       return this->data.cuboid.narrowphaseShapeCuboid(E1, other.data.cuboid,
                                                       E2);
     default:
-      return cuda::std::pair(cuda::std::array<CollisionRigid, 8>(), 0);
+      return cuda::std::pair(cuda::std::array<Contact, 8>(), 0);
     }
   default:
-    return cuda::std::pair(cuda::std::array<CollisionRigid, 8>(), 0);
+    return cuda::std::pair(cuda::std::array<Contact, 8>(), 0);
   }
 }
 
@@ -131,11 +128,11 @@ bool ShapeCuboid::broadphaseShapeCuboid(const Eigen::Matrix4f E1,
   return d <= 1.5 * (r1 + r2);
 }
 
-cuda::std::pair<cuda::std::array<CollisionRigid, 8>, size_t>
+cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
 ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
                                     const ShapeCuboid &other,
                                     const Eigen::Matrix4f E2) const {
-  cuda::std::array<CollisionRigid, 8> cdata{};
+  cuda::std::array<Contact, 8> cdata{};
   const Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
   const Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
   const Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
@@ -150,9 +147,6 @@ ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
       -R2.transpose() * nw; // negate since nw is defined wrt body 1
   for (size_t i = 0; i < collisions.count && i < 8; i++) {
     const Eigen::Vector3f xw = collisions.positions[i];
-    const float d =
-        -collisions.depths[i]; // odeBoxBox returns positive depth for hits
-                               // Compute local point on body 1 with ray casting
     Eigen::Vector3f x1 = R1.transpose() * (xw - p1);
     const float t1 = this->raycast(x1, n1);
 
@@ -164,7 +158,7 @@ ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
     const float t2 = other.raycast(x2, n2);
     x2 = x2 - t2 * n2; // negate since smits_mul returns negative t for rays
                        // starting inside the box
-    cdata[i] = CollisionRigid{.d = d, .xw = xw, .nw = nw, .x1 = x1, .x2 = x2};
+    cdata[i] = Contact{.nw = nw, .x1 = x1, .x2 = x2};
   }
   return cuda::std::pair(cdata, collisions.count);
 }
@@ -175,12 +169,12 @@ float ShapeCuboid::raycast(Eigen::Vector3f x, Eigen::Vector3f n) const {
   const Eigen::Vector3f bmin = -bmax;
   x = (1 - thresh) * x; // make the point go slightly inside the box
   n = -n;               // negate ray since it starts inside the box
-  jgt_float::ray r;
+  jgt_float::ray r{0};
   jgt_float::make_ray(x(0), x(1), x(2), n(0), n(1), n(2), &r);
-  jgt_float::aabox a;
+  jgt_float::aabox a{0};
   jgt_float::make_aabox(bmin(0), bmin(1), bmin(2), bmax(0), bmax(1), bmax(2),
                         &a);
-  float t;
+  float t = 0;
   const bool _hit = jgt_float::smits_mul(&r, &a, &t);
   return t;
 }

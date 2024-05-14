@@ -1,5 +1,6 @@
 #pragma once
 #include "apbd/Body.h"
+#include "apbd/Contact.h"
 #include "data/utilities.h"
 #include "se3/lib.h"
 #include "util.h"
@@ -7,17 +8,15 @@
 namespace apbd {
 
 // Aliases used to prevent errors when expanding macros using types with commas
-using GroundNarrowphaseReturn =
-    cuda::std::pair<cuda::std::array<CollisionGround, 8>, size_t>;
-using NarrowphaseReturn =
-    cuda::std::pair<cuda::std::array<CollisionRigid, 8>, size_t>;
+using NarrowphaseReturn = cuda::std::pair<cuda::std::array<Contact, 8>, size_t>;
 
 /**
  * Defines a function for the BodyReference that calls the implementations on
  * the underlying type
  */
-#define IMPLEMENT_DELEGATED_FUNCTION(signature, call)                          \
+#define IMPLEMENT_DELEGATED_BODY_FUNCTION(signature, call)                     \
   signature {                                                                  \
+    /* printf("thisbody: %u %u", index, type);*/                               \
     DEBUG_ASSERT(type != BODY_INVALID, "recieved invalid body!");              \
     switch (type) {                                                            \
     case BODY_RIGID: {                                                         \
@@ -41,29 +40,12 @@ public:
 
   __host__ __device__ vec7 x() const;
   __host__ __device__ void x(const vec7 new_val);
-  __host__ __device__ vec7 xdotInit() const;
-  __host__ __device__ void xdotInit(const vec7 new_val);
   __host__ __device__ Eigen::Vector3f position() const;
   __host__ __device__ void position(const Eigen::Vector3f new_val);
   __host__ __device__ Eigen::Quaternionf rotation() const;
   __host__ __device__ void rotation(const Eigen::Quaternionf new_val);
   __host__ __device__ vec7 x0() const;
   __host__ __device__ void x0(const vec7 new_val);
-  __host__ __device__ vec7 x1() const;
-  __host__ __device__ void x1(const vec7 new_val);
-  __host__ __device__ void x1(const Eigen::Vector4f new_q,
-                              const Eigen::Vector3f new_p);
-  __host__ __device__ Eigen::Quaternionf x1_0_rot() const;
-  __host__ __device__ void x1_0_rot(const Eigen::Vector4f new_val);
-  __host__ __device__ void x1_0_rot(const Eigen::Quaternionf new_val);
-  __host__ __device__ vec7 dxJacobi() const;
-  __host__ __device__ void dxJacobi(vec7 new_val);
-  __host__ __device__ void dxJacobi(const Eigen::Vector4f new_q,
-                                    const Eigen::Vector3f new_p);
-  __host__ __device__ vec7 dxJacobiShock() const;
-  __host__ __device__ void dxJacobiShock(vec7 new_val);
-  __host__ __device__ void dxJacobiShock(const Eigen::Vector4f new_q,
-                                         const Eigen::Vector3f new_p);
   __host__ __device__ Eigen::Vector3f Mr() const;
   __host__ __device__ void Mr(const Eigen::Vector3f new_val);
   __host__ __device__ float Mp() const;
@@ -98,17 +80,13 @@ public:
 
   __host__ __device__ void clearShock();
 
-  __host__ __device__ void applyJacobiShock();
-
-  __host__ __device__ void regularize();
-
   __host__ __device__ void setInitTransform(const Eigen::Matrix4f transform);
 
   __host__ __device__ void
   setInitVelocity(const Eigen::Matrix<float, 6, 1> velocity);
 
   __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E) const;
-  __host__ __device__ GroundNarrowphaseReturn
+  __host__ __device__ NarrowphaseReturn
   narrowphaseGround(const Eigen::Matrix4f E) const;
   __host__ __device__ bool
   broadphaseRigid(const BodyRigidReference other) const;
@@ -124,12 +102,9 @@ public:
 
   __host__ __device__ Eigen::Vector3f computePointVel(const Eigen::Vector3f xl,
                                                       const float hs) const;
-  __host__ __device__ void applyJacobi();
-  __host__ __device__ void clearJacobi();
   __host__ __device__ void write_state();
 
   __host__ __device__ void updateStates(float hs);
-  __host__ __device__ void applyVelJacobi();
   __host__ __device__ void integrateStates();
   __host__ __device__ Eigen::Vector3f transformPoint(Eigen::Vector3f xl);
 };
@@ -169,56 +144,80 @@ public:
     return BodyAffineReference(/*TODO*/);
   }
 
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ bool collide() const,
-                               data.collide());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ unsigned int layer() const,
-                               data.layer());
-  IMPLEMENT_DELEGATED_FUNCTION(
+  __host__ __device__ bool operator==(const BodyReference &other) const {
+    return this->index == other.index && this->type == other.type;
+  }
+
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ bool collide() const,
+                                    data.collide());
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ unsigned int layer()
+                                        const,
+                                    data.layer());
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
       __host__ __device__ void layer(unsigned int new_val),
       data.layer(new_val));
-  IMPLEMENT_DELEGATED_FUNCTION(
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
       __host__ __device__ void stepBDF1(const float hs,
                                         const Eigen::Vector3f gravity),
       data.stepBDF1(hs, gravity));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void clearShock(),
-                               data.clearShock());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void clearJacobi(),
-                               data.clearJacobi());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void applyJacobiShock(),
-                               data.applyJacobiShock());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void regularize(),
-                               data.regularize());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void setInitTransform(
-                                   const Eigen::Matrix4f transform),
-                               data.setInitTransform(transform));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void setInitVelocity(
-                                   Eigen::Matrix<float, 6, 1> velocity),
-                               data.setInitVelocity(velocity));
-  IMPLEMENT_DELEGATED_FUNCTION(
+  /**
+   * Unsets the body's layer
+   */
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void clearShock(),
+                                    data.clearShock());
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void setInitTransform(
+                                        const Eigen::Matrix4f transform),
+                                    data.setInitTransform(transform));
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void setInitVelocity(
+                                        Eigen::Matrix<float, 6, 1> velocity),
+                                    data.setInitVelocity(velocity));
+
+  /**
+   * Returns whether this body might be intersecting the ground.
+   */
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
       __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E),
       data.broadphaseGround(E));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ GroundNarrowphaseReturn
-                                   narrowphaseGround(const Eigen::Matrix4f E),
-                               data.narrowphaseGround(E));
+  /**
+   * Calculates collisions with the ground
+   */
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
+      __host__ __device__ NarrowphaseReturn
+          narrowphaseGround(const Eigen::Matrix4f E),
+      data.narrowphaseGround(E));
+  /**
+   * Returns whether this body might be intersecting the other body.
+   */
   // TODO: handle other body types
-  IMPLEMENT_DELEGATED_FUNCTION(
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
       __host__ __device__ bool broadphaseRigid(const BodyReference other),
       data.broadphaseRigid(other.get_rigid()));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ NarrowphaseReturn
-                                   narrowphaseRigid(const BodyReference other),
-                               data.narrowphaseRigid(other.get_rigid()));
+  /**
+   * Calculates collisions with the other body
+   */
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
+      __host__ __device__ NarrowphaseReturn
+          narrowphaseRigid(const BodyReference other),
+      data.narrowphaseRigid(other.get_rigid()));
 
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__
-                                   Eigen::Matrix4f computeTransform(),
-                               data.computeTransform());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void write_state(),
-                               data.write_state());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void updateStates(float hs),
-                               data.updateStates(hs));
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void applyVelJacobi(),
-                               data.applyVelJacobi());
-  IMPLEMENT_DELEGATED_FUNCTION(__host__ __device__ void integrateStates(),
-                               data.integrateStates());
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__
+                                        Eigen::Matrix4f computeTransform(),
+                                    data.computeTransform());
+  /**
+   * Writes the state of this object out to stdout for visualization. Uses the
+   * format:
+   * ```
+   * {x} {y} {z} r {q.x} {q.y} {q.z} {q.w}
+   * ```
+   */
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void write_state(),
+                                    data.write_state());
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(
+      __host__ __device__ void updateStates(float hs), data.updateStates(hs));
+  IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void integrateStates(),
+                                    data.integrateStates());
 };
+
+#define NULL_BODY BodyReference(0, BODY_INVALID);
 
 } // namespace apbd
