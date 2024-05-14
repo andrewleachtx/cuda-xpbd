@@ -178,6 +178,12 @@ inline void BodyRigidReference::setInitTransform(const Eigen::Matrix4f E) {
   this->position(E.block<3, 1>(0, 3));
 }
 
+inline void
+BodyRigidReference::setInitVelocity(const Eigen::Matrix<float, 6, 1> velocity) {
+  this->v(velocity.block<3, 1>(3, 0));
+  this->w(velocity.block<3, 1>(0, 0));
+}
+
 inline void BodyRigidReference::updateStates(float hs) {
   const Eigen::Vector4f q = this->x0().block<4, 1>(0, 0);
   auto R = Eigen::Quaternionf(q).matrix();

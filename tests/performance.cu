@@ -1,3 +1,4 @@
+#include "apbd/BodyReference_impl.h"
 #include "model_samples.h"
 #include <exception>
 #include <getopt.h>
@@ -40,6 +41,9 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
   //                                         0);
   //   body.setInitTransform(E);
   // }
+  if (model.body_count > 1)
+    model.bodies[1].setInitVelocity(
+        Eigen::Matrix<float, 6, 1>(0, 0, 0, float(scene_id % 1000), 0, 0));
   apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
 
   // create a thread-local collider
