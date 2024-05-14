@@ -190,7 +190,7 @@ inline void BodyRigidReference::updateStates(float hs) {
   Eigen::Matrix3f invsqrtI = R * diag * R.transpose();
   Eigen::Vector3f angularMotionVel = invsqrtI * this->w();
   float wNorm = angularMotionVel.norm();
-  if (wNorm > 0) {
+  if (wNorm > 1e-9) {
     float halfWDt = 0.5 * wNorm * hs;
     Eigen::Vector3f dqvec = angularMotionVel * sin(halfWDt) / wNorm;
     Eigen::Quaternionf dq(0.0, dqvec(0), dqvec(1), dqvec(2));

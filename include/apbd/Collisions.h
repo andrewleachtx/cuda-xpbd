@@ -33,7 +33,7 @@ struct Collision {
                                           size_t &rigid_count);
 
   __host__ __device__ void solveCollisionNor(float hs, float biasCoeff,
-                                             bool withSP);
+                                             float minpenetration, bool withSP);
 
   __host__ __device__ void solveCollisionTan(float hs, float biasCoeff,
                                              bool withSP);

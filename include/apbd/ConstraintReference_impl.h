@@ -118,7 +118,8 @@ void ConstraintGroundReference::init() {
   this->angDelta1(angDelta1);
 }
 
-void ConstraintGroundReference::solveNorPos(float hs, float biasCoef) {
+void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
+                                            float minpenetration) {
   // cached values
   Eigen::Vector3f nw = this->nw();
   auto body = this->body();
@@ -136,6 +137,7 @@ void ConstraintGroundReference::solveNorPos(float hs, float biasCoef) {
   float sep = float(nw.transpose() * body.deltaLinDt()) +
               float(raXnI1_0.transpose() * body.deltaAngDt()) +
               float(nw.transpose() * this->d());
+  sep = max(minpenetration, sep);
   float bias = sep * biasCoefficient;
 
   Eigen::Vector3f normalVel =
@@ -285,6 +287,7 @@ void ConstraintRigidReference::init() {
 }
 
 void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
+                                           float minpenetration,
                                            bool doShockProp) {
   // read and cache data to prevent unnecessary reads
   Eigen::Vector3f nw = this->nw();
@@ -306,6 +309,7 @@ void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
     sep -= float(nw.transpose() * body2.deltaLinDt()) +
            float(this->raXnI2().block<3, 1>(0, 0).transpose() *
                  body2.deltaAngDt());
+    sep = max(minpenetration, sep);
     float bias = sep * biasCoefficient;
 
     Eigen::Vector3f normalVel =
@@ -327,10 +331,16 @@ void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
     body2.v(body2.v() - dlambdaNor * this->delLinVel2().block<3, 1>(0, 0));
     body2.w(body2.w() - dlambdaNor * this->raXnI2().block<3, 1>(0, 0));
   } else {
+    float sep = float(nw.transpose() * body1.deltaLinDt()) +
+                float(this->raXnI1().block<3, 1>(0, 0).transpose() *
+                      body1.deltaAngDt()) +
+                float(nw.transpose() * this->d());
+    sep = max(minpenetration, sep);
+    float bias = sep * biasCoefficient;
     Eigen::Vector3f normalVel =
         nw.array() * body1.v().array() +
         body1.w().array() * this->raXnI1().block<3, 1>(0, 0).array();
-    float dlambdaNor = -normalVel.sum() / this->w1()(0);
+    float dlambdaNor = bias / this->w1()(0) - normalVel.sum() / this->w1()(0);
     float nplambda = lambda(0) + dlambdaNor;
     if (nplambda < 0) {
       dlambdaNor = -lambda(0);
@@ -402,10 +412,18 @@ void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
   } else {
     Eigen::Vector2f dlambdaTan = Eigen::Vector2f::Zero();
     for (unsigned int i = 1; i < 3; i++) {
+      float sep =
+          float(this->contactFrame().block<3, 1>(0, i).transpose() *
+                body1.deltaLinDt()) +
+          float(this->raXnI1().block<3, 1>(0, i).transpose() *
+                body1.deltaAngDt()) +
+          float(this->contactFrame().block<3, 1>(0, i).transpose() * this->d());
+      float bias = sep * biasCoefficient;
       Eigen::Vector3f normalVel =
           this->contactFrame().block<3, 1>(0, i).array() * body1.v().array() +
           body1.w().array() * this->raXnI1().block<3, 1>(0, i).array();
-      dlambdaTan(i - 1) = -normalVel.sum() / this->w1()(0) * 0.8;
+      dlambdaTan(i - 1) =
+          (bias / this->w1()(i)) - normalVel.sum() / this->w1()(i) * 0.8;
     }
     Eigen::Vector3f dlambdas(0, dlambdaTan(0), dlambdaTan(1));
     Eigen::Vector3f lambdas = lambda + dlambdas;

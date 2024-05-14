@@ -179,7 +179,10 @@ void Collider::broadphase(Model *model) {
 void Collider::narrowphase(Model *model) {
   auto &Eg = model->ground_E;
 
-  for (size_t i = 0; i < this->bp_count_1; i++) {
+  unsigned int old_bp_count = this->bp_count_1;
+  this->bp_count_1 = 0;
+
+  for (size_t i = 0; i < old_bp_count; i++) {
     auto body = this->bpList1[i];
     auto body_index = body.index;
     if (this->collisions[body_index].broken) {
@@ -190,10 +193,14 @@ void Collider::narrowphase(Model *model) {
       this->collisions[body_index].broken = false;
       this->collisions[body_index].getConstraints(this->ground_constraint_count,
                                                   this->rigid_constraint_count);
+      // we overwrite the old list to help the constriaint construction func
+      // this will never overwrite data we care about, since we are at most
+      // staying just behind i
+      this->bpList1[this->bp_count_1++] = body;
     }
   }
 
-  unsigned int old_bp_count = this->bp_count_2;
+  old_bp_count = this->bp_count_2;
   this->bp_count_2 = 0;
 
   for (size_t i = 0; i < old_bp_count; i += 2) {
@@ -217,9 +224,6 @@ void Collider::narrowphase(Model *model) {
       collision.broken = false;
       collision.getConstraints(this->ground_constraint_count,
                                this->rigid_constraint_count);
-      // we overwrite the old list to help the constriaint construction func
-      // this will never overwrite data we care about, since we are at most
-      // staying just behind i
       this->bpList2[this->bp_count_2++] = body1;
       this->bpList2[this->bp_count_2++] = body2;
     }

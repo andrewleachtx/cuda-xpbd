@@ -164,7 +164,7 @@ ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
 }
 
 float ShapeCuboid::raycast(Eigen::Vector3f x, Eigen::Vector3f n) const {
-  const float thresh = 1e-6;
+  const float thresh = 1e-9;
   const Eigen::Vector3f bmax = 0.5 * this->sides;
   const Eigen::Vector3f bmin = -bmax;
   x = (1 - thresh) * x; // make the point go slightly inside the box

@@ -119,6 +119,8 @@ void Model::solveConTGS(Collider *collider, float hs) {
   this->stepBDF1(this->h);
   collider->run(this);
   float biasCoefficient = 2 * sqrt(hs / this->h);
+  // 1e20 is used instead of oo for maximum hardware compatibilty/predictability
+  const float Inf = 1e20;
 
   // We solve contstraints in the layer order. The exact layer sizes don't
   // matter at this step, so we don't bother walking through each layer
@@ -131,7 +133,7 @@ void Model::solveConTGS(Collider *collider, float hs) {
   for (size_t i = 0; i < collider->active_collision_count; i++) {
     for (unsigned int j = 0; j < this->forward_iters; j++) {
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, true);
+          hs, biasCoefficient, -Inf, true);
     }
   }
 
@@ -140,9 +142,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
   for (long int i = collider->active_collision_count - 1; i >= 0; i--) {
     for (unsigned int j = 0; j < this->reverse_iters; j++) {
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, true);
+          hs, biasCoefficient, -Inf, true);
     }
     collider->collisions[collider->activeCollisions[i]].applyLambdaSP();
+  }
+
+  for (size_t i = 0; i < this->body_count; i++) {
+    this->bodies[i].updateStates(hs);
   }
 
   unsigned int ks = 0;
@@ -161,7 +167,7 @@ void Model::solveConTGS(Collider *collider, float hs) {
     // Gauss-Seidel for collisions
     for (size_t i = 0; i < collider->active_collision_count; i++) {
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, false);
+          hs, biasCoefficient, -Inf, false);
       collider->collisions[collider->activeCollisions[i]].solveCollisionTan(
           hs, biasCoefficient, false);
     }
@@ -174,7 +180,7 @@ void Model::solveConTGS(Collider *collider, float hs) {
 
   for (size_t i = 0; i < collider->active_collision_count; i++) {
     collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-        hs, biasCoefficient, false);
+        hs, biasCoefficient, 0, false);
     collider->collisions[collider->activeCollisions[i]].solveCollisionTan(
         hs, biasCoefficient, false);
   }

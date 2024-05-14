@@ -30,12 +30,15 @@ void Collision::getConstraints(size_t &ground_count, size_t &rigid_count) {
   }
 }
 
-void Collision::solveCollisionNor(float hs, float biasCoeff, bool withSP) {
+void Collision::solveCollisionNor(float hs, float biasCoeff,
+                                  float minpenetration, bool withSP) {
   for (unsigned int i = 0; i < this->contactNum; i++) {
     if (this->is_ground()) {
-      this->constraints[i].get_ground().solveNorPos(hs, biasCoeff);
+      this->constraints[i].get_ground().solveNorPos(hs, biasCoeff,
+                                                    minpenetration);
     } else {
-      this->constraints[i].get_rigid().solveNorPos(hs, biasCoeff, withSP);
+      this->constraints[i].get_rigid().solveNorPos(hs, biasCoeff,
+                                                   minpenetration, withSP);
     }
   }
 }

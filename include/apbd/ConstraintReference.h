@@ -48,7 +48,8 @@ public:
   // functions on the constraint type
   __host__ __device__ void applyLambdaSP();
   __host__ __device__ void init();
-  __host__ __device__ void solveNorPos(float hs, float biasCoef);
+  __host__ __device__ void solveNorPos(float hs, float biasCoef,
+                                       float minpenetration);
   __host__ __device__ void solveTanVel(float hs, float biasCoef);
 };
 
@@ -99,7 +100,7 @@ public:
   __host__ __device__ void applyLambdaSP();
   __host__ __device__ void init();
   __host__ __device__ void solveNorPos(float hs, float biasCoef,
-                                       bool doShockProp);
+                                       float minpenetration, bool doShockProp);
   __host__ __device__ void solveTanVel(float hs, float biasCoef,
                                        bool doShockProp);
 };
