@@ -25,7 +25,7 @@ echo -e "scene count\t$version simulation time\t$version total time"
 for sim_count in {10..82}
   do
     sim_count=$(calc 'int(2^('$sim_count'/5))' | awk '{print $1}')
-    ./build/$version/tests/performance -m 7 -s $sim_count \
+    ./build/$version/tests/performance -m 7 -s $sim_count -v \
       | grep "Kernel took:" \
       | awk '{printf("'$sim_count',%s,%s\n",$4,$7)}' \
       | tee -a $file | awk -F ',' '{print $1,"\t",$2,"\t",$3}' \
