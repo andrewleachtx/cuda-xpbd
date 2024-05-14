@@ -6,7 +6,7 @@ namespace apbd {
 
 Collider::Collider(Model *model)
     : bp_cap_1(model->body_count),
-      bp_cap_2(model->body_count * (model->body_count + 1) / 2), bp_count_1(0),
+      bp_cap_2(model->body_count * (model->body_count - 1)), bp_count_1(0),
       bp_count_2(0), bpList1(nullptr), bpList2(nullptr),
       collision_cap(model->body_count * (model->body_count + 1) / 2),
       ground_constraint_count(0), rigid_constraint_count(0),
@@ -38,7 +38,7 @@ Collider::Collider(Model *model, size_t scene_id,
                    BodyReference *body_ptr_buffer, Collision *collision_buffer,
                    unsigned int *active_collision_buffer)
     : bp_cap_1(model->body_count),
-      bp_cap_2(model->body_count * (model->body_count + 1) / 2), bp_count_1(0),
+      bp_cap_2(model->body_count * (model->body_count - 1)), bp_count_1(0),
       bp_count_2(0), bpList1(nullptr), bpList2(nullptr),
       collision_cap(model->body_count * (model->body_count + 1) / 2),
       ground_constraint_count(0), rigid_constraint_count(0),
@@ -70,9 +70,9 @@ void Collider::allocate_buffers(Model &model, int sim_count,
                                 Collision *&collision_buffer,
                                 unsigned int *&active_collision_buffer) {
   // bpList1 - 1 x body_count
-  // bpList2 - body_count * (body_count + 1) / 2
+  // bpList2 - body_count * (body_count - 1) / 2 * 2
   body_ptr_buffer = alloc_device<BodyReference>(
-      (model.body_count * (model.body_count + 1) / 2 + model.body_count) *
+      (model.body_count * (model.body_count - 1) + model.body_count) *
       sim_count);
   collision_buffer = alloc_device<Collision>(
       model.body_count * (model.body_count + 1) / 2 * sim_count);
@@ -126,7 +126,7 @@ void Collider::constructCollisionOrder(Model *model) {
             model->get_collision_index(body1, body2);
         layer_size++;
       }
-      if (body1.layer() == layer && body2.layer() > layer + 1) {
+      if (body1.layer() == layer && body2.layer() > layer) {
         body2.layer(layer + 1);
         DEBUG_ASSERT(this->active_collision_count < this->collision_cap,
                      "Active collisions overflowing (likely duplicates)!");
@@ -135,7 +135,7 @@ void Collider::constructCollisionOrder(Model *model) {
         layer_size++;
       }
       // vice-versa
-      if (body2.layer() == layer && body1.layer() > layer + 1) {
+      if (body2.layer() == layer && body1.layer() > layer) {
         body1.layer(layer + 1);
         DEBUG_ASSERT(this->active_collision_count < this->collision_cap,
                      "Active collisions overflowing (likely duplicates)!");
@@ -165,7 +165,7 @@ void Collider::broadphase(Model *model) {
       for (size_t j = i + 1; j < model->body_count; j++) {
         if (bodies[j].collide()) {
           if (body.broadphaseRigid(bodies[j])) {
-            DEBUG_ASSERT(this->bp_count_2 < this->bp_cap_2 + 1,
+            DEBUG_ASSERT(this->bp_count_2 + 1 < this->bp_cap_2,
                          "bpList2 overflowing!");
             this->bpList2[this->bp_count_2++] = body;
             this->bpList2[this->bp_count_2++] = bodies[j];
@@ -211,6 +211,8 @@ void Collider::narrowphase(Model *model) {
     if (collision.broken) {
       // we need to ensure that the bodies are in the same order as the
       // collision expects
+      // TODO: one of these branches is already guaranteed by the construction
+      // in broadphase
       if (body1.index < body2.index) {
         auto cdata = body1.narrowphaseRigid(body2);
         collision.setContacts(cdata);

@@ -209,7 +209,7 @@ void Model::write_state(unsigned int step) {
     printf("Step %d\n", step);
   for (size_t i = 0; i < body_count * 8; i++) {
     if (i / body_count != _thread_scene_id) {
-      std::this_thread::sleep_for(10ms);
+      // std::this_thread::sleep_for(10ms);
       continue;
     }
     printf("%lu ", i);
