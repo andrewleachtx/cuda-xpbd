@@ -74,7 +74,7 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintRigidReference,
 IMPLEMENT_ACCESS_FUNCTIONS(Collision *, ConstraintRigidReference,
                            ConstraintRigid, collision)
 
-void ConstraintGroundReference::init() {
+inline void ConstraintGroundReference::init() {
   // cached values
   Eigen::Vector3f nw = this->nw();
   auto body = this->body();
@@ -118,8 +118,8 @@ void ConstraintGroundReference::init() {
   this->angDelta1(angDelta1);
 }
 
-void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
-                                            float minpenetration) {
+inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
+                                                   float minpenetration) {
   // cached values
   Eigen::Vector3f nw = this->nw();
   auto body = this->body();
@@ -154,7 +154,7 @@ void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
   this->lambda(lambda);
 }
 
-void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
+inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
   // cached values
   Eigen::Vector3f nw = this->nw();
   auto body = this->body();
@@ -196,14 +196,14 @@ void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
   this->lambda(lambda);
 }
 
-void ConstraintGroundReference::applyLambdaSP() {}
+inline void ConstraintGroundReference::applyLambdaSP() {}
 
-void ConstraintRigidReference::applyLambdaSP() {
+inline void ConstraintRigidReference::applyLambdaSP() {
   this->body2().v(this->body2().v() - this->delLinVel2() * this->dlambdaSP());
   this->body2().w(this->body2().w() - this->raXnI2() * this->dlambdaSP());
 }
 
-void ConstraintRigidReference::init() {
+inline void ConstraintRigidReference::init() {
   // Contact normal always points from body2 to body1
   // TODO: might be redundant??
   if (this->body1().layer() < this->body2().layer()) {
@@ -286,9 +286,9 @@ void ConstraintRigidReference::init() {
   this->contactFrame(contactFrame);
 }
 
-void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
-                                           float minpenetration,
-                                           bool doShockProp) {
+inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
+                                                  float minpenetration,
+                                                  bool doShockProp) {
   // read and cache data to prevent unnecessary reads
   Eigen::Vector3f nw = this->nw();
   auto body1 = this->body1();
@@ -357,8 +357,8 @@ void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
   this->lambda(lambda);
 }
 
-void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
-                                           bool doShockProp) {
+inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
+                                                  bool doShockProp) {
   // read and cache data to prevent unnecessary reads
   Eigen::Vector3f nw = this->nw();
   auto body1 = this->body1();

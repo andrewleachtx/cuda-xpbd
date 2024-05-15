@@ -1,4 +1,5 @@
 #include "apbd/BodyReference_impl.h"
+#include "apbd/Collisions_impl.h"
 #include "apbd/Model.h"
 #include "util.h"
 #include <chrono>

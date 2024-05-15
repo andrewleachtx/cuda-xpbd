@@ -1,5 +1,6 @@
 #include "apbd/BodyReference_impl.h"
 #include "apbd/Collider.h"
+#include "apbd/Collisions_impl.h"
 #include "util.h"
 
 namespace apbd {
