@@ -1,10 +1,9 @@
 #pragma once
-#include "data/soa.h"
 #include "util.h"
 
 namespace apbd {
 
-#define DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(data_type, element)                \
+#define DECLARE_COLLISION_ACCESS_FUNCTIONS(data_type, element)                 \
   __host__ __device__ data_type element() const;                               \
   __host__ __device__ void element(data_type const new_val);
 
@@ -26,21 +25,15 @@ public:
   // access the data elements in Collision
 
   /// Number of contacts that exist
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(unsigned int, contactNum)
+  DECLARE_COLLISION_ACCESS_FUNCTIONS(unsigned int, contactNum)
   /// Indicates whether this collision has been broken;
   /// i.e. the two bodies are no longer colliding
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(bool, broken)
+  DECLARE_COLLISION_ACCESS_FUNCTIONS(bool, broken)
   /// The first body in the collision
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(BodyReference, body1)
+  DECLARE_COLLISION_ACCESS_FUNCTIONS(BodyReference, body1)
   /// The second body in the collision. If this is null, this is a ground
   /// collision.
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(BodyReference, body2)
+  DECLARE_COLLISION_ACCESS_FUNCTIONS(BodyReference, body2)
 };
-
-IMPLEMENT_ACCESS_FUNCTIONS(unsigned int, CollisionReference, Collision,
-                           contactNum)
-IMPLEMENT_ACCESS_FUNCTIONS(bool, CollisionReference, Collision, broken)
-IMPLEMENT_ACCESS_FUNCTIONS(BodyReference, CollisionReference, Collision, body1)
-IMPLEMENT_ACCESS_FUNCTIONS(BodyReference, CollisionReference, Collision, body2)
 
 } // namespace apbd

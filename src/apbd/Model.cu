@@ -1,4 +1,5 @@
 #include "apbd/BodyReference_impl.h"
+#include "apbd/CollisionReference_impl.h"
 #include "apbd/Collisions_impl.h"
 #include "apbd/Model.h"
 #include "util.h"
@@ -130,23 +131,26 @@ void Model::solveConTGS(Collider *collider, float hs) {
 
   // Shock propagation
   for (size_t i = 0; i < collider->active_collision_count; i++) {
-    collider->collisions[collider->activeCollisions[i]].initConstraints();
+    CollisionReference clr(collider->activeCollisions[i]);
+    collider->collisions[collider->activeCollisions[i]].initConstraints(clr);
   }
   for (size_t i = 0; i < collider->active_collision_count; i++) {
+    CollisionReference clr(collider->activeCollisions[i]);
     for (unsigned int j = 0; j < this->forward_iters; j++) {
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, -Inf, true);
+          clr, hs, biasCoefficient, -Inf, true);
     }
   }
 
   // work backward now
   // order within layers might matter, but this is much simpler
   for (long int i = collider->active_collision_count - 1; i >= 0; i--) {
+    CollisionReference clr(collider->activeCollisions[i]);
     for (unsigned int j = 0; j < this->reverse_iters; j++) {
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, -Inf, true);
+          clr, hs, biasCoefficient, -Inf, true);
     }
-    collider->collisions[collider->activeCollisions[i]].applyLambdaSP();
+    collider->collisions[collider->activeCollisions[i]].applyLambdaSP(clr);
   }
 
   for (size_t i = 0; i < this->body_count; i++) {
@@ -168,10 +172,11 @@ void Model::solveConTGS(Collider *collider, float hs) {
 
     // Gauss-Seidel for collisions
     for (size_t i = 0; i < collider->active_collision_count; i++) {
+      CollisionReference clr(collider->activeCollisions[i]);
       collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-          hs, biasCoefficient, -Inf, false);
+          clr, hs, biasCoefficient, -Inf, false);
       collider->collisions[collider->activeCollisions[i]].solveCollisionTan(
-          hs, biasCoefficient, false);
+          clr, hs, biasCoefficient, false);
     }
 
     for (size_t i = 0; i < this->body_count; i++) {
@@ -181,10 +186,11 @@ void Model::solveConTGS(Collider *collider, float hs) {
   }
 
   for (size_t i = 0; i < collider->active_collision_count; i++) {
+    CollisionReference clr(collider->activeCollisions[i]);
     collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
-        hs, biasCoefficient, 0, false);
+        clr, hs, biasCoefficient, 0, false);
     collider->collisions[collider->activeCollisions[i]].solveCollisionTan(
-        hs, biasCoefficient, false);
+        clr, hs, biasCoefficient, false);
   }
 
   for (size_t i = 0; i < this->body_count; i++) {

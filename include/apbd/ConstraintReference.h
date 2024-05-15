@@ -1,5 +1,6 @@
 #pragma once
 #include "apbd/BodyReference.h"
+#include "apbd/CollisionReference.h"
 #include "data/utilities.h"
 #include "util.h"
 
@@ -19,7 +20,7 @@ public:
       : index(data::soa_index(index)) {}
 
   __host__ __device__ void create(BodyRigidReference body, Contact c,
-                                  Collision *collision) {
+                                  CollisionReference collision) {
     this->body(body);
     this->nw(c.nw);
     this->xl(c.x1);
@@ -43,7 +44,7 @@ public:
   DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, angDelta1)
   DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, raXnI1)
 
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Collision *, collision)
+  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(CollisionReference, collision)
 
   // functions on the constraint type
   __host__ __device__ void applyLambdaSP();
@@ -62,7 +63,7 @@ public:
 
   __host__ __device__ void create(BodyRigidReference body1,
                                   BodyRigidReference body2, Contact c,
-                                  Collision *collision) {
+                                  CollisionReference collision) {
     this->body1(body1);
     this->body2(body2);
     this->nw(c.nw);
@@ -94,7 +95,7 @@ public:
   DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, angDelta2)
   DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, raXnI2)
 
-  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Collision *, collision)
+  DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(CollisionReference, collision)
 
   // functions on the constraint type
   __host__ __device__ void applyLambdaSP();

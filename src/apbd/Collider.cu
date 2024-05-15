@@ -1,5 +1,6 @@
 #include "apbd/BodyReference_impl.h"
 #include "apbd/Collider.h"
+#include "apbd/CollisionReference_impl.h"
 #include "apbd/Collisions_impl.h"
 #include "util.h"
 
@@ -20,19 +21,19 @@ Collider::Collider(Model *model)
   // initialize collisions
   unsigned int N = model->body_count;
   for (unsigned int x = 0; x < N; x++) {
-    this->collisions[x].data = CollisionReference(x);
-    this->collisions[x].data.body1(model->bodies[x]);
-    this->collisions[x].data.body2(NULL_BODY);
-    this->collisions[x].data.broken(true);
-    this->collisions[x].data.contactNum(0);
+    CollisionReference clr = CollisionReference(x);
+    clr.body1(model->bodies[x]);
+    clr.body2(NULL_BODY);
+    clr.broken(true);
+    clr.contactNum(0);
     for (unsigned int y = x + 1; y < N; y++) {
       auto index =
           model->get_collision_index(model->bodies[x], model->bodies[y]);
-      this->collisions[index].data = CollisionReference(index);
-      this->collisions[index].data.body1(model->bodies[x]);
-      this->collisions[index].data.body2(model->bodies[y]);
-      this->collisions[index].data.broken(true);
-      this->collisions[index].data.contactNum(0);
+      CollisionReference clr = CollisionReference(index);
+      clr.body1(model->bodies[x]);
+      clr.body2(model->bodies[y]);
+      clr.broken(true);
+      clr.contactNum(0);
     }
   }
 }
@@ -54,19 +55,19 @@ Collider::Collider(Model *model, size_t scene_id,
   // initialize collisions
   unsigned int N = model->body_count;
   for (unsigned int x = 0; x < N; x++) {
-    this->collisions[x].data = CollisionReference(x);
-    this->collisions[x].data.body1(model->bodies[x]);
-    this->collisions[x].data.body2(NULL_BODY);
-    this->collisions[x].data.broken(true);
-    this->collisions[x].data.contactNum(0);
+    CollisionReference clr = CollisionReference(x);
+    clr.body1(model->bodies[x]);
+    clr.body2(NULL_BODY);
+    clr.broken(true);
+    clr.contactNum(0);
     for (unsigned int y = x + 1; y < N; y++) {
       auto index =
           model->get_collision_index(model->bodies[x], model->bodies[y]);
-      this->collisions[index].data = CollisionReference(index);
-      this->collisions[index].data.body1(model->bodies[x]);
-      this->collisions[index].data.body2(model->bodies[y]);
-      this->collisions[index].data.broken(true);
-      this->collisions[index].data.contactNum(0);
+      CollisionReference clr = CollisionReference(index);
+      clr.body1(model->bodies[x]);
+      clr.body2(model->bodies[y]);
+      clr.broken(true);
+      clr.contactNum(0);
     }
   }
 }
@@ -190,14 +191,15 @@ void Collider::narrowphase(Model *model) {
   for (size_t i = 0; i < old_bp_count; i++) {
     auto body = this->bpList1[i];
     auto body_index = body.index;
-    if (this->collisions[body_index].data.broken()) {
+    CollisionReference clr(body_index);
+    if (clr.broken()) {
       auto cdata = body.narrowphaseGround(Eg);
-      this->collisions[body_index].setContacts(cdata);
+      this->collisions[body_index].setContacts(clr, cdata);
     }
-    if (this->collisions[body_index].data.contactNum() != 0) {
-      this->collisions[body_index].data.broken(false);
-      this->collisions[body_index].getConstraints(this->ground_constraint_count,
-                                                  this->rigid_constraint_count);
+    if (clr.contactNum() != 0) {
+      clr.broken(false);
+      this->collisions[body_index].getConstraints(
+          clr, this->ground_constraint_count, this->rigid_constraint_count);
       // we overwrite the old list to help the constriaint construction func
       // this will never overwrite data we care about, since we are at most
       // staying just behind i
@@ -213,23 +215,24 @@ void Collider::narrowphase(Model *model) {
     auto body2 = this->bpList2[i + 1];
     auto collision_index = model->get_collision_index(body1, body2);
     Collision &collision = this->collisions[collision_index];
-    if (collision.data.broken()) {
+    CollisionReference clr(collision_index);
+    if (clr.broken()) {
       // we need to ensure that the bodies are in the same order as the
       // collision expects
       // TODO: one of these branches is already guaranteed by the construction
       // in broadphase
       if (body1.index < body2.index) {
         auto cdata = body1.narrowphaseRigid(body2);
-        collision.setContacts(cdata);
+        collision.setContacts(clr, cdata);
       } else {
         auto cdata = body2.narrowphaseRigid(body1);
-        collision.setContacts(cdata);
+        collision.setContacts(clr, cdata);
       }
     }
 
-    if (collision.data.contactNum() != 0) {
-      collision.data.broken(false);
-      collision.getConstraints(this->ground_constraint_count,
+    if (clr.contactNum() != 0) {
+      clr.broken(false);
+      collision.getConstraints(clr, this->ground_constraint_count,
                                this->rigid_constraint_count);
       this->bpList2[this->bp_count_2++] = body1;
       this->bpList2[this->bp_count_2++] = body2;

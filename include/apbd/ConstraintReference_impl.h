@@ -30,7 +30,7 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintGroundReference,
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintGroundReference,
                            ConstraintGround, raXnI1)
 
-IMPLEMENT_ACCESS_FUNCTIONS(Collision *, ConstraintGroundReference,
+IMPLEMENT_ACCESS_FUNCTIONS(CollisionReference, ConstraintGroundReference,
                            ConstraintGround, collision)
 
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, ConstraintRigidReference,
@@ -71,7 +71,7 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintRigidReference,
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintRigidReference,
                            ConstraintRigid, raXnI2)
 
-IMPLEMENT_ACCESS_FUNCTIONS(Collision *, ConstraintRigidReference,
+IMPLEMENT_ACCESS_FUNCTIONS(CollisionReference, ConstraintRigidReference,
                            ConstraintRigid, collision)
 
 inline void ConstraintGroundReference::init() {
@@ -146,7 +146,7 @@ inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
   float nplambda = lambda(0) + dlambdaNor;
   if (nplambda < 0) {
     dlambdaNor = -lambda(0);
-    this->collision()->data.broken(true);
+    this->collision().broken(true);
   }
   lambda(0) = lambda(0) + dlambdaNor;
   body.v(body.v() + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
@@ -188,7 +188,7 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
     lambdas.block<2, 1>(1, 0) = frictionRadius * lambdas.block<2, 1>(1, 0) /
                                 lambdas.block<2, 1>(1, 0).norm();
     dlambdas = lambdas - lambda;
-    this->collision()->data.broken(true);
+    this->collision().broken(true);
   }
   lambda = lambda + dlambdas;
   body.v(body.v() + this->delLinVel1() * dlambdas);
@@ -323,7 +323,7 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
     float nplambda = lambda(0) + dlambdaNor;
     if (nplambda < 0) {
       dlambdaNor = -lambda(0);
-      this->collision()->data.broken(true);
+      this->collision().broken(true);
     }
     lambda(0) = lambda(0) + dlambdaNor;
     body1.v(body1.v() + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
@@ -344,7 +344,7 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
     float nplambda = lambda(0) + dlambdaNor;
     if (nplambda < 0) {
       dlambdaNor = -lambda(0);
-      this->collision()->data.broken(true);
+      this->collision().broken(true);
     }
     lambda(0) = lambda(0) + dlambdaNor;
     body1.v(body1.v() + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
@@ -402,7 +402,7 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
       lambdas.block<2, 1>(1, 0) = frictionRadius * lambdas.block<2, 1>(1, 0) /
                                   lambdas.block<2, 1>(1, 0).norm();
       dlambdas = lambdas - lambda;
-      this->collision()->data.broken(true);
+      this->collision().broken(true);
     }
     lambda = lambda + dlambdas;
     body1.v(body1.v() + this->delLinVel1() * dlambdas);
@@ -432,7 +432,7 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
       lambdas.block<2, 1>(1, 0) = frictionRadius * lambdas.block<2, 1>(1, 0) /
                                   lambdas.block<2, 1>(1, 0).norm();
       dlambdas = lambdas - lambda;
-      this->collision()->data.broken(true);
+      this->collision().broken(true);
     }
     lambda = lambda + dlambdas;
     body1.v(body1.v() + this->delLinVel1() * dlambdas);

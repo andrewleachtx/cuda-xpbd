@@ -1,6 +1,7 @@
 #pragma once
 #include "apbd/Body.h"
 #include "apbd/BodyReference.h"
+#include "apbd/CollisionReference.h"
 #include "apbd/Shape.h"
 #include "data/primitives.h"
 #include "data/utilities.h"
@@ -26,7 +27,7 @@ struct _SOAStoreConstraintGround {
   _SOAStoreMat3 angDelta1;
   _SOAStoreMat3 raXnI1;
 
-  _SOAStoreGeneric<apbd::Collision *> collision;
+  _SOAStoreGeneric<apbd::CollisionReference> collision;
 
   __host__ __device__ _SOAStoreConstraintGround() {}
   _SOAStoreConstraintGround(byte *data_store, size_t &offset, size_t count);
@@ -34,7 +35,7 @@ struct _SOAStoreConstraintGround {
   /// elements.
   static constexpr size_t size(size_t count) {
     return _SOAStoreMat3::size(count) * 4 + _SOAStoreVec3::size(count) * 6 +
-           _SOAStoreGeneric<apbd::Collision *>::size(count) +
+           _SOAStoreGeneric<apbd::CollisionReference>::size(count) +
            _SOAStoreGeneric<apbd::BodyRigidReference>::size(count);
   }
 };
@@ -61,7 +62,7 @@ struct _SOAStoreConstraintRigid {
   _SOAStoreMat3 angDelta2;
   _SOAStoreMat3 raXnI2;
 
-  _SOAStoreGeneric<apbd::Collision *> collision;
+  _SOAStoreGeneric<apbd::CollisionReference> collision;
 
   __host__ __device__ _SOAStoreConstraintRigid() {}
   _SOAStoreConstraintRigid(byte *data_store, size_t &offset, size_t count);
@@ -69,7 +70,7 @@ struct _SOAStoreConstraintRigid {
   /// elements.
   static constexpr size_t size(size_t count) {
     return _SOAStoreMat3::size(count) * 7 + _SOAStoreVec3::size(count) * 8 +
-           _SOAStoreGeneric<apbd::Collision *>::size(count) +
+           _SOAStoreGeneric<apbd::CollisionReference>::size(count) +
            _SOAStoreGeneric<apbd::BodyRigidReference>::size(count) * 2;
   }
 };
