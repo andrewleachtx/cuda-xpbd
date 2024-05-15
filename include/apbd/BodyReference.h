@@ -29,7 +29,7 @@ using NarrowphaseReturn = cuda::std::pair<cuda::std::array<Contact, 8>, size_t>;
     }                                                                          \
   }
 
-class BodyRigidReference {
+class alignas(8) BodyRigidReference {
 public:
   unsigned int index;
 
@@ -109,7 +109,7 @@ public:
   __host__ __device__ Eigen::Vector3f transformPoint(Eigen::Vector3f xl);
 };
 
-class BodyAffineReference { /* TODO */
+class alignas(8) BodyAffineReference { /* TODO */
 };
 
 /**
@@ -117,7 +117,7 @@ class BodyAffineReference { /* TODO */
  *
  * @see Body for the behavior of the Body object itself, which this implements.
  */
-class BodyReference {
+class alignas(8) BodyReference {
 public:
   // using 32 bit because it is large enough
   /// The index of the body within this thread's simulation.

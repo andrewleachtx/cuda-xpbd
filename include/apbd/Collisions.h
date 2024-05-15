@@ -9,7 +9,7 @@
 
 namespace apbd {
 
-struct Collision {
+struct alignas(16) Collision {
   CollisionReference data;
   /// A stored sequence of contacts between the bodies
   cuda::std::array<Contact, 8> contacts;

@@ -27,10 +27,10 @@ union _ShapeInner {
   ShapeCuboid cuboid;
 };
 
-class Shape {
+class alignas(16) Shape {
 public:
-  SHAPE_TYPE type;
   _ShapeInner data;
+  SHAPE_TYPE type;
 
   // TODO: handle other shapes
   __host__ __device__ Shape(const Shape &other)
