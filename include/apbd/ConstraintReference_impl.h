@@ -129,6 +129,8 @@ inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
   Eigen::Vector3f bodyw = body.w();
   Eigen::Vector3f d = this->d();
   float w1_0 = this->w1()(0);
+  Eigen::Vector3f raXnI1_0 = this->raXnI1().block<3, 1>(0, 0);
+  Eigen::Vector3f delLinVel1_0 = this->delLinVel1().block<3, 1>(0, 0);
 
   float scale = min(0.8, biasCoef);
   float biasCoefficient;
@@ -138,7 +140,6 @@ inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
     biasCoefficient = -1 / hs;
   }
 
-  Eigen::Vector3f raXnI1_0 = this->raXnI1().block<3, 1>(0, 0);
   float sep = float(nw.transpose() * body.deltaLinDt()) +
               float(raXnI1_0.transpose() * body.deltaAngDt()) +
               float(nw.transpose() * d);
@@ -154,8 +155,8 @@ inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
     this->collision().broken(true);
   }
   lambda(0) = lambda(0) + dlambdaNor;
-  body.v(bodyv + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
-  body.w(bodyw + dlambdaNor * this->raXnI1().block<3, 1>(0, 0));
+  body.v(bodyv + dlambdaNor * delLinVel1_0);
+  body.w(bodyw + dlambdaNor * raXnI1_0);
   this->lambda(lambda);
 }
 
@@ -168,6 +169,8 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
   Eigen::Vector3f bodyw = body.w();
   Eigen::Vector3f d = this->d();
   Eigen::Vector3f w1 = this->w1();
+  Eigen::Matrix3f raXnI1 = this->raXnI1();
+  Eigen::Matrix3f delLinVel1 = this->delLinVel1();
 
   float scale = min(0.8, biasCoef);
   float biasCoefficient;
@@ -180,7 +183,7 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
   Eigen::Vector2f dlambdaTan = Eigen::Vector2f::Zero();
   for (unsigned int i = 1; i < 3; i++) {
     Eigen::Vector3f contactFrame_row = this->contactFrame().block<3, 1>(0, i);
-    Eigen::Vector3f raXnI1_row = this->raXnI1().block<3, 1>(0, i);
+    Eigen::Vector3f raXnI1_row = raXnI1.block<3, 1>(0, i);
     float sep = float(contactFrame_row.transpose() * body.deltaLinDt()) +
                 float(raXnI1_row.transpose() * body.deltaAngDt()) +
                 float(contactFrame_row.transpose() * d);
@@ -199,8 +202,8 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
     this->collision().broken(true);
   }
   lambda = lambda + dlambdas;
-  body.v(bodyv + this->delLinVel1() * dlambdas);
-  body.w(bodyw + this->raXnI1() * dlambdas);
+  body.v(bodyv + delLinVel1 * dlambdas);
+  body.w(bodyw + raXnI1 * dlambdas);
   this->lambda(lambda);
 }
 
@@ -308,6 +311,10 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
   Eigen::Vector3f body2w = body2.w();
   Eigen::Vector3f d = this->d();
   Eigen::Vector3f lambda = this->lambda();
+  Eigen::Vector3f raXnI1_0 = this->raXnI1().block<3, 1>(0, 0);
+  Eigen::Vector3f raXnI2_0 = this->raXnI2().block<3, 1>(0, 0);
+  Eigen::Vector3f delLinVel1_0 = this->delLinVel1().block<3, 1>(0, 0);
+  Eigen::Vector3f delLinVel2_0 = this->delLinVel2().block<3, 1>(0, 0);
   float scale = min(0.8, biasCoef);
   float biasCoefficient;
   if (float(nw.transpose() * d) <= 0) {
@@ -318,21 +325,17 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
   if (!doShockProp) {
     float w = this->w1()(0) + this->w2()(0);
     float sep = float(nw.transpose() * body1.deltaLinDt()) +
-                float(this->raXnI1().block<3, 1>(0, 0).transpose() *
-                      body1.deltaAngDt()) +
+                float(raXnI1_0.transpose() * body1.deltaAngDt()) +
                 float(nw.transpose() * d);
     sep -= float(nw.transpose() * body2.deltaLinDt()) +
-           float(this->raXnI2().block<3, 1>(0, 0).transpose() *
-                 body2.deltaAngDt());
+           float(raXnI2_0.transpose() * body2.deltaAngDt());
     sep = max(minpenetration, sep);
     float bias = sep * biasCoefficient;
 
     Eigen::Vector3f normalVel =
-        nw.array() * body1v.array() +
-        body1w.array() * this->raXnI1().block<3, 1>(0, 0).array();
+        nw.array() * body1v.array() + body1w.array() * raXnI1_0.array();
     normalVel -= Eigen::Vector3f(nw.array() * body2v.array() +
-                                 body2w.array() *
-                                     this->raXnI2().block<3, 1>(0, 0).array());
+                                 body2w.array() * raXnI2_0.array());
     float dlambdaNor = bias / w - normalVel.sum() / w;
     float nplambda = lambda(0) + dlambdaNor;
     if (nplambda < 0) {
@@ -340,17 +343,16 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
       this->collision().broken(true);
     }
     lambda(0) = lambda(0) + dlambdaNor;
-    body1.v(body1v + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
-    body1.w(body1w + dlambdaNor * this->raXnI1().block<3, 1>(0, 0));
-    body2.v(body2v - dlambdaNor * this->delLinVel2().block<3, 1>(0, 0));
-    body2.w(body2w - dlambdaNor * this->raXnI2().block<3, 1>(0, 0));
+    body1.v(body1v + dlambdaNor * delLinVel1_0);
+    body1.w(body1w + dlambdaNor * raXnI1_0);
+    body2.v(body2v - dlambdaNor * delLinVel2_0);
+    body2.w(body2w - dlambdaNor * raXnI2_0);
   } else {
     float w1_0 = this->w1()(0);
     auto dlambdaSP = this->dlambdaSP();
-    Eigen::Vector3f raXnI1_0 = this->raXnI1().block<3, 1>(0, 0);
     float sep = float(nw.transpose() * body1.deltaLinDt()) +
                 float(raXnI1_0.transpose() * body1.deltaAngDt()) +
-                float(nw.transpose() * this->d());
+                float(nw.transpose() * d);
     sep = max(minpenetration, sep);
     float bias = sep * biasCoefficient;
     Eigen::Vector3f normalVel =
@@ -362,8 +364,8 @@ inline void ConstraintRigidReference::solveNorPos(float hs, float biasCoef,
       this->collision().broken(true);
     }
     lambda(0) = lambda(0) + dlambdaNor;
-    body1.v(body1v + dlambdaNor * this->delLinVel1().block<3, 1>(0, 0));
-    body1.w(body1w + dlambdaNor * this->raXnI1().block<3, 1>(0, 0));
+    body1.v(body1v + dlambdaNor * delLinVel1_0);
+    body1.w(body1w + dlambdaNor * raXnI1_0);
     dlambdaSP(0) += dlambdaNor;
     this->dlambdaSP(dlambdaSP);
   }
@@ -383,6 +385,10 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
   Eigen::Vector3f body2w = body2.w();
   Eigen::Vector3f d = this->d();
   Eigen::Vector3f lambda = this->lambda();
+  Eigen::Matrix3f raXnI1 = this->raXnI1();
+  Eigen::Matrix3f raXnI2 = this->raXnI2();
+  Eigen::Matrix3f delLinVel1 = this->delLinVel1();
+  Eigen::Matrix3f delLinVel2 = this->delLinVel2();
   float scale = min(0.8, biasCoef);
   float biasCoefficient;
   if (float(nw.transpose() * d) <= 0) {
@@ -396,8 +402,8 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
     for (unsigned int i = 1; i < 3; i++) {
       float w = this->w1()(i) + this->w2()(i);
       Eigen::Vector3f contactFrame_row = this->contactFrame().block<3, 1>(0, i);
-      Eigen::Vector3f raXnI1_row = this->raXnI1().block<3, 1>(0, i);
-      Eigen::Vector3f raXnI2_row = this->raXnI2().block<3, 1>(0, i);
+      Eigen::Vector3f raXnI1_row = raXnI1.block<3, 1>(0, i);
+      Eigen::Vector3f raXnI2_row = raXnI2.block<3, 1>(0, i);
       float sep = float(contactFrame_row.transpose() * body1.deltaLinDt()) +
                   float(raXnI1_row.transpose() * body1.deltaAngDt()) +
                   float(contactFrame_row.transpose() * d);
@@ -420,16 +426,16 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
       this->collision().broken(true);
     }
     lambda = lambda + dlambdas;
-    body1.v(body1v + this->delLinVel1() * dlambdas);
-    body1.w(body1w + this->raXnI1() * dlambdas);
-    body2.v(body2v - this->delLinVel2() * dlambdas);
-    body2.w(body2w - this->raXnI2() * dlambdas);
+    body1.v(body1v + delLinVel1 * dlambdas);
+    body1.w(body1w + raXnI1 * dlambdas);
+    body2.v(body2v - delLinVel2 * dlambdas);
+    body2.w(body2w - raXnI2 * dlambdas);
   } else {
     Eigen::Vector2f dlambdaTan = Eigen::Vector2f::Zero();
     for (unsigned int i = 1; i < 3; i++) {
       float w1_i = this->w1()(i);
       Eigen::Vector3f contactFrame_row = this->contactFrame().block<3, 1>(0, i);
-      Eigen::Vector3f raXnI1_row = this->raXnI1().block<3, 1>(0, i);
+      Eigen::Vector3f raXnI1_row = raXnI1.block<3, 1>(0, i);
       float sep = float(contactFrame_row.transpose() * body1.deltaLinDt()) +
                   float(raXnI1_row.transpose() * body1.deltaAngDt()) +
                   float(contactFrame_row.transpose() * d);
@@ -448,8 +454,8 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
       this->collision().broken(true);
     }
     lambda = lambda + dlambdas;
-    body1.v(body1v + this->delLinVel1() * dlambdas);
-    body1.w(body1w + this->raXnI1() * dlambdas);
+    body1.v(body1v + delLinVel1 * dlambdas);
+    body1.w(body1w + raXnI1 * dlambdas);
     this->dlambdaSP(this->dlambdaSP() + dlambdas);
   }
 
