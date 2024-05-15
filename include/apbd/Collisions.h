@@ -1,5 +1,6 @@
 #pragma once
 #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#include "apbd/CollisionReference.h"
 #include "apbd/ConstraintReference.h"
 #include "apbd/Contact.h"
 #include <Eigen/Dense>
@@ -9,16 +10,7 @@
 namespace apbd {
 
 struct Collision {
-  /// Number of contacts that exist
-  unsigned char contactNum;
-  /// Indicates whether this collision has been broken;
-  /// i.e. the two bodies are no longer colliding
-  bool broken;
-  /// The first body in the collision
-  BodyReference body1;
-  /// The second body in the collision. If this is null, this is a ground
-  /// collision.
-  BodyReference body2;
+  CollisionReference data;
   /// A stored sequence of contacts between the bodies
   cuda::std::array<Contact, 8> contacts;
   /// References to the constraints created from each contact

@@ -218,6 +218,6 @@ public:
                                     data.integrateStates());
 };
 
-#define NULL_BODY BodyReference(0, BODY_INVALID);
+#define NULL_BODY BodyReference(0, BODY_INVALID)
 
 } // namespace apbd

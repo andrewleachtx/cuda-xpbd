@@ -112,6 +112,23 @@ struct _SOAStoreBodyRigid {
   __host__ __device__ void set(unsigned int index, const apbd::BodyRigid &data);
 };
 
+struct _SOAStoreCollision {
+  _SOAStoreGeneric<unsigned int> contactNum;
+  _SOAStoreGeneric<bool> broken;
+  _SOAStoreGeneric<apbd::BodyReference> body1;
+  _SOAStoreGeneric<apbd::BodyReference> body2;
+
+  __host__ __device__ _SOAStoreCollision() {}
+  _SOAStoreCollision(byte *data_store, size_t &offset, size_t count);
+  /// Calculates the size necessary to store the data in this buffer with count
+  /// elements.
+  static constexpr size_t size(size_t count) {
+    return _SOAStoreGeneric<unsigned int>::size(count) +
+           _SOAStoreGeneric<bool>::size(count) +
+           _SOAStoreGeneric<apbd::BodyReference>::size(count) * 2;
+  }
+};
+
 /**
  * Struct-of-Arrays data store. Manually implements data accesses in a single
  * giant global buffer with the optimal alignments, sizes, and data divisions.
@@ -121,17 +138,20 @@ public:
   struct _SOAStoreBodyRigid BodyRigid;
   struct _SOAStoreConstraintGround ConstraintGround;
   struct _SOAStoreConstraintRigid ConstraintRigid;
+  struct _SOAStoreCollision Collision;
 
   __host__ __device__ SOAStore() {}
   SOAStore(size_t body_rigid_count, size_t constraint_ground_count,
-           size_t constraint_rigid_count, size_t scene_count);
+           size_t constraint_rigid_count, size_t collision_rigid_count,
+           size_t scene_count);
 
   void deallocate();
 };
 
 inline SOAStore::SOAStore(size_t body_rigid_count,
                           size_t constraint_ground_count,
-                          size_t constraint_rigid_count, size_t scene_count) {
+                          size_t constraint_rigid_count,
+                          size_t collision_rigid_count, size_t scene_count) {
   // Note: this is block size instead of 32 because we are aligning to the
   // number of actual kernel threads, not for memory performance
   const size_t alignment_count = BLOCK_SIZE;
@@ -147,11 +167,14 @@ inline SOAStore::SOAStore(size_t body_rigid_count,
       constraint_ground_count * aligned_scene_count;
   const size_t aligned_constraint_rigid_count =
       constraint_rigid_count * aligned_scene_count;
+  const size_t aligned_collision_rigid_count =
+      collision_rigid_count * aligned_scene_count;
 
   const size_t total_buffer_size =
       _SOAStoreBodyRigid::size(aligned_body_rigid_count) +
       _SOAStoreConstraintGround::size(aligned_constraint_ground_count) +
-      _SOAStoreConstraintRigid::size(aligned_constraint_rigid_count);
+      _SOAStoreConstraintRigid::size(aligned_constraint_rigid_count) +
+      _SOAStoreCollision::size(aligned_collision_rigid_count);
   byte *const data_store = alloc_device<byte>(total_buffer_size);
 
   size_t offset = 0;
@@ -161,6 +184,8 @@ inline SOAStore::SOAStore(size_t body_rigid_count,
       data_store, offset, aligned_constraint_ground_count);
   this->ConstraintRigid = _SOAStoreConstraintRigid(
       data_store, offset, aligned_constraint_rigid_count);
+  this->Collision =
+      _SOAStoreCollision(data_store, offset, aligned_collision_rigid_count);
   DEBUG_ASSERT(offset == total_buffer_size, "Allocation of incorrect size!");
 }
 
@@ -194,16 +219,20 @@ inline _SOAStoreConstraintRigid::_SOAStoreConstraintRigid(byte *data_store,
 inline _SOAStoreBodyRigid::_SOAStoreBodyRigid(byte *data_store, size_t &offset,
                                               size_t count)
     : position(data_store, offset, count), rotation(data_store, offset, count),
-      x0(data_store, offset, count),
-
-      collide(data_store, offset, count), mu(data_store, offset, count),
-      shape(data_store, offset, count), density(data_store, offset, count),
-      Mr(data_store, offset, count), Mp(data_store, offset, count),
-      layer(data_store, offset, count), v(data_store, offset, count),
-      w(data_store, offset, count), deltaBody2Worldp(data_store, offset, count),
+      x0(data_store, offset, count), collide(data_store, offset, count),
+      mu(data_store, offset, count), shape(data_store, offset, count),
+      density(data_store, offset, count), Mr(data_store, offset, count),
+      Mp(data_store, offset, count), layer(data_store, offset, count),
+      v(data_store, offset, count), w(data_store, offset, count),
+      deltaBody2Worldp(data_store, offset, count),
       deltaBody2Worldq(data_store, offset, count),
       deltaAngDt(data_store, offset, count),
       deltaLinDt(data_store, offset, count) {}
+
+inline _SOAStoreCollision::_SOAStoreCollision(byte *data_store, size_t &offset,
+                                              size_t count)
+    : contactNum(data_store, offset, count), broken(data_store, offset, count),
+      body1(data_store, offset, count), body2(data_store, offset, count) {}
 
 inline void _SOAStoreBodyRigid::set(unsigned int index,
                                     const apbd::BodyRigid &data) {

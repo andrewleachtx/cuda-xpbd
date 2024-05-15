@@ -19,17 +19,19 @@ Collider::Collider(Model *model)
   // initialize collisions
   unsigned int N = model->body_count;
   for (unsigned int x = 0; x < N; x++) {
-    this->collisions[x].body1 = model->bodies[x];
-    this->collisions[x].body2 = NULL_BODY;
-    this->collisions[x].broken = true;
-    this->collisions[x].contactNum = 0;
+    this->collisions[x].data = CollisionReference(x);
+    this->collisions[x].data.body1(model->bodies[x]);
+    this->collisions[x].data.body2(NULL_BODY);
+    this->collisions[x].data.broken(true);
+    this->collisions[x].data.contactNum(0);
     for (unsigned int y = x + 1; y < N; y++) {
       auto index =
           model->get_collision_index(model->bodies[x], model->bodies[y]);
-      this->collisions[index].body1 = model->bodies[x];
-      this->collisions[index].body2 = model->bodies[y];
-      this->collisions[index].broken = true;
-      this->collisions[index].contactNum = 0;
+      this->collisions[index].data = CollisionReference(index);
+      this->collisions[index].data.body1(model->bodies[x]);
+      this->collisions[index].data.body2(model->bodies[y]);
+      this->collisions[index].data.broken(true);
+      this->collisions[index].data.contactNum(0);
     }
   }
 }
@@ -51,17 +53,19 @@ Collider::Collider(Model *model, size_t scene_id,
   // initialize collisions
   unsigned int N = model->body_count;
   for (unsigned int x = 0; x < N; x++) {
-    this->collisions[x].body1 = model->bodies[x];
-    this->collisions[x].body2 = NULL_BODY;
-    this->collisions[x].broken = true;
-    this->collisions[x].contactNum = 0;
+    this->collisions[x].data = CollisionReference(x);
+    this->collisions[x].data.body1(model->bodies[x]);
+    this->collisions[x].data.body2(NULL_BODY);
+    this->collisions[x].data.broken(true);
+    this->collisions[x].data.contactNum(0);
     for (unsigned int y = x + 1; y < N; y++) {
       auto index =
           model->get_collision_index(model->bodies[x], model->bodies[y]);
-      this->collisions[index].body1 = model->bodies[x];
-      this->collisions[index].body2 = model->bodies[y];
-      this->collisions[index].broken = true;
-      this->collisions[index].contactNum = 0;
+      this->collisions[index].data = CollisionReference(index);
+      this->collisions[index].data.body1(model->bodies[x]);
+      this->collisions[index].data.body2(model->bodies[y]);
+      this->collisions[index].data.broken(true);
+      this->collisions[index].data.contactNum(0);
     }
   }
 }
@@ -185,12 +189,12 @@ void Collider::narrowphase(Model *model) {
   for (size_t i = 0; i < old_bp_count; i++) {
     auto body = this->bpList1[i];
     auto body_index = body.index;
-    if (this->collisions[body_index].broken) {
+    if (this->collisions[body_index].data.broken()) {
       auto cdata = body.narrowphaseGround(Eg);
       this->collisions[body_index].setContacts(cdata);
     }
-    if (this->collisions[body_index].contactNum != 0) {
-      this->collisions[body_index].broken = false;
+    if (this->collisions[body_index].data.contactNum() != 0) {
+      this->collisions[body_index].data.broken(false);
       this->collisions[body_index].getConstraints(this->ground_constraint_count,
                                                   this->rigid_constraint_count);
       // we overwrite the old list to help the constriaint construction func
@@ -208,7 +212,7 @@ void Collider::narrowphase(Model *model) {
     auto body2 = this->bpList2[i + 1];
     auto collision_index = model->get_collision_index(body1, body2);
     Collision &collision = this->collisions[collision_index];
-    if (collision.broken) {
+    if (collision.data.broken()) {
       // we need to ensure that the bodies are in the same order as the
       // collision expects
       // TODO: one of these branches is already guaranteed by the construction
@@ -222,8 +226,8 @@ void Collider::narrowphase(Model *model) {
       }
     }
 
-    if (collision.contactNum != 0) {
-      collision.broken = false;
+    if (collision.data.contactNum() != 0) {
+      collision.data.broken(false);
       collision.getConstraints(this->ground_constraint_count,
                                this->rigid_constraint_count);
       this->bpList2[this->bp_count_2++] = body1;

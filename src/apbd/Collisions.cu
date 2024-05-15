@@ -7,24 +7,24 @@ namespace apbd {
 void Collision::setContacts(
     const cuda::std::pair<cuda::std::array<Contact, 8>, size_t> cdata) {
   this->contacts = cdata.first;
-  this->contactNum = cdata.second;
+  this->data.contactNum(cdata.second);
 }
 
-bool Collision::is_ground() { return this->body2 == NULL_BODY; }
+bool Collision::is_ground() { return this->data.body2() == NULL_BODY; }
 
 void Collision::getConstraints(size_t &ground_count, size_t &rigid_count) {
   if (this->is_ground()) {
-    for (unsigned int i = 0; i < this->contactNum; i++) {
+    for (unsigned int i = 0; i < this->data.contactNum(); i++) {
       ConstraintReference cr(ground_count++);
       // TODO: handle other body types
-      cr.get_ground().create(body1.get_rigid(), contacts[i], this);
+      cr.get_ground().create(this->data.body1().get_rigid(), contacts[i], this);
       this->constraints[i] = cr;
     }
   } else {
-    for (unsigned int i = 0; i < this->contactNum; i++) {
+    for (unsigned int i = 0; i < this->data.contactNum(); i++) {
       ConstraintReference cr(rigid_count++);
-      cr.get_rigid().create(body1.get_rigid(), body2.get_rigid(), contacts[i],
-                            this);
+      cr.get_rigid().create(this->data.body1().get_rigid(),
+                            this->data.body2().get_rigid(), contacts[i], this);
       this->constraints[i] = cr;
     }
   }
@@ -32,7 +32,7 @@ void Collision::getConstraints(size_t &ground_count, size_t &rigid_count) {
 
 void Collision::solveCollisionNor(float hs, float biasCoeff,
                                   float minpenetration, bool withSP) {
-  for (unsigned int i = 0; i < this->contactNum; i++) {
+  for (unsigned int i = 0; i < this->data.contactNum(); i++) {
     if (this->is_ground()) {
       this->constraints[i].get_ground().solveNorPos(hs, biasCoeff,
                                                     minpenetration);
@@ -44,7 +44,7 @@ void Collision::solveCollisionNor(float hs, float biasCoeff,
 }
 
 void Collision::solveCollisionTan(float hs, float biasCoeff, bool withSP) {
-  for (unsigned int i = 0; i < this->contactNum; i++) {
+  for (unsigned int i = 0; i < this->data.contactNum(); i++) {
     if (this->is_ground()) {
       this->constraints[i].get_ground().solveTanVel(hs, biasCoeff);
     } else {
@@ -54,7 +54,7 @@ void Collision::solveCollisionTan(float hs, float biasCoeff, bool withSP) {
 }
 
 void Collision::applyLambdaSP() {
-  for (unsigned int i = 0; i < this->contactNum; i++) {
+  for (unsigned int i = 0; i < this->data.contactNum(); i++) {
     if (this->is_ground()) {
       this->constraints[i].get_ground().applyLambdaSP();
     } else {
@@ -64,7 +64,7 @@ void Collision::applyLambdaSP() {
 }
 
 void Collision::initConstraints() {
-  for (unsigned int i = 0; i < this->contactNum; i++) {
+  for (unsigned int i = 0; i < this->data.contactNum(); i++) {
     if (this->is_ground()) {
       this->constraints[i].get_ground().init();
     } else {

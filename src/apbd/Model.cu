@@ -33,8 +33,9 @@ Model::Model(const Model &&other)
 
 void Model::create_store(size_t scene_count) {
   // TODO: handle this constraints
-  data::SOAStore data_store(this->body_count, MAX_COLLISION_CONSTRAINTS,
-                            MAX_COLLISION_CONSTRAINTS, scene_count);
+  data::SOAStore data_store(
+      this->body_count, MAX_COLLISION_CONSTRAINTS, MAX_COLLISION_CONSTRAINTS,
+      this->body_count * (this->body_count + 1) / 2, scene_count);
 
 #ifdef USE_CUDA
   cudaMemcpyToSymbol(data::device_global_store, &data_store,
