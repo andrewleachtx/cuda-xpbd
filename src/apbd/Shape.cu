@@ -77,10 +77,10 @@ Shape::narrowphaseGround(const Eigen::Matrix4f E,
       }
     }
 
-    return cuda::std::pair(cdata, cdata_count);
+    return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, cdata_count);
   }
   default:
-    return cuda::std::pair(cdata, 0);
+    return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, 0);
   }
 }
 
@@ -109,10 +109,10 @@ Shape::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other,
       return this->data.cuboid.narrowphaseShapeCuboid(E1, other.data.cuboid,
                                                       E2);
     default:
-      return cuda::std::pair(cuda::std::array<Contact, 8>(), 0);
+      return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cuda::std::array<Contact, 8>(), 0);
     }
   default:
-    return cuda::std::pair(cuda::std::array<Contact, 8>(), 0);
+    return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cuda::std::array<Contact, 8>(), 0);
   }
 }
 
@@ -160,7 +160,7 @@ ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
                        // starting inside the box
     cdata[i] = Contact{.nw = nw, .x1 = x1, .x2 = x2};
   }
-  return cuda::std::pair(cdata, collisions.count);
+  return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, collisions.count);
 }
 
 float ShapeCuboid::raycast(Eigen::Vector3f x, Eigen::Vector3f n) const {
