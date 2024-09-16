@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18..3.27)
+cmake_minimum_required(VERSION 3.16..3.27)
 # include(FetchContent)
 
 project(pbd-rigidbody-cuda VERSION 0.1

@@ -2,6 +2,40 @@
 
 A CUDA-accelerated XPBD-based physics simulation framework.
 
+## Installation / Setup
+1. Working in a WSL / Linux environment, make sure the following are installed (in order):
+   1. CMake v3.16 or greater
+      1. If you have a version < 3.16, you can try changing the top line in `./CMakeLists.txt`. If you are using a package manager and it is maxed out at an older version, see answer 1 [here](https://askubuntu.com/questions/829310/how-to-upgrade-cmake-in-ubuntu).
+      2.  `sudo apt install cmake` 
+   2. CUDA v12.6 or greater
+      1. Earlier versions may (probably) work. This document has commands to run at the bottom.
+      2. [NVIDIA WSL CUDA Download](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=WSL-Ubuntu&target_version=2.0&target_type=deb_local)
+   3. NVCC
+      1. This should come with the CUDA install, if **nvcc --version doesn't work, make sure /usr/local/CUDA/bin is added to your path**
+      2. Add `PATH=/usr/local/cuda/bin:$PATH` to your `~/.bashrc` to get CMake to recognize NVCC.
+2. Once you have these downloads (it will take some time), install `Eigen` by uncommenting the fetch content lines in `./CMakeLists.txt`:
+   1. Line 2
+   2. Lines 20-25
+   3. Comment these after building cmake for the first time, or after deleting `build/`.
+   
+## First Build / Clean Resets
+Run
+```bash
+cmake -B build
+# Same as cmake -S . -B build, assumes you are in ./
+```
+This will take some time, including downloading and building Eigen with the uncommented lines from instruction 2 [above](#installation--setup).
+
+After it finishes, recomment the `FetchContent` lines in `CMakeLists.txt`, as it will error out later.
+
+Now that the `build/` has been populated, you should use
+
+```
+cmake --build build
+```
+
+to build after any changes - or use any of the additional targets described below.
+
 ## Building
 
 ```bash
