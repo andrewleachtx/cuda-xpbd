@@ -15,11 +15,13 @@ cmake --build build/$version --parallel -t performance
 echo Testing...
 echo
 
+git_hash=$(git log --oneline | head -n 1 | awk '{ print $1 }')
+
 for sim_id in {1..14}
 do
   for iter in {1..3}
   do
-    file=output/profiling/times_$(git log --oneline | head -n 1 | awk '{ print $1 }')_${version}_sim-${sim_id}.${iter}.csv
+    file=output/profiling/times_${git_hash}_${version}_sim-${sim_id}.${iter}.csv
 
     echo -e "scene count,$version simulation time,$version total time" > $file
     echo -e "scene count\t$version simulation time\t$version total time"
@@ -37,7 +39,7 @@ do
     # run scene 7 with variations in the scenes
     if [ $sim_id == 7 ]
     then
-      file=output/profiling/times_$(git log --oneline | head -n 1 | awk '{ print $1 }')_${version}_sim-${sim_id}_vars.${iter}.csv
+      file=output/profiling/times_${git_hash}_${version}_sim-${sim_id}_vars.${iter}.csv
       echo -e "scene count,$version simulation time,$version total time" > $file
       echo -e "scene count\t$version simulation time\t$version total time"
       for sim_count in {10..82}
@@ -54,11 +56,11 @@ do
 
   cd output/profiling 
 
-  python3 data_processing.py $(git log --oneline | head -n 1 | awk '{ print $1 }') ${version} sim-${sim_id}
+  python3 data_processing.py ${git_hash} ${version} sim-${sim_id}
 
   if [ $sim_id == 7 ]
   then
-    python3 data_processing.py $(git log --oneline | head -n 1 | awk '{ print $1 }') ${version} sim-${sim_id}_vars
+    python3 data_processing.py ${git_hash} ${version} sim-${sim_id}_vars
   fi
 
   cd ../..

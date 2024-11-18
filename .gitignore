@@ -4,3 +4,4 @@ build
 .gdbinit
 *autogen*
 *.blend1
+.vscode/

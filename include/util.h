@@ -2,6 +2,11 @@
 #include "config.h"
 #include <iostream>
 
+/// if M_PI not defined (Windows) define it
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 /// Ensures the success of a given CUDA API call, aborting the program on a
 /// failure.
 #define CUDA_CHECK(expr)                                                       \
@@ -63,15 +68,15 @@
   {                                                                            \
     bool res = val;                                                            \
     if (!res) {                                                                \
-      printf(__FILE__ ":%d - %s: Assert failed! '" message "': `" #val         \
-                      "` was false\n",                                         \
-             __LINE__, __PRETTY_FUNCTION__);                                   \
+      printf("%s:%d - %s: Assert failed! '%s': `%s` was false\n",              \
+             __FILE__, __LINE__, __PRETTY_FUNCTION__, message, #val);          \
     }                                                                          \
   }
 #else
 #define DEBUG_ASSERT(val, message)                                             \
   {}
 #endif
+
 
 __host__ __device__ [[noreturn]] inline void unreachable() {
 #ifdef __CUDA_ARCH__

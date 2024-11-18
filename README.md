@@ -34,7 +34,7 @@ Now that the `build/` has been populated, you should use
 cmake --build build
 ```
 
-to build after any changes - or use any of the additional targets described below.
+to build after any changes - or use any of the additional targets described below. You can add `--parallel` to speed this up, or use `-G Ninja` if you have that generator.
 
 ## Building
 
@@ -51,9 +51,15 @@ cmake --build build
 cmake --build build --target <test>
 ```
 
+There are `performance` and `integration` builds, you can use `cmake --build build --target help` to find them.
+
 ## Profiling or Benchmarking
 
 See `run_perf_test.sh` and `run_profiler.sh`.
+
+`cmake --build build --target performance --parallel` can manually build the performance target and can be executed with `./build/$version/tests/performance -m 1 -s 10`
+
+`run_perf_test.sh` has an additional argument `version` if specified. 
 
 ## Formatting
 

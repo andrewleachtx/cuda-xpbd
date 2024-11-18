@@ -8,6 +8,12 @@ project(pbd-rigidbody-cuda VERSION 0.1
 option(USE_CUDA "Use CUDA implementation instead of CPU" ON)
 option(WRITE "Write the state of the simulation to stdout" OFF)
 
+# Relative to GPU, compute 8.6
+set(CMAKE_CUDA_ARCHITECTURES 86)
+
+# Make sure to --expt-relaxed-constexpr, otherwise bad things will happen
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info --expt-relaxed-constexpr")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -17,6 +23,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(CTest)
 endif()
 
+# Uncomment on first build to fetch Eigen
 # FetchContent_Declare(
 #   Eigen-git
 #   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
