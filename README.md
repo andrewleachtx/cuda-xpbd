@@ -57,9 +57,22 @@ There are `performance` and `integration` builds, you can use `cmake --build bui
 
 See `run_perf_test.sh` and `run_profiler.sh`.
 
-`cmake --build build --target performance --parallel` can manually build the performance target and can be executed with `./build/$version/tests/performance -m 1 -s 10`
 
-`run_perf_test.sh` has an additional argument `version` if specified. 
+#### release_cuda
+```sh
+# for setup
+mkdir build/release_cuda
+cmake -S . -B build/release_cuda -DCMAKE_BUILD_TYPE=Release -DUSE_CUDA=ON
+
+# for building
+cmake --build build/release_cuda --parallel -t performance
+
+# NOTE: you might want to remove the parallel argument (and in the script), just to make sure the compile step is deterministic
+```
+
+Use this with `./run_perf_test.sh release_cuda`
+
+
 
 ## Formatting
 
