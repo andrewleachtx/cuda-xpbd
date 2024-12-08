@@ -18,7 +18,7 @@
 namespace apbd {
     class ShapeMeshObj : public Shape {
         public:
-            // New members is the face, vertices, E_oi, and E_io
+            // New members are the face, vertices, E_oi, E_io, and radius
             Eigen::Matrix<int, 3, Eigen::Dynamic> F;
             Eigen::Matrix<float, 3, Eigen::Dynamic> V;
             Eigen::Matrix4f E_oi;

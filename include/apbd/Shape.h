@@ -32,6 +32,10 @@ public:
   _ShapeInner data;
   SHAPE_TYPE type;
 
+  // Default to cuboid so we can call Shape() from ShapeMeshObj
+  __host__ __device__ Shape() : 
+        type(SHAPE_CUBOID), data{.cuboid = ShapeCuboid{Eigen::Vector3f(1, 1, 1)}} {}
+
   // TODO: handle other shapes
   __host__ __device__ Shape(const Shape &other)
       : type(other.type), data{.cuboid = other.data.cuboid} {}
