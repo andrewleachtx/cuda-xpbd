@@ -5,3 +5,5 @@ build
 *autogen*
 *.blend1
 .vscode/
+
+resources/
