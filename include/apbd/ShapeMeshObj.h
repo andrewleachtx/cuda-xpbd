@@ -25,11 +25,11 @@ namespace apbd {
             Eigen::Matrix4f E_io;
             float radius;
 
-            ShapeMeshObj();
-            ShapeMeshObj(const std::string &filename);
-            ~ShapeMeshObj();
+            __host__ __device__ ShapeMeshObj();
+            __host__ __device__ ShapeMeshObj(const std::string &filename);
+            __host__ __device__ ~ShapeMeshObj();
 
-            __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(const float density) const;
+            __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(const float density);
             __host__ __device__ float getAxisSize() const;
             __host__ __device__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f E, Eigen::Vector4f xl) const;
             __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
