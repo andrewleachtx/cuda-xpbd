@@ -130,23 +130,114 @@ namespace apbd {
         Eigen::Vector4f xl(0.0f, 0.0f, 0.0f, 1.0f);
         Eigen::Vector4f xw = E * xl;
 
-        // TODO: Be careful about Eg \ xw 
         Eigen::Vector4f xg = Eg.inverse() * xw;
         float r = radius;
         return xg(2) < 1.2f * r;
     }
 
+    // TODO: This one I am a bit unsure on, reference ShapeMeshObj : 125
     __host__ __device__ cuda::std::array<Contact, 8> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
         cuda::std::array<Contact, 8> cdata;
-        // TODO: CONTINUE FROM LINE 127 OF SHAPEMESHOBJ.m
+        int nverts = V.cols();
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xl(4, nverts);
+        xl.topRows<3>() = E_io * V;
+        xl.row(3).setOnes();
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg.inverse() * xw;
+        Eigen::Matrix<float, 1, Eigen::Dynamic> depth = xg.row(2);
+        float maxdepth = depth.minCoeff();
 
+        // find(depth < maxdepth + 5e-2) is an abstracted method to get indices where all values in depth are < 5e-2
+        if (maxdepth < 0.2f) {
+            std::vector<int> cindices;
+            for (size_t i = 0; i < depth.size(); i++) {
+                if (depth(i) < maxdepth + 5e-2f) {
+                    cindices.push_back(i);
+                }
+            }
 
+            // if there are more than 8 such indices, create subindices
+            if (cindices.size() > 8) {
+                std::vector<int> subindices(4, 0);
+                // [~, subindices(1)] = min(xg(1, cindices)) means find idx of minimum value in xg(0, i)
+                size_t min_idx = 0;
+                float min_val = std::numeric_limits<float>::max();
+                for (size_t i = 0; i < cindices.size(); i++) {
+                    if (xg(0, cindices[i]) < min_val) {
+                        min_val = xg(0, cindices[i]);
+                        min_idx = i;
+                    }
+                }
+                subindices[0] = min_idx;
+
+                size_t max_idx = 0;
+                float max_val = std::numeric_limits<float>::min();
+                for (size_t i = 0; i < cindices.size(); i++) {
+                    if (xg(1, cindices[i]) > max_val) {
+                        max_val = xg(1, cindices[i]);
+                        max_idx = i;
+                    }
+                }
+                subindices[1] = max_idx;
+
+                min_idx = 0;
+                min_val = std::numeric_limits<float>::max();
+                for (size_t i = 0; i < cindices.size(); i++) {
+                    if (xg(2, cindices[i]) < min_val) {
+                        min_val = xg(2, cindices[i]);
+                        min_idx = i;
+                    }
+                }
+                subindices[2] = min_idx;
+
+                max_idx = 0;
+                max_val = std::numeric_limits<float>::min();
+                for (size_t i = 0; i < cindices.size(); i++) {
+                    if (xg(2, cindices[i]) > max_val) {
+                        max_val = xg(2, cindices[i]);
+                        max_idx = i;
+                    }
+                }
+                subindices[3] = max_idx;
+
+                cindices = subindices;                
+            }
+
+            int cdata_count = 0;
+            for (int idx : cindices) {
+                float d = xg(2, idx);
+                Eigen::Vector3f xgproj = xg.col(idx);
+                xgproj(2) = 0.0f;
+                
+                // all vec3f: nw, x1, x2 - it seems like d and vw are ignored even for cuboid Contact case, may need to refactor Contact class
+                cdata[cdata_count++] = Contact{
+                    Eg.block<3, 1>(0, 2),
+                    xl.col(idx).head<3>(),
+                    Eg.block<3, 1>(0, 0) * xgproj
+                }
+            }
+        }
     }
 
     __host__ __device__ bool ShapeMeshObj::broadphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const {
+        // Must be a ShapeMeshObj as well
+        const ShapeMeshObj* other_mesh = dynamic_cast<const ShapeMeshObj*>(&other);
+        if (other_mesh == nullptr) {
+            throw std::runtime_error("Unsupported shape");
+        }
 
+        Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
+        Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
+
+        float d = (p1 - p2).norm();
+
+        float r1 = radius;
+        float r2 = other_mesh->radius;
+
+        return d <= 1.2f * (r1 + r2);
     }
 
+    // TODO: Needs Coal integration
     __host__ __device__ cuda::std::array<Contact, 8> ShapeMeshObj::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const {
 
     }
