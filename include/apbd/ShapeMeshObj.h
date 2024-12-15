@@ -24,6 +24,7 @@ namespace apbd {
             Eigen::Matrix4f E_oi;
             Eigen::Matrix4f E_io;
             float radius;
+            std::string filename;
 
             __host__ __device__ ShapeMeshObj();
             __host__ __device__ ShapeMeshObj(const std::string &filename);
