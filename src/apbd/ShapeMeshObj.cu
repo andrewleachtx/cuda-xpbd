@@ -1,19 +1,17 @@
 #include "apbd/ShapeMeshObj.h"
-#include "apbd/Shape.h"
 #include "collideBoxBox/coalMeshMesh.h"
 
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 
-
 namespace apbd {
     
     __host__ __device__ ShapeMeshObj::ShapeMeshObj() :
-        Shape(), F(), V(), E_oi(), E_io(), radius(1.0f) {}
+        F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
     __host__ __device__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) :
-        Shape(), F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
+        F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
             readOBJ(filename, this->V, this->F);
         }
 
@@ -65,7 +63,8 @@ namespace apbd {
         // eig(J) -> [Mat3 JV, Mat3 JD] does eigenvalue decomposition, in Eigen we can use a solver
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(J);
         if (es.info() != Eigen::Success) {
-            throw std::runtime_error("eig(J) decomposition failed @ line " + std::to_string(__LINE__));
+            // throw std::runtime_error("eig(J) decomposition failed @ line " + std::to_string(__LINE__));
+            printf("eig(J) decomposition failed @ line %d\n", __LINE__);
         }
         
         /*
@@ -141,7 +140,7 @@ namespace apbd {
     }
 
     // TODO: This one I am a bit unsure on, reference ShapeMeshObj : 125
-    __host__ __device__ cuda::std::array<Contact, 8> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
         cuda::std::array<Contact, 8> cdata;
         int nverts = V.cols();
         Eigen::Matrix<float, 4, Eigen::Dynamic> xl(4, nverts);
@@ -219,48 +218,40 @@ namespace apbd {
                     Eg.block<3, 1>(0, 2),
                     xl.col(idx).head<3>(),
                     Eg.block<3, 1>(0, 0) * xgproj
-                }
+                };
             }
+
+            return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(cdata_count));
         }
+
+        return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, 0);
     }
 
-    __host__ __device__ bool ShapeMeshObj::broadphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const {
-        // Must be a ShapeMeshObj as well
-        const ShapeMeshObj* other_mesh = dynamic_cast<const ShapeMeshObj*>(&other);
-        if (other_mesh == nullptr) {
-            throw std::runtime_error("Unsupported shape");
-        }
-
+    __host__ __device__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
         float d = (p1 - p2).norm();
 
         float r1 = radius;
-        float r2 = other_mesh->radius;
+        float r2 = other.radius;
 
         return d <= 1.2f * (r1 + r2);
     }
 
-    // TODO: Needs Coal integration
-    __host__ __device__ cuda::std::array<Contact, 8> ShapeMeshObj::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const {
-        std::array<Contact, 8> cdata;
+    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
+        cuda::std::array<Contact, 8> cdata;
         
-        const ShapeMeshObj* other_mesh = dynamic_cast<const ShapeMeshObj*>(&other);
-        if (other_mesh == nullptr) {
-            throw std::runtime_error("Unsupported shape");
-        }
-
         Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
         Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
-        const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other_mesh->E_io, other_mesh->filename);
-        const Eigen::Vector3f& nw = collisions.nor;
+        const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other.E_io, other.filename);
+        const Eigen::Vector3f& nw = collisions.normal;
         for (int i = 0; i < collisions.count; i++) {
-            Eigen::Vector3f xw = collisions.pos[i];
-            float d = collisions.depth[i];
+            Eigen::Vector3f xw = collisions.positions[i];
+            float d = collisions.depths[i];
 
             // Compute local point on body 1
             Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
@@ -270,20 +261,14 @@ namespace apbd {
             Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
             Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
 
-            /*
-                struct Contact {
-                    Eigen::Vector3f nw;
-                    Eigen::Vector3f x1;
-                    Eigen::Vector3f x2;
-                };
-            */
-
             cdata[i] = Contact{
-                d,
+                nw,
                 x1,
                 x2
             };
         }
+        
+        return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(collisions.count));
     }
 
     static void readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F) {
@@ -302,7 +287,7 @@ namespace apbd {
                 float x, y, z;
                 int matches = sscanf(line.c_str(), "v %f %f %f", &x, &y, &z);
                 if (matches == 3) {
-                    vertices.emplace_back({x, y, z});
+                    vertices.emplace_back(x, y, z);
                     continue;
                 }
             }
@@ -312,7 +297,7 @@ namespace apbd {
                 int i1, i2, i3;
                 int matches = sscanf(line.c_str(), "f %d %d %d", &i1, &i2, &i3);
                 if (matches == 3) {
-                    faces.emplace_back({i1, i2, i3});
+                    faces.emplace_back(i1, i2, i3);
                     continue;
                 }
             }
@@ -323,7 +308,7 @@ namespace apbd {
                 int j1, j2, j3;
                 int matches = sscanf(line.c_str(), "f %d/%d %d/%d %d/%d", &i1, &j1, &i2, &j2, &i3, &j3);
                 if (matches == 6) {
-                    faces.emplace_back({i1, i2, i3});
+                    faces.emplace_back(i1, i2, i3);
                     continue;
                 }
             }
@@ -334,7 +319,7 @@ namespace apbd {
                 int n1, n2, n3;
                 int matches = sscanf(line.c_str(), "f %d//%d %d//%d %d//%d", &i1, &n1, &i2, &n2, &i3, &n3);
                 if (matches == 6) {
-                    faces.emplace_back({i1, i2, i3});
+                    faces.emplace_back(i1, i2, i3);
                     continue;
                 }
             }
@@ -344,9 +329,9 @@ namespace apbd {
                 int i1, i2, i3;
                 int j1, j2, j3;
                 int n1, n2, n3;
-                int matches = sscanf(line.cstr(), "f %d/%d/%d %d/%d/%d %d/%d/%d", &i1, &j1, &n1, &i2, &j2, &n2, &i3, &j3, &n3);
+                int matches = sscanf(line.c_str(), "f %d/%d/%d %d/%d/%d %d/%d/%d", &i1, &j1, &n1, &i2, &j2, &n2, &i3, &j3, &n3);
                 if (matches == 9) {
-                    faces.emplace_back({i1, i2, i3});
+                    faces.emplace_back(i1, i2, i3);
                     continue;
                 }
             }
@@ -367,6 +352,7 @@ namespace apbd {
         }
     }
 
+    // Based on volInt.c https://people.eecs.berkeley.edu/~jfc/mirtich/massProps.html
     static void VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
         Eigen::Matrix<float, 3, Eigen::Dynamic> Xn = V.transpose();
         Eigen::Matrix<int, 3, Eigen::Dynamic> Triangles = F.transpose();
@@ -410,9 +396,9 @@ namespace apbd {
 
             int A = (C + 1) % 3;
             int B = (A + 1) % 3;
-            A += 1
-            B += 1
-            C += 1
+            A += 1;
+            B += 1;
+            C += 1;
 
             float N_A(Normal(A - 1)), N_B(Normal(B - 1)), N_C(Normal(C - 1));
             float w = -Normal(0) * Xn(tri(0), 0) - Normal(1) * Xn(tri(0), 1) - Normal(2) * Xn(tri(0), 2);
@@ -478,6 +464,10 @@ namespace apbd {
             Paab /= 60.0f;
             Pabb /= -60.0f;
 
+            // float N_A = Normal(A - 1);
+            // float N_B = Normal(B - 1);
+            // float N_C = Normal(C - 1);
+
             float k1 = 1.0f / N_C;
             float k2 = k1 * k1;
             float k3 = k2 * k1;
@@ -511,15 +501,15 @@ namespace apbd {
             }
 
             T0 += Normal(0) * Part;
-            T1(A - 1) += NA * Faa;
-            T1(B - 1) += NB * Fbb;
-            T1(C - 1) += NC * Fcc;
-            T2(A - 1) += NA * Faaa;
-            T2(B - 1) += NB * Fbbb;
-            T2(C - 1) += NC * Fccc;
-            TP(A - 1) += NA * Faab;
-            TP(B - 1) += NB * Fbbc;
-            TP(C - 1) += NC * Fcca;
+            T1(A - 1) += N_A * Faa;
+            T1(B - 1) += N_B * Fbb;
+            T1(C - 1) += N_C * Fcc;
+            T2(A - 1) += N_A * Faaa;
+            T2(B - 1) += N_B * Fbbb;
+            T2(C - 1) += N_C * Fccc;
+            TP(A - 1) += N_A * Faab;
+            TP(B - 1) += N_B * Fbbc;
+            TP(C - 1) += N_C * Fcca;
         }
     }
 } // namespace apbd

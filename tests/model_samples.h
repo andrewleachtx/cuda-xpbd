@@ -1,6 +1,7 @@
 #pragma once
 
 #include "apbd/Model.h"
+#include "apbd/ShapeMeshObj.h"
 #include "se3/lib.h"
 #include "util.h"
 #include <math.h>
@@ -722,25 +723,63 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             float mu = 0.5f;
 
             model.ground_size = 20;
+            
+            float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
+            apbd::ShapeMeshObj mesh = apbd::ShapeMeshObj("../resources/ShapeFiles/bunny.obj");
+            // This function on first intuition is pointless, however it actually populates many member variables
+            mesh.computeInertia(density);
 
-            // apbd::ShapeMeshObj mesh = apbd::ShapeMeshObj("../resources/ShapeFiles/bunny.obj");
-
+            // There are four total bodies (bunnies) for the scene
             size_t n = 2;
-            bodies = new apbd::Body[n];
-            model.body_count = n;
-            model.bodies = new apbd::BodyReference[n];
+            size_t total_bodies = n + 2;
+
+            bodies = new apbd::Body[total_bodies];
+            model.body_count = total_bodies;
+            model.bodies = new apbd::BodyReference[total_bodies];
             for (size_t i = 0; i < n; i++) {
                 /*
                     We need to construct a Body(BodyRigid(ShapeMeshObj) to slot into an array of
                     BodyReference[], this calls 
                 */
                 
-                // TODO: This is a lot because Shape.h is built on compile-time known objects
-                apbd::ShapeMeshObj mesh = apbd::ShapeMeshObj("../resources/ShapeFiles/bunny.obj");
                 apbd::BodyRigid br = apbd::BodyRigid(mesh, density, true, mu);
+                bodies[i] = apbd::Body(br);
 
+                auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
+                float x = 0.0f * w * i;
+                float y = 0.75f * w * (i - 1);
+                float z = -0.2f * w;
+                Eigen::Vector3f pos = {x, y, z};
+                E.block<3, 3>(0, 0) = R;
+                E.block<3, 1>(0, 3) = R * pos;
+                bodies[i].setInitTransform(E * mesh.E_oi);
             }
+
+            // Third bunny
+            bodies[2] = apbd::Body(apbd::BodyRigid(mesh, density, true, mu));
+            auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
+            Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+            float x = -1.25f;
+            float y = -0.75f;
+            float z = -0.2f * w;
+            Eigen::Vector3f pos = {x, y, z};
+            E.block<3, 3>(0, 0) = R;
+            E.block<3, 1>(0, 3) = R * pos;
+            bodies[2].setInitTransform(E * mesh.E_oi);
+
+            // Fourth bunny
+            bodies[3] = apbd::Body(apbd::BodyRigid(mesh, density, true, mu));
+            R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), 0.0f);
+            E = Eigen::Matrix4f::Identity();
+            x = -1.0f;
+            y = 0.0f;
+            z = 1.0f * w;
+            pos = {x, y, z};
+            E.block<3, 3>(0, 0) = R;
+            E.block<3, 1>(0, 3) = R * pos;
+            bodies[3].setInitTransform(E);
         }
     }
     model.init();

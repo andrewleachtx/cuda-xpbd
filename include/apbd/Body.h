@@ -77,6 +77,8 @@ union _BodyInner {
   int _dummy;
   BodyAffine affine;
   BodyRigid rigid;
+
+  ~_BodyInner() {}
 };
 
 /**

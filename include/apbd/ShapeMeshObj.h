@@ -7,8 +7,6 @@
 #include <cuda/std/array>
 #include <cuda/std/utility>
 
-#include "Shape.h"
-
 /*
     Inherits from Shape superclass, most notably is an unknown size at compile time. My initial processing
     is to overwrite existing methods that may use the tagged union for effective polymorphism for now,
@@ -16,7 +14,7 @@
     checks enum, I will first just overwrite here.
 */
 namespace apbd {
-    class ShapeMeshObj : public Shape {
+    class ShapeMeshObj {
         public:
             // New members are the face, vertices, E_oi, E_io, and radius
             Eigen::Matrix<int, 3, Eigen::Dynamic> F;
@@ -34,9 +32,9 @@ namespace apbd {
             __host__ __device__ float getAxisSize() const;
             __host__ __device__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f E, Eigen::Vector4f xl) const;
             __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
-            __host__ __device__ cuda::std::array<Contact, 8> narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
-            __host__ __device__ bool broadphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const;
-            __host__ __device__ cuda::std::array<Contact, 8> narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other, const Eigen::Matrix4f E2) const;
+            __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
+            __host__ __device__ bool broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
+            __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
 
             // Static methods
             static void readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F);

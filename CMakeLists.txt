@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16..3.27)
 include(FetchContent)
 
-project(pbd-rigidbody-cuda VERSION 0.1
+project(cuda-xpbd VERSION 0.1
     DESCRIPTION "A CUDA-accelerated Differential XPBD Framework"
     LANGUAGES CUDA CXX)
 
@@ -31,6 +31,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Eigen-git)
 find_package (Eigen3 3.4 REQUIRED NO_MODULE)
+
+include_directories(
+    "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/include"
+    # "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/include/eigen3"
+)
+
+link_directories(
+    "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/lib"
+)
 
 file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h ${CMAKE_CURRENT_BINARY_DIR}/svd3_cuda.h)
 add_library(svd3_cuda INTERFACE)
