@@ -7,10 +7,10 @@ project(cuda-xpbd VERSION 0.1
 option(USE_CUDA "Use CUDA implementation instead of CPU" ON)
 option(WRITE "Write the state of the simulation to stdout" OFF)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_CUDA_STANDARD 17)
+# set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Relative to GPU, compute 8.6
 set(CMAKE_CUDA_ARCHITECTURES 86)

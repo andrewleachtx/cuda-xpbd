@@ -146,67 +146,53 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name) {
     }
 #endif  // DEBUG
 
+Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
+                        const std::string &meshPath1,
+                        const Eigen::Matrix4d& M2,
+                        const std::string &meshPath2) {
 
-// #ifdef MATLAB_MEX_BUILD
-    // struct Contacts {
-    //   // Number of contacts
-    //   int count = 0;
-    //   // Maximum penetration depth
-    //   double depthMax = 0;
-    //   // Penetration depths
-    //   double depths[8];
-    //   // Contact points in world space
-    //   Eigen::Vector3d positions[8];
-    //   // Contact normal (same for all points)
-    //   Eigen::Vector3d normal = Eigen::Vector3d(0,0,0);
-    // };
+    std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
+    std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
 
-    Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
-                          const std::string &meshPath1,
-                          const Eigen::Matrix4d& M2,
-                          const std::string &meshPath2) {
+    coal::Transform3s T1;
+    T1.setRotation(M1.topLeftCorner(3,3));
+    T1.setTranslation(M1.topRightCorner(3,1));
+    coal::Transform3s T2;
+    T2.setRotation(M2.topLeftCorner(3, 3));
+    T2.setTranslation(M2.topRightCorner(3, 1));
 
-      std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
-      std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
+    coal::CollisionRequest col_req;
+    col_req.security_margin = 1e-1;
+    coal::CollisionResult col_res;
 
-      coal::Transform3s T1;
-      T1.setRotation(M1.topLeftCorner(3,3));
-      T1.setTranslation(M1.topRightCorner(3,1));
-      coal::Transform3s T2;
-      T2.setRotation(M2.topLeftCorner(3, 3));
-      T2.setTranslation(M2.topRightCorner(3, 1));
+// Collision call
+    coal::collide(shape1.get(), T1, shape2.get(), T2, col_req, col_res);
 
-      coal::CollisionRequest col_req;
-      col_req.security_margin = 1e-1;
-      coal::CollisionResult col_res;
+    coal::ContactPatchRequest patch_req;
+    coal::ContactPatchResult patch_res;
+    patch_req.setPatchTolerance(5e-2);
+    patch_req.setNumSamplesCurvedShapes(8);
+    coal::computeContactPatch(shape1.get(), T1, shape2.get(), T2, col_res,
+                            patch_req, patch_res);
 
-    // Collision call
-      coal::collide(shape1.get(), T1, shape2.get(), T2, col_req, col_res);
+    Contacts results;
+    if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
+    coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
 
-      coal::ContactPatchRequest patch_req;
-      coal::ContactPatchResult patch_res;
-      patch_req.setPatchTolerance(5e-2);
-      patch_req.setNumSamplesCurvedShapes(8);
-      coal::computeContactPatch(shape1.get(), T1, shape2.get(), T2, col_res,
-                                patch_req, patch_res);
+    results.depthMax = contactpatch.penetration_depth;
+    results.count = contactpatch.size();
+    if(results.count > 8)
+        results.count = 8;
 
-      Contacts results;
-      if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
-        coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
-
-        results.depthMax = contactpatch.penetration_depth;
-        results.count = contactpatch.size();
-        if(results.count > 8)
-          results.count = 8;
-
-        for (size_t i = 0; i < contactpatch.size() && i < 8; ++i) {
-          results.positions[i] = contactpatch.getPoint(i);
-          results.depths[i] = contactpatch.penetration_depth;
-        }
-        results.normal << contactpatch.getNormal();
-      }
-
-      return results;
+    for (size_t i = 0; i < contactpatch.size() && i < 8; ++i) {
+        results.positions[i] = contactpatch.getPoint(i);
+        results.depths[i] = contactpatch.penetration_depth;
     }
+    results.normal << contactpatch.getNormal();
+    }
+
+    return results;
+}
+
 } // namespace apbd
 // #endif

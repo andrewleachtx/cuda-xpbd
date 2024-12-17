@@ -19,9 +19,9 @@ namespace apbd {
         // Penetration depths
         double depths[8];
         // Contact points in world space
-        Eigen::Vector3f positions[8];
+        Eigen::Vector3d positions[8];
         // Contact normal (same for all points)
-        Eigen::Vector3f normal;
+        Eigen::Vector3d normal;
     };
     
     std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name);

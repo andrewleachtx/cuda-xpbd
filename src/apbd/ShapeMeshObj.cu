@@ -251,11 +251,16 @@ namespace apbd {
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
-        const auto collisions = coalMeshMesh((E1 * E_io).cast<double>(), this->filename, (E2 * other.E_io).cast<double>(), other.filename);
-        const Eigen::Vector3f& nw = collisions.normal;
+        // FIXME: Potentially refactor to only use doubles, as this 
+        Eigen::Matrix4d mat1 = (E1 * E_io).cast<double>();
+        Eigen::Matrix4d mat2 = (E2 * other.E_io).cast<double>();
+
+        // const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other.E_io, other.filename);
+        const auto collisions = coalMeshMesh(mat1, this->filename, mat2, other.filename);
+        const Eigen::Vector3f& nw = collisions.normal.cast<float>();
         for (int i = 0; i < collisions.count; i++) {
-            Eigen::Vector3f xw = collisions.positions[i];
-            float d = collisions.depths[i];
+            Eigen::Vector3f xw = collisions.positions[i].cast<float>();
+            float d = static_cast<float>(collisions.depths[i]);
 
             // Compute local point on body 1
             Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
