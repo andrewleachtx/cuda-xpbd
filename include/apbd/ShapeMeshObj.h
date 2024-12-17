@@ -24,17 +24,17 @@ namespace apbd {
             float radius;
             std::string filename;
 
-            __host__ __device__ ShapeMeshObj();
-            __host__ __device__ ShapeMeshObj(const std::string &filename);
-            __host__ __device__ ~ShapeMeshObj();
+            __host__ ShapeMeshObj();
+            __host__ ShapeMeshObj(const std::string &filename);
+            __host__ ~ShapeMeshObj();
 
-            __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(const float density);
-            __host__ __device__ float getAxisSize() const;
-            __host__ __device__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f E, Eigen::Vector4f xl) const;
-            __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
-            __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
-            __host__ __device__ bool broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
-            __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
+            __host__ Eigen::Matrix<float, 6, 1> computeInertia(const float density);
+            __host__ float getAxisSize() const;
+            __host__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f E, Eigen::Vector4f xl) const;
+            __host__ bool broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
+            __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
+            __host__ bool broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
+            __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const;
 
             // Static methods
             static void readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F);

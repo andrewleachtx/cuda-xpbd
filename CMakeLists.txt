@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.16..3.27)
 include(FetchContent)
 
 project(cuda-xpbd VERSION 0.1
-    DESCRIPTION "A CUDA-accelerated Differential XPBD Framework"
     LANGUAGES CUDA CXX)
 
 option(USE_CUDA "Use CUDA implementation instead of CPU" ON)
 option(WRITE "Write the state of the simulation to stdout" OFF)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Relative to GPU, compute 8.6
 set(CMAKE_CUDA_ARCHITECTURES 86)
@@ -32,18 +36,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Eigen-git)
 find_package (Eigen3 3.4 REQUIRED NO_MODULE)
 
-include_directories(
-    "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/include"
-    # "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/include/eigen3"
-)
-
-link_directories(
-    "/mnt/c/Users/andre/anaconda3/envs/coal_env/Library/lib"
-)
-
 file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h ${CMAKE_CURRENT_BINARY_DIR}/svd3_cuda.h)
 add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+
+list(APPEND CMAKE_PREFIX_PATH "/home/andyleach/octomap/install")
+list(APPEND CMAKE_PREFIX_PATH "/home/andyleach/coal/install")
+find_package(coal CONFIG REQUIRED)
+include_directories("/home/andyleach/coal/install/include")
+link_directories("/home/andyleach/coal/install/lib")
 
 add_subdirectory(src)
 

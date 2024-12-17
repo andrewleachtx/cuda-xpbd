@@ -26,9 +26,9 @@ namespace apbd {
     
     std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name);
 
-    Contacts coalMeshMesh(const Eigen::Matrix4f& M1,
+    Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
                           const std::string &meshPath1,
-                          const Eigen::Matrix4f& M2,
+                          const Eigen::Matrix4d& M2,
                           const std::string &meshPath2);
 
 } // namespace apbd

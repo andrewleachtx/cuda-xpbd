@@ -7,17 +7,17 @@
 
 namespace apbd {
     
-    __host__ __device__ ShapeMeshObj::ShapeMeshObj() :
+    __host__ ShapeMeshObj::ShapeMeshObj() :
         F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
-    __host__ __device__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) :
+    __host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) :
         F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
             readOBJ(filename, this->V, this->F);
         }
 
-    __host__ __device__ ShapeMeshObj::~ShapeMeshObj() {}
+    __host__ ShapeMeshObj::~ShapeMeshObj() {}
 
-    __host__ __device__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density) {
+    __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density) {
         // Instead of calling readOBJ here I will do it in constructor to initialize V, F
         // readOBJ(filename, this->V, this->F);
 
@@ -121,16 +121,16 @@ namespace apbd {
         return I;
     }
 
-    __host__ __device__ float ShapeMeshObj::getAxisSize() const {
+    __host__ float ShapeMeshObj::getAxisSize() const {
         return 1.0f;
     }
     
-    __host__ __device__ Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E, Eigen::Vector4f xl) const {
+    __host__ Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E, Eigen::Vector4f xl) const {
         Eigen::Vector4f xlc = E * Eigen::Vector4f(xl(0), xl(1), xl(2), 1.0f);
         return xlc.head<3>();
     }
 
-    __host__ __device__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+    __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
         Eigen::Vector4f xl(0.0f, 0.0f, 0.0f, 1.0f);
         Eigen::Vector4f xw = E * xl;
 
@@ -140,15 +140,16 @@ namespace apbd {
     }
 
     // TODO: This one I am a bit unsure on, reference ShapeMeshObj : 125
-    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
         cuda::std::array<Contact, 8> cdata;
         int nverts = V.cols();
-        Eigen::Matrix<float, 4, Eigen::Dynamic> xl(4, nverts);
-        xl.topRows<3>() = E_io * V;
-        xl.row(3).setOnes();
-        Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
-        Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg.inverse() * xw;
-        Eigen::Matrix<float, 1, Eigen::Dynamic> depth = xg.row(2);
+        // Matrix4Xf == Matrix<float, 4, Eigen::Dynamic>
+        Eigen::Matrix4Xf xl(4, nverts);
+        Eigen::Matrix4Xf V_ones = Eigen::Matrix4Xf::Ones(4, nverts);
+        xl = E_io * V_ones;
+        Eigen::Matrix4Xf xw = E * xl;
+        Eigen::Matrix4Xf xg = Eg.inverse() * xw;
+        Eigen::VectorXf depth = xg.row(2);
         float maxdepth = depth.minCoeff();
 
         // find(depth < maxdepth + 5e-2) is an abstracted method to get indices where all values in depth are < 5e-2
@@ -210,14 +211,17 @@ namespace apbd {
             int cdata_count = 0;
             for (int idx : cindices) {
                 float d = xg(2, idx);
-                Eigen::Vector3f xgproj = xg.col(idx);
+
+                // FIXME: direct porting to eigen provided difficult - this may not do the same thing
+                Eigen::Vector4f xgproj = xg.col(idx);
                 xgproj(2) = 0.0f;
-                
+                Eigen::Matrix<float, 3, 4> Eg_sub = Eg.block<3, 4>(0, 0);
+
                 // all vec3f: nw, x1, x2 - it seems like d and vw are ignored even for cuboid Contact case, may need to refactor Contact class
                 cdata[cdata_count++] = Contact{
                     Eg.block<3, 1>(0, 2),
                     xl.col(idx).head<3>(),
-                    Eg.block<3, 1>(0, 0) * xgproj
+                    Eg_sub * xgproj
                 };
             }
 
@@ -227,7 +231,7 @@ namespace apbd {
         return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, 0);
     }
 
-    __host__ __device__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
+    __host__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
@@ -239,7 +243,7 @@ namespace apbd {
         return d <= 1.2f * (r1 + r2);
     }
 
-    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
+    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
         cuda::std::array<Contact, 8> cdata;
         
         Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
@@ -247,7 +251,7 @@ namespace apbd {
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
-        const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other.E_io, other.filename);
+        const auto collisions = coalMeshMesh((E1 * E_io).cast<double>(), this->filename, (E2 * other.E_io).cast<double>(), other.filename);
         const Eigen::Vector3f& nw = collisions.normal;
         for (int i = 0; i < collisions.count; i++) {
             Eigen::Vector3f xw = collisions.positions[i];
@@ -271,7 +275,7 @@ namespace apbd {
         return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(collisions.count));
     }
 
-    static void readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F) {
+    void ShapeMeshObj::readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F) {
         std::ifstream file(filename);
         if (!file.is_open()) {
             throw std::runtime_error("Couldn't open OBJ file in readOBJ: " + filename);
@@ -353,7 +357,7 @@ namespace apbd {
     }
 
     // Based on volInt.c https://people.eecs.berkeley.edu/~jfc/mirtich/massProps.html
-    static void VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
+    void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
         Eigen::Matrix<float, 3, Eigen::Dynamic> Xn = V.transpose();
         Eigen::Matrix<int, 3, Eigen::Dynamic> Triangles = F.transpose();
 

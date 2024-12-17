@@ -15,15 +15,15 @@
 #include <memory>
 
 //#define DEBUG_MAIN
-#define MATLAB_MEX_BUILD
+// #define MATLAB_MEX_BUILD
 
 /** If instricuted, compile a mex function for Matlab.  */
-#ifdef MATLAB_MEX_BUILD
-#include "mex.h"
-#define A(i, j) A[i + j * M]
-#else
-#define mexPrintf printf
-#endif
+// #ifdef MATLAB_MEX_BUILD
+// #include "mex.h"
+// #define A(i, j) A[i + j * M]
+// #else
+// #define mexPrintf printf
+// #endif
 
 // Function to load a convex mesh from a `.obj`, `.stl` or `.dae` file.
 //
@@ -39,6 +39,9 @@
 // GJK or EPA can be called with this object.
 // Consequently, after creating the BVH structure from the point cloud, this
 // function also computes its convex hull.
+
+namespace apbd {
+
 std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name) {
   coal::NODE_TYPE bv_type = coal::BV_AABB;
   coal::MeshLoader loader(bv_type);
@@ -144,19 +147,19 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name) {
 #endif  // DEBUG
 
 
-#ifdef MATLAB_MEX_BUILD
-    struct Contacts {
-      // Number of contacts
-      int count = 0;
-      // Maximum penetration depth
-      double depthMax = 0;
-      // Penetration depths
-      double depths[8];
-      // Contact points in world space
-      Eigen::Vector3d positions[8];
-      // Contact normal (same for all points)
-      Eigen::Vector3d normal = Eigen::Vector3d(0,0,0);
-    };
+// #ifdef MATLAB_MEX_BUILD
+    // struct Contacts {
+    //   // Number of contacts
+    //   int count = 0;
+    //   // Maximum penetration depth
+    //   double depthMax = 0;
+    //   // Penetration depths
+    //   double depths[8];
+    //   // Contact points in world space
+    //   Eigen::Vector3d positions[8];
+    //   // Contact normal (same for all points)
+    //   Eigen::Vector3d normal = Eigen::Vector3d(0,0,0);
+    // };
 
     Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
                           const std::string &meshPath1,
@@ -205,123 +208,5 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name) {
 
       return results;
     }
-
-    void mexFunction(int nlhs, mxArray *plhs[], int nrhs,
-                     const mxArray *prhs[]) {
-      // check for proper number of arguments
-      if (nrhs != 4) {
-        mexErrMsgIdAndTxt("MyToolbox:arrayProduct:nrhs", "4 inputs required.");
-      }
-      if (nlhs != 1) {
-        mexErrMsgIdAndTxt("MyToolbox:arrayProduct:nlhs", "1 output required.");
-      }
-
-      enum { RHS_E1 = 0, RHS_MPATH1, RHS_E2, RHS_MPATH2, RHS_COUNT };
-
-      if (!mxIsDouble(prhs[RHS_E1]) ||
-          mxGetNumberOfElements(prhs[RHS_E1]) != 16) {
-        mexErrMsgTxt("E1 must be a mat4.");
-      }
-      if (!mxIsChar(prhs[RHS_MPATH1])) {
-        mexErrMsgTxt("meshPath1 must be a valid file path.");
-      }
-      if (!mxIsDouble(prhs[RHS_E2]) ||
-          mxGetNumberOfElements(prhs[RHS_E2]) != 16) {
-        mexErrMsgTxt("E2 must be a mat4.");
-      }
-      if (!mxIsChar(prhs[RHS_MPATH2])) {
-        mexErrMsgTxt("meshPath2 must be a valid file path.");
-      }
-
-      mwSize M;
-      mwSize N;
-      mxChar *pth;
-      double *A;
-      char file_path[120];
-
-      // Convert E1
-      M = mxGetM(prhs[RHS_E1]);
-      A = mxGetPr(prhs[RHS_E1]);
-      Eigen::Matrix4d E1;
-      for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-          E1(i, j) = A(i, j);
-        }
-      }
-
-      // Convert mesh path 1
-      N = mxGetN(prhs[RHS_MPATH1]);
-      pth = mxGetChars(prhs[RHS_MPATH1]);
-      for (int i = 0; i < N && i < 120; ++i) {
-        file_path[i] = pth[i];
-      }
-      file_path[N] = '\0';
-      std::string meshPath1(file_path);
-      //mexPrintf(file_path);
-      //mexPrintf(" File Name length %d.\n", N);
-
-      // Convert E2
-      M = mxGetM(prhs[RHS_E2]);
-      A = mxGetPr(prhs[RHS_E2]);
-      Eigen::Matrix4d E2;
-      for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-          E2(i, j) = A(i, j);
-        }
-      }
-
-      // Convert mesh path 1
-      N = mxGetN(prhs[RHS_MPATH2]);
-      pth = mxGetChars(prhs[RHS_MPATH2]);
-      for (int i = 0; i < N && i < 120; ++i) {
-        file_path[i] = pth[i];
-      }
-      file_path[N] = '\0';
-      std::string meshPath2(file_path);
-
-      // Call collision detector
-      Contacts contacts = coalMeshMesh(E1, meshPath1, E2, meshPath2);
-
-      // Convert collisions
-      int nfields = 5;
-      const char **fnames;
-      fnames = (const char **)mxCalloc(nfields, sizeof(*fnames));
-      fnames[0] = "count";
-      fnames[1] = "depthMax";
-      fnames[2] = "nor";
-      fnames[3] = "pos";
-      fnames[4] = "depth";
-      mxArray *c = mxCreateStructMatrix(1, 1, nfields, fnames);
-      mxSetField(c, 0, "count", mxCreateDoubleScalar(contacts.count));
-      mxSetField(c, 0, "depthMax", mxCreateDoubleScalar(contacts.depthMax));
-      mxArray *mat;
-      mat = mxCreateDoubleMatrix(3, 1, mxREAL);
-      M = mxGetM(mat);
-      A = mxGetPr(mat);
-      for (int i = 0; i < 3; ++i) {
-        A(i, 0) = contacts.normal(i);
-      }
-      mxSetField(c, 0, "nor", mat);
-      //mexPrintf("contacts.count: %d\n", contacts.count);
-      mat = mxCreateDoubleMatrix(3, contacts.count, mxREAL);
-      M = mxGetM(mat);
-      A = mxGetPr(mat);
-      for (int k = 0; k < contacts.count; ++k) {
-        for (int i = 0; i < 3; ++i) {
-          A(i, k) = contacts.positions[k](i);
-        }
-      }
-      mxSetField(c, 0, "pos", mat);
-      //mexPrintf("contacts.count: %d\n", contacts.count);
-      mat = mxCreateDoubleMatrix(1, contacts.count, mxREAL);
-      M = mxGetM(mat);
-      A = mxGetPr(mat);
-      for (int k = 0; k < contacts.count; ++k) {
-        A(0, k) = contacts.depths[k];
-      }
-      mxSetField(c, 0, "depth", mat);
-      mxFree((void *)fnames);
-      plhs[0] = c;
-      //mexPrintf("Finish.\n");
-    }
-#endif
+} // namespace apbd
+// #endif
