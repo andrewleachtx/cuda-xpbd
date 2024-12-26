@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.16..3.27)
+cmake_minimum_required(VERSION 3.16)
 include(FetchContent)
 
 project(cuda-xpbd VERSION 0.1
     LANGUAGES CUDA CXX)
 
-option(USE_CUDA "Use CUDA implementation instead of CPU" ON)
+option(USE_CUDA "Use CUDA implementation instead of CPU" OFF)
 option(WRITE "Write the state of the simulation to stdout" OFF)
 
 # set(CMAKE_CXX_STANDARD 17)
@@ -13,7 +13,7 @@ option(WRITE "Write the state of the simulation to stdout" OFF)
 # set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Relative to GPU, compute 8.6
-set(CMAKE_CUDA_ARCHITECTURES 86)
+set(CMAKE_CUDA_ARCHITECTURES 75 86)
 
 # Make sure to --expt-relaxed-constexpr, otherwise bad things will happen
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info --expt-relaxed-constexpr")
@@ -40,11 +40,10 @@ file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h 
 add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
-list(APPEND CMAKE_PREFIX_PATH "/home/andyleach/octomap/install")
-list(APPEND CMAKE_PREFIX_PATH "/home/andyleach/coal/install")
+list(APPEND CMAKE_PREFIX_PATH "/home/andy/pkgs/coal/install")
 find_package(coal CONFIG REQUIRED)
-include_directories("/home/andyleach/coal/install/include")
-link_directories("/home/andyleach/coal/install/lib")
+include_directories("/home/andy/pkgs/coal/install/include")
+link_directories("/home/andy/pkgs/coal/install/lib")
 
 add_subdirectory(src)
 

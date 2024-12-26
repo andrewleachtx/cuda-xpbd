@@ -8,7 +8,7 @@ A CUDA-accelerated XPBD-based physics simulation framework.
       1. If you have a version < 3.16, you can try changing the top line in `./CMakeLists.txt`. If you are using a package manager and it is maxed out at an older version, see answer 1 [here](https://askubuntu.com/questions/829310/how-to-upgrade-cmake-in-ubuntu).
       2.  `sudo apt install cmake` 
    2. CUDA v12.6 or greater
-      1. Earlier versions may (probably will) work. This document has commands to run at the bottom.
+      1. Earlier versions may (probably will) work. This document has commands to run at the bottom. [Here](https://docs.nvidia.com/cuda/wsl-user-guide/index.html#getting-started-with-cuda-on-wsl) is a good resource.
       2. [NVIDIA WSL CUDA Download](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=WSL-Ubuntu&target_version=2.0&target_type=deb_local)
    3. NVCC
       1. This should come with the CUDA install, if **nvcc --version doesn't work, make sure /usr/local/CUDA/bin is added to your path**
@@ -20,7 +20,13 @@ A CUDA-accelerated XPBD-based physics simulation framework.
 
 There may be hardcoded paths to `coal` and `octomap` in the project root's `CMakeLists.txt`.
 
-You would need to clone and install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md) as necessary, as well as its dependencies. Also,
+You would need to clone and install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md) as necessary, as well as its dependencies. Also, building can be frustrating. You should activate a new environment with `conda`, using
+
+1. `conda install -c conda-forge coal qhull octomap`
+2. Run `cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON` in `coal/build` (make it if it doesn't exist) to add the 
+to get the `install` directory which you can link to in this project's `CMakeLists.txt`. Make sure you are using the correct conda environment, as pixi may create one. You can view with `conda env list`.
+
+It is necessary to build with `COAL_HAS_QHULL=ON` as otherwise the project will not compile.
    
 ## First Build / Clean Resets
 Run
@@ -41,7 +47,6 @@ cmake --build build
 to build after any changes - or use any of the additional targets described below. You can add `--parallel` to speed this up, or use `-G Ninja` if you have that generator.
 
 ## Building
-
 ```bash
 cmake -S . -B build
 # or with options
@@ -61,11 +66,22 @@ There are `performance` and `integration` builds, you can use `cmake --build bui
 
 See `run_perf_test.sh` and `run_profiler.sh`.
 
+Note the COAL collisions are currently CPU-side only. Feel free to add `-DWRITE=ON` to print stateoutput, which can be piped to output files.
+
+#### release_cpu
+```sh
+# construct build with configs (feel free to remove or modify -G)
+cmake -S . -B build/release_cpu -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_CUDA=OFF
+
+# build
+cmake --build build/release_cpu --parallel -t performance
+```
+
+Use this with `./run_perf_test.sh release_cpu`
 
 #### release_cuda
 ```sh
 # for setup
-mkdir build/release_cuda
 cmake -S . -B build/release_cuda -DCMAKE_BUILD_TYPE=Release -DUSE_CUDA=ON
 
 # for building

@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-using std::cout, std::endl, std::string, std::runtime_error;
+using std::cout, std::endl, std::string, std::runtime_error, std::vector;
 typedef std::chrono::high_resolution_clock Clock;
 
 __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
@@ -121,6 +121,7 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
   auto handles = std::vector<std::thread>();
   auto t1 = Clock::now();
   auto buffers = apbd::Model::allocate_buffers(sims, model);
+  cout << "Starting " << processor_count << " threads..." << endl;
   for (int i = 0; i < processor_count; i++) {
     if (i < sims) {
       apbd::Model *thread_model =
