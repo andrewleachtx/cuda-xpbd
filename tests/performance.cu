@@ -87,12 +87,9 @@ void run_kernel(apbd::Model model, apbd::Body *bodies, int sims,
 void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
                     int processor_count, int id, bool do_variations)
 {
-    printf("FILE: %s LINE: %d\n", __FILE__, __LINE__);
-
     for (int i = id; i < sims; i += processor_count)
     {
         _thread_scene_id = i;
-        printf("FILE: %s LINE: %d\n", __FILE__, __LINE__);
         model->copy_data_to_store(bodies);
         Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
@@ -114,7 +111,6 @@ void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
             model->bodies[1].setInitVelocity(Eigen::Matrix<float, 6, 1>(
                 0, 0, 0, float(_thread_scene_id % 1000), 0, 0));
         auto collider = apbd::Collider(model);
-        printf("FILE: %s LINE: %d\n", __FILE__, __LINE__);
 
         model->simulate(&collider);
     }
@@ -135,7 +131,6 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
     cout << "# Starting " << processor_count << " threads and sims = " << sims << endl;
     for (int i = 0; i < processor_count; i++)
     {
-        cout << "FILE: " << __FILE__ << " LINE: " << __LINE__ << endl;
         if (i < sims)
         {
             // FIXME: Avoiding global buffer alloc approach to avoid corruption for now
@@ -145,12 +140,8 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
             apbd::Model *thread_model =
                 new apbd::Model(std::move(model.clone_with_buffers(buffers, i)));
 
-            cout << "FILE: " << __FILE__ << " LINE: " << __LINE__ << endl;
-
             handles.push_back(std::thread(run_cpu_thread, thread_model, bodies, sims,
                                           processor_count, i, do_variations));
-
-            cout << "FILE: " << __FILE__ << " LINE: " << __LINE__ << endl;
         }
     }
     for (auto &h : handles)

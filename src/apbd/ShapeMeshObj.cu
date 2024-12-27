@@ -13,6 +13,12 @@ namespace apbd {
     __host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) :
         F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
             readOBJ(filename, this->V, this->F);
+
+            // std::cout << "Number of vertices = " << V.cols() << "\n";
+            // std::cout << "Number of faces = " << F.cols() << "\n";
+
+            // std::cout << V << "\n";
+            // std::cout << F << "\n";
         }
 
     __host__ ShapeMeshObj::~ShapeMeshObj() {}
@@ -63,7 +69,6 @@ namespace apbd {
         // eig(J) -> [Mat3 JV, Mat3 JD] does eigenvalue decomposition, in Eigen we can use a solver
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(J);
         if (es.info() != Eigen::Success) {
-            // throw std::runtime_error("eig(J) decomposition failed @ line " + std::to_string(__LINE__));
             printf("eig(J) decomposition failed @ line %d\n", __LINE__);
         }
         
@@ -359,69 +364,100 @@ namespace apbd {
             Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1, 1, 1);
             F.col(i) = f;
         }
+
+        for (size_t i = 0; i < faces.size(); i++) {
+            Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1,1,1);
+            // Check range
+            if (f.x() < 0 || f.y() < 0 || f.z() < 0
+                || f.x() >= (int)V.cols()
+                || f.y() >= (int)V.cols()
+                || f.z() >= (int)V.cols()) {
+                std::cerr << "Face " << i << " out of range: " << f.transpose() << "\n";
+                // Possibly skip or clamp or handle error
+            }
+            // If any of them are the same => degenerate
+            if (f.x() == f.y() || f.y() == f.z() || f.z() == f.x()) {
+                std::cerr << "Face " << i << " has repeated indices: " << f.transpose() << "\n";
+            }
+        }
     }
 
     // Based on volInt.c https://people.eecs.berkeley.edu/~jfc/mirtich/massProps.html
-    void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
-        Eigen::Matrix<float, 3, Eigen::Dynamic> Xn = V.transpose();
-        Eigen::Matrix<int, 3, Eigen::Dynamic> Triangles = F.transpose();
+    // TODO: Work on readability/comments
+    void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V,
+                        const Eigen::Matrix<int, 3, Eigen::Dynamic> &F,
+                        float &T0,
+                        Eigen::Vector3f &T1,
+                        Eigen::Vector3f &T2,
+                        Eigen::Vector3f &TP)
+    {
+        Eigen::Matrix<float, Eigen::Dynamic, 3> Xn = V.transpose();
 
-        // The Tx, Ty, Tz, ..., Tzx stuff is unused, but you could add the floats if needed later
+        Eigen::Matrix<int, Eigen::Dynamic, 3> Triangles = F.transpose();
+
+        // Initialize accumulators
         T0 = 0.0f;
-        T1 = Eigen::Vector3f::Zero();
-        T2 = Eigen::Vector3f::Zero();
-        TP = Eigen::Vector3f::Zero();
+        T1.setZero();
+        T2.setZero();
+        TP.setZero();
 
-        for (size_t i = 0; i < Triangles.rows(); i++) {
-            // Compute face normal - the indices are 1-based in MATLAB but we converted to 0 in readOBJ
+        const int numFaces = static_cast<int>(Triangles.rows());
+        for (int i = 0; i < numFaces; i++)
+        {
             Eigen::Vector3i tri = Triangles.row(i);
 
-            // TODO: Is it Xn.row or Xn.col
-            Eigen::Vector3f v0 = Xn.row(tri(0));
-            Eigen::Vector3f v1 = Xn.row(tri(1));
-            Eigen::Vector3f v2 = Xn.row(tri(2));
+            const Eigen::Vector3f v0 = Xn.row(tri(0));
+            const Eigen::Vector3f v1 = Xn.row(tri(1));
+            const Eigen::Vector3f v2 = Xn.row(tri(2));
+
+            // d10 = v1 - v0, d20 = v2 - v0
             Eigen::Vector3f d10 = v1 - v0;
             Eigen::Vector3f d20 = v2 - v0;
+
             Eigen::Vector3f normal = d10.cross(d20);
-            Eigen::Vector3f Normal = normal / normal.norm();
-            if (normal.norm() < 1e-9f) {
+            float normVal = normal.norm();
+            if (!std::isfinite(normVal) || normVal < 1e-9f)
+            {
                 continue;
             }
 
-            float nx = std::abs(Normal(0));
-            float ny = std::abs(Normal(1));
-            float nz = std::abs(Normal(2));
+            Eigen::Vector3f Normal = normal / normVal;
+
+            float nx = std::fabs(Normal(0));
+            float ny = std::fabs(Normal(1));
+            float nz = std::fabs(Normal(2));
             int C;
-
-            if ((nx > ny) && (nx > nz)) {
+            if ((nx > ny) && (nx > nz))
                 C = 0;
-            }
-            else if (ny > nz) {
+            else if (ny > nz)
                 C = 1;
-            }
-            else {
+            else
                 C = 2;
-            }
 
+            // A,B are the other two indices
             int A = (C + 1) % 3;
             int B = (A + 1) % 3;
-            A += 1;
-            B += 1;
-            C += 1;
+            
+            /*
+                Gets weird here. MATLAB does A = A + 1, B = B + 1, etc... but that is for 1-based
 
-            float N_A(Normal(A - 1)), N_B(Normal(B - 1)), N_C(Normal(C - 1));
-            float w = -Normal(0) * Xn(tri(0), 0) - Normal(1) * Xn(tri(0), 1) - Normal(2) * Xn(tri(0), 2);
+                We can just keep 0-based but offset correctly
+            */
+            float w = -(Normal(0)*v0(0) + Normal(1)*v0(1) + Normal(2)*v0(2));
 
-            float P1(0), Pa(0), Paa(0), Paaa(0), Pb(0), Pbb(0), Pbbb(0), Pab(0), Paab(0), Pabb(0);
+            float P1=0, Pa=0, Paa=0, Paaa=0,
+                Pb=0, Pbb=0, Pbbb=0, Pab=0, Paab=0, Pabb=0;
 
-            for (int j = 0; j < 3; j++) {
+            for (int j = 0; j < 3; j++)
+            {
                 int curr_idx = j;
-                int next_idx = (j+1)%3;
+                int next_idx = (j + 1) % 3;
 
-                float a0 = Xn(tri(curr_idx), A-1);
-                float b0 = Xn(tri(curr_idx), B-1);
-                float a1 = Xn(tri(next_idx), A-1);
-                float b1 = Xn(tri(next_idx), B-1);
+                float a0 = Xn(tri(curr_idx), A);
+                float b0 = Xn(tri(curr_idx), B);
+                float a1 = Xn(tri(next_idx), A);
+                float b1 = Xn(tri(next_idx), B);
+
                 float da = a1 - a0;
                 float db = b1 - b0;
 
@@ -431,94 +467,283 @@ namespace apbd {
                 float b0_2 = b0*b0;
                 float b0_3 = b0_2*b0;
                 float b0_4 = b0_3*b0;
+
                 float a1_2 = a1*a1;
                 float a1_3 = a1_2*a1;
                 float b1_2 = b1*b1;
                 float b1_3 = b1_2*b1;
 
-                float C1 = a1+a0;
-                float Ca = a1*C1 + a0_2;
+                float C1  = a1 + a0;
+                float Ca  = a1*C1 + a0_2;
                 float Caa = a1*Ca + a0_3;
-                float Caaa = a1*Caa + a0_4;
-                float Cb = b1*(b1+b0)+b0_2;
-                float Cbb = b1*Cb + b0_3;
-                float Cbbb = b1*Cbb + b0_4;
-                float Cab = 3*a1_2+2*a1*a0+a0_2;
-                float Kab = a1_2+2*a1*a0+3*a0_2;
-                float Caab = a0*Cab+4*a1_3;
-                float Kaab = a1*Kab+4*a0_3;
-                float Cabb = 4*b1_3+3*b1_2*b0+2*b1*b0_2+b0_3;
-                float Kabb = b1_3+2*b1_2*b0+3*b1*b0_2+4*b0_3;
+                float Caaa= a1*Caa + a0_4;
 
-                P1 += (db*C1);
-                Pa += (db*Ca);
-                Paa += db*Caa;
-                Paaa += db*Caaa;
-                Pb += (da*Cb);
-                Pbb += da*Cbb;
-                Pbbb += da*Cbbb;
-                Pab += db*(b1*Cab+b0*Kab);
-                Paab += db*(b1*Caab+b0*Kaab);
-                Pabb += da*(a1*Cabb+a0*Kabb);
+                float Cb  = b1*(b1+b0) + b0_2;
+                float Cbb = b1*Cb + b0_3;
+                float Cbbb= b1*Cbb + b0_4;
+
+                float Cab = 3*a1_2 + 2*a1*a0 + a0_2;
+                float Kab = a1_2 + 2*a1*a0 + 3*a0_2;
+                float Caab= a0*Cab + 4*a1_3;
+                float Kaab= a1*Kab + 4*a0_3;
+
+                float Cabb= 4*b1_3 + 3*b1_2*b0 + 2*b1*b0_2 + b0_3;
+                float Kabb= b1_3 + 2*b1_2*b0 + 3*b1*b0_2 + 4*b0_3;
+
+                P1   += (db * C1);
+                Pa   += (db * Ca);
+                Paa  += (db * Caa);
+                Paaa += (db * Caaa);
+                Pb   += (da * Cb);
+                Pbb  += (da * Cbb);
+                Pbbb += (da * Cbbb);
+                Pab  += db*(b1*Cab + b0*Kab);
+                Paab += db*(b1*Caab + b0*Kaab);
+                Pabb += da*(a1*Cabb + a0*Kabb);
             }
 
-            P1 /= 2.0f;
-            Pa /= 6.0f;
-            Paa /= 12.0f;
+            P1   /= 2.0f;
+            Pa   /= 6.0f;
+            Paa  /= 12.0f;
             Paaa /= 20.0f;
-            Pb /= -6.0f;
-            Pbb /= -12.0f;
+            Pb   /= -6.0f;
+            Pbb  /= -12.0f;
             Pbbb /= -20.0f;
-            Pab /= 24.0f;
+            Pab  /= 24.0f;
             Paab /= 60.0f;
             Pabb /= -60.0f;
 
-            // float N_A = Normal(A - 1);
-            // float N_B = Normal(B - 1);
-            // float N_C = Normal(C - 1);
+            float N_A = Normal(A);
+            float N_B = Normal(B);
+            float N_C = Normal(C);
 
             float k1 = 1.0f / N_C;
             float k2 = k1 * k1;
             float k3 = k2 * k1;
             float k4 = k3 * k1;
 
-            float Fa = k1 * Pa;
-            float Fb = k1 * Pb;
-            float Fc = -k2 * (N_A * Pa + N_B * Pb + w * P1);
+            float Fa   = k1 * Pa;
+            float Fb   = k1 * Pb;
+            float Fc   = -k2*(N_A*Pa + N_B*Pb + w*P1);
 
-            float Faa = k1 * Paa;
-            float Fbb = k1 * Pbb;
-            float Fcc = k3 * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb + w * (2 * (N_A * Pa + N_B * Pb) + w * P1));
+            float Faa  = k1 * Paa;
+            float Fbb  = k1 * Pbb;
+            float Fcc  = k3*( (N_A*N_A)*Paa + 2*N_A*N_B*Pab + (N_B*N_B)*Pbb +
+                            w*(2*(N_A*Pa + N_B*Pb) + w*P1));
 
             float Faaa = k1 * Paaa;
             float Fbbb = k1 * Pbbb;
-            float Fccc = -k4 * (N_A * N_A * N_A * Paaa + 3 * N_A * N_A * N_B * Paab + 3 * N_A * N_B * N_B * Pabb + N_B * N_B * N_B * Pbbb + 3 * w * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb) + w * w * (3 * (N_A * Pa + N_B * Pb) + w * P1));
+            float Fccc = -k4*( (N_A*N_A*N_A)*Paaa +
+                            3*N_A*N_A*N_B*Paab +
+                            3*N_A*N_B*N_B*Pabb +
+                            (N_B*N_B*N_B)*Pbbb +
+                            3*w*( (N_A*N_A)*Paa + 2*N_A*N_B*Pab + (N_B*N_B)*Pbb ) +
+                            w*w*(3*(N_A*Pa + N_B*Pb) + w*P1 ));
 
             float Faab = k1 * Paab;
-            float Fbbc = -k2 * (N_A * Pabb + N_B * Pbbb + w * Pbb);
-            float Fcca = k3 * (N_A * N_A * Paaa + 2 * N_A * N_B * Paab + N_B * N_B * Pabb + w * (2 * (N_A * Paa + N_B * Pab) + w * Pa));
-            
-            float Part;
-            if (A == 1) {
+            float Fbbc = -k2*(N_A*Pabb + N_B*Pbbb + w*Pbb);
+            float Fcca = k3*((N_A*N_A)*Paaa +
+                             2*N_A*N_B*Paab +
+                             (N_B*N_B)*Pabb +
+                             w*(2*(N_A*Paa + N_B*Pab) + w*Pa));
+
+            float Part = 0.0f;
+            if (A == 0)
                 Part = Fa;
-            }
-            else if (B == 1) {
+            else if (B == 0)
                 Part = Fb;
-            }
-            else {
+            else
                 Part = Fc;
-            }
 
             T0 += Normal(0) * Part;
-            T1(A - 1) += N_A * Faa;
-            T1(B - 1) += N_B * Fbb;
-            T1(C - 1) += N_C * Fcc;
-            T2(A - 1) += N_A * Faaa;
-            T2(B - 1) += N_B * Fbbb;
-            T2(C - 1) += N_C * Fccc;
-            TP(A - 1) += N_A * Faab;
-            TP(B - 1) += N_B * Fbbc;
-            TP(C - 1) += N_C * Fcca;
+
+            T1(A) += N_A * Faa;
+            T1(B) += N_B * Fbb;
+            T1(C) += N_C * Fcc;
+
+            T2(A) += N_A * Faaa;
+            T2(B) += N_B * Fbbb;
+            T2(C) += N_C * Fccc;
+
+            TP(A) += N_A * Faab;
+            TP(B) += N_B * Fbbc;
+            TP(C) += N_C * Fcca;
         }
+
+        T1(0) /= 2.0f; T1(1) /= 2.0f; T1(2) /= 2.0f;
+        T2(0) /= 3.0f; T2(1) /= 3.0f; T2(2) /= 3.0f;
+        TP(0) /= 2.0f; TP(1) /= 2.0f; TP(2) /= 2.0f;
     }
+
+    // void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
+    //     Eigen::Matrix<float, 3, Eigen::Dynamic> Xn = V.transpose();
+    //     Eigen::Matrix<int, 3, Eigen::Dynamic> Triangles = F.transpose();
+
+    //     // The Tx, Ty, Tz, ..., Tzx stuff is unused, but you could add the floats if needed later
+    //     T0 = 0.0f;
+    //     T1 = Eigen::Vector3f::Zero();
+    //     T2 = Eigen::Vector3f::Zero();
+    //     TP = Eigen::Vector3f::Zero();
+
+    //     for (size_t i = 0; i < Triangles.rows(); i++) {
+    //         // Compute face normal - the indices are 1-based in MATLAB but we converted to 0 in readOBJ
+    //         Eigen::Vector3i tri = Triangles.row(i);
+
+    //         // TODO: Is it Xn.row or Xn.col
+    //         Eigen::Vector3f v0 = Xn.row(tri(0));
+    //         Eigen::Vector3f v1 = Xn.row(tri(1));
+    //         Eigen::Vector3f v2 = Xn.row(tri(2));
+    //         Eigen::Vector3f d10 = v1 - v0;
+    //         Eigen::Vector3f d20 = v2 - v0;
+    //         Eigen::Vector3f normal = d10.cross(d20);
+
+    //         // Just after computing "normal = d10.cross(d20);"
+    //         if (!std::isfinite(normal.norm()) || normal.norm() < 1e-9f) {
+    //             std::cerr << "Skipping degenerate face i=" << i << "\n";
+    //             continue;
+    //         }
+
+    //         // print partial sums
+    //         std::cout << "Triangle i=" << i << " normal=" << normal.transpose()
+    //                 << " normalNorm=" << normal.norm() << "\n";
+
+
+    //         Eigen::Vector3f Normal = normal / normal.norm();
+    //         if (normal.norm() < 1e-9f) {
+    //             continue;
+    //         }
+
+    //         float nx = std::abs(Normal(0));
+    //         float ny = std::abs(Normal(1));
+    //         float nz = std::abs(Normal(2));
+    //         int C;
+
+    //         if ((nx > ny) && (nx > nz)) {
+    //             C = 0;
+    //         }
+    //         else if (ny > nz) {
+    //             C = 1;
+    //         }
+    //         else {
+    //             C = 2;
+    //         }
+
+    //         int A = (C + 1) % 3;
+    //         int B = (A + 1) % 3;
+    //         A += 1;
+    //         B += 1;
+    //         C += 1;
+
+    //         float N_A(Normal(A - 1)), N_B(Normal(B - 1)), N_C(Normal(C - 1));
+    //         float w = -Normal(0) * Xn(tri(0), 0) - Normal(1) * Xn(tri(0), 1) - Normal(2) * Xn(tri(0), 2);
+
+    //         float P1(0), Pa(0), Paa(0), Paaa(0), Pb(0), Pbb(0), Pbbb(0), Pab(0), Paab(0), Pabb(0);
+
+    //         for (int j = 0; j < 3; j++) {
+    //             int curr_idx = j;
+    //             int next_idx = (j+1)%3;
+
+    //             float a0 = Xn(tri(curr_idx), A-1);
+    //             float b0 = Xn(tri(curr_idx), B-1);
+    //             float a1 = Xn(tri(next_idx), A-1);
+    //             float b1 = Xn(tri(next_idx), B-1);
+    //             float da = a1 - a0;
+    //             float db = b1 - b0;
+
+    //             float a0_2 = a0*a0;
+    //             float a0_3 = a0_2*a0;
+    //             float a0_4 = a0_3*a0;
+    //             float b0_2 = b0*b0;
+    //             float b0_3 = b0_2*b0;
+    //             float b0_4 = b0_3*b0;
+    //             float a1_2 = a1*a1;
+    //             float a1_3 = a1_2*a1;
+    //             float b1_2 = b1*b1;
+    //             float b1_3 = b1_2*b1;
+
+    //             float C1 = a1+a0;
+    //             float Ca = a1*C1 + a0_2;
+    //             float Caa = a1*Ca + a0_3;
+    //             float Caaa = a1*Caa + a0_4;
+    //             float Cb = b1*(b1+b0)+b0_2;
+    //             float Cbb = b1*Cb + b0_3;
+    //             float Cbbb = b1*Cbb + b0_4;
+    //             float Cab = 3*a1_2+2*a1*a0+a0_2;
+    //             float Kab = a1_2+2*a1*a0+3*a0_2;
+    //             float Caab = a0*Cab+4*a1_3;
+    //             float Kaab = a1*Kab+4*a0_3;
+    //             float Cabb = 4*b1_3+3*b1_2*b0+2*b1*b0_2+b0_3;
+    //             float Kabb = b1_3+2*b1_2*b0+3*b1*b0_2+4*b0_3;
+
+    //             P1 += (db*C1);
+    //             Pa += (db*Ca);
+    //             Paa += db*Caa;
+    //             Paaa += db*Caaa;
+    //             Pb += (da*Cb);
+    //             Pbb += da*Cbb;
+    //             Pbbb += da*Cbbb;
+    //             Pab += db*(b1*Cab+b0*Kab);
+    //             Paab += db*(b1*Caab+b0*Kaab);
+    //             Pabb += da*(a1*Cabb+a0*Kabb);
+    //         }
+
+    //         P1 /= 2.0f;
+    //         Pa /= 6.0f;
+    //         Paa /= 12.0f;
+    //         Paaa /= 20.0f;
+    //         Pb /= -6.0f;
+    //         Pbb /= -12.0f;
+    //         Pbbb /= -20.0f;
+    //         Pab /= 24.0f;
+    //         Paab /= 60.0f;
+    //         Pabb /= -60.0f;
+
+    //         // float N_A = Normal(A - 1);
+    //         // float N_B = Normal(B - 1);
+    //         // float N_C = Normal(C - 1);
+
+    //         float k1 = 1.0f / N_C;
+    //         float k2 = k1 * k1;
+    //         float k3 = k2 * k1;
+    //         float k4 = k3 * k1;
+
+    //         float Fa = k1 * Pa;
+    //         float Fb = k1 * Pb;
+    //         float Fc = -k2 * (N_A * Pa + N_B * Pb + w * P1);
+
+    //         float Faa = k1 * Paa;
+    //         float Fbb = k1 * Pbb;
+    //         float Fcc = k3 * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb + w * (2 * (N_A * Pa + N_B * Pb) + w * P1));
+
+    //         float Faaa = k1 * Paaa;
+    //         float Fbbb = k1 * Pbbb;
+    //         float Fccc = -k4 * (N_A * N_A * N_A * Paaa + 3 * N_A * N_A * N_B * Paab + 3 * N_A * N_B * N_B * Pabb + N_B * N_B * N_B * Pbbb + 3 * w * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb) + w * w * (3 * (N_A * Pa + N_B * Pb) + w * P1));
+
+    //         float Faab = k1 * Paab;
+    //         float Fbbc = -k2 * (N_A * Pabb + N_B * Pbbb + w * Pbb);
+    //         float Fcca = k3 * (N_A * N_A * Paaa + 2 * N_A * N_B * Paab + N_B * N_B * Pabb + w * (2 * (N_A * Paa + N_B * Pab) + w * Pa));
+            
+    //         float Part;
+    //         if (A == 1) {
+    //             Part = Fa;
+    //         }
+    //         else if (B == 1) {
+    //             Part = Fb;
+    //         }
+    //         else {
+    //             Part = Fc;
+    //         }
+
+    //         T0 += Normal(0) * Part;
+    //         T1(A - 1) += N_A * Faa;
+    //         T1(B - 1) += N_B * Fbb;
+    //         T1(C - 1) += N_C * Fcc;
+    //         T2(A - 1) += N_A * Faaa;
+    //         T2(B - 1) += N_B * Fbbb;
+    //         T2(C - 1) += N_C * Fccc;
+    //         TP(A - 1) += N_A * Faab;
+    //         TP(B - 1) += N_B * Fbbc;
+    //         TP(C - 1) += N_C * Fcca;
+    //     }
+    // }
 } // namespace apbd

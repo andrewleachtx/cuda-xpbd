@@ -661,24 +661,22 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             bodies = new apbd::Body[total_bodies];
             model.body_count = total_bodies;
             model.bodies = new apbd::BodyReference[total_bodies];
+
             for (size_t i = 0; i < n; i++) {
-                /*
-                    We need to construct a Body(BodyRigid(ShapeMeshObj) to slot into an array of
-                    BodyReference[], this calls 
-                */
-                
-                apbd::BodyRigid br = apbd::BodyRigid(mesh, density, true, mu);
+                apbd::BodyRigid br(mesh, density, /*collide*/true, /*mu*/mu);
                 bodies[i] = apbd::Body(br);
 
                 auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
-                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
-                float x = 0.0f * w * i;
-                float y = 0.75f * w * (i - 1);
+                float x = 0.0f;  // 0*w*(i) but always 0 anyway
+                float y = 0.75f * w * (static_cast<float>(i) - 1.0f);
                 float z = -0.2f * w;
+
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                E.block<3,3>(0,0) = R;
                 Eigen::Vector3f pos = {x, y, z};
-                E.block<3, 3>(0, 0) = R;
-                E.block<3, 1>(0, 3) = R * pos;
+                E.block<3,1>(0,3) = R * pos;
+
                 bodies[i].setInitTransform(E * mesh.E_oi);
             }
 
@@ -707,7 +705,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             bodies[3].setInitTransform(E);
         }
     }
-    model.init();
+
     model.create_store(scene_count);
 
     return model;

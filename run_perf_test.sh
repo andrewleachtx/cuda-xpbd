@@ -31,6 +31,7 @@ do
     for sim_count in {10..82}
       do
         sim_count=$(python3 -c 'print(int(2**('$sim_count'/5)))')
+        sim_count=1
         ./build/$version/tests/performance -m $sim_id -s $sim_count | tee -a $log \
           | grep "Kernel took:" \
           | awk '{printf("'$sim_count',%s,%s\n",$4,$7)}' \
