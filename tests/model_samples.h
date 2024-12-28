@@ -635,6 +635,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
         case 18:
         {
             // Stacking: Mesh
+            substeps = 1;
             model.tEnd = 1.0f;
             model.h = h;
             model.substeps = substeps;
@@ -642,7 +643,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.reverse_iters = 25;
             float density = 1.0f;
             float w = 1.0f;
-            Eigen::Vector3f sides = {w, w, w};
             model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
             model.ground_E = Eigen::Matrix4f::Identity();
             float mu = 0.5f;
@@ -663,7 +663,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.bodies = new apbd::BodyReference[total_bodies];
 
             for (size_t i = 0; i < n; i++) {
-                apbd::BodyRigid br(mesh, density, /*collide*/true, /*mu*/mu);
+                apbd::BodyRigid br(mesh, density, true, mu);
                 bodies[i] = apbd::Body(br);
 
                 auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
@@ -706,6 +706,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
         }
     }
 
+    model.init();
     model.create_store(scene_count);
 
     return model;
