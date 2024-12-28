@@ -5,21 +5,21 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace apbd {
-    
-    __host__ ShapeMeshObj::ShapeMeshObj() :
-        F(), V(), E_oi(), E_io(), radius(1.0f) {}
+namespace apbd
+{
 
-    __host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) :
-        F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
-            readOBJ(filename, this->V, this->F);
+    __host__ ShapeMeshObj::ShapeMeshObj() : F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
-            // std::cout << "Number of vertices = " << V.cols() << "\n";
-            // std::cout << "Number of faces = " << F.cols() << "\n";
+    __host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename) : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename)
+    {
+        readOBJ(filename, this->V, this->F);
 
-            // std::cout << V << "\n";
-            // std::cout << F << "\n";
-        }
+        // std::cout << "Number of vertices = " << V.cols() << "\n";
+        // std::cout << "Number of faces = " << F.cols() << "\n";
+
+        // std::cout << V << "\n";
+        // std::cout << F << "\n";
+    }
 
     __host__ ShapeMeshObj::~ShapeMeshObj() {}
 
@@ -32,13 +32,13 @@ namespace apbd {
             inertia (element-by-element) by any density to get the same result.
         */
 
-        // Call VolInt 
+        // Call VolInt
         float T0;
         Eigen::Vector3f T1, T2, TP;
         VolumeIntegration(V, F, T0, T1, T2, TP);
 
         float mass = density * T0;
-        
+
         // compute center of mass
         Eigen::Vector3f r = T1 / T0;
 
@@ -71,7 +71,7 @@ namespace apbd {
         if (es.info() != Eigen::Success) {
             printf("eig(J) decomposition failed @ line %d\n", __LINE__);
         }
-        
+
         /*
             JD is the diagonal of eigenvalues, and JV eigenvectors. JV, JD are Mat3 in MATLAB, but in Eigen
             .eigenvalues() returns a Vec3f. We can use .asDiagonal but we actually don't use JD anywhere else
@@ -87,8 +87,6 @@ namespace apbd {
         // This sets top left 3x3
         E.block<3, 3>(0, 0) = JV;
         E.block<3, 1>(0, 3) = r;
-
-        // TODO: CONTINUE ADDING FROM LINE 80 IN SHAPEMESHOBJ.M
 
         // Check for right-handedness
         Eigen::Vector3f x = E.block<3, 1>(0, 0);
@@ -120,22 +118,27 @@ namespace apbd {
             float vecnorm = V_sliced.col(i).norm();
             if (vecnorm > radius) {
                 radius = vecnorm;
-            }            
+            }
         }
 
+        printf("returning I = %f %f %f %f %f %f\n", I(0), I(1), I(2), I(3), I(4), I(5));
+        // return I;
         return I;
     }
 
-    __host__ float ShapeMeshObj::getAxisSize() const {
+    __host__ float ShapeMeshObj::getAxisSize() const
+    {
         return 1.0f;
     }
-    
-    __host__ Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E, Eigen::Vector4f xl) const {
+
+    __host__ Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E, Eigen::Vector4f xl) const
+    {
         Eigen::Vector4f xlc = E * Eigen::Vector4f(xl(0), xl(1), xl(2), 1.0f);
         return xlc.head<3>();
     }
 
-    __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+    __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const
+    {
         Eigen::Vector4f xl(0.0f, 0.0f, 0.0f, 1.0f);
         Eigen::Vector4f xw = E * xl;
 
@@ -145,7 +148,8 @@ namespace apbd {
     }
 
     // TODO: This one I am a bit unsure on, reference ShapeMeshObj : 125
-    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const
+    {
         cuda::std::array<Contact, 8> cdata;
         int nverts = V.cols();
         // Matrix4Xf == Matrix<float, 4, Eigen::Dynamic>
@@ -158,22 +162,28 @@ namespace apbd {
         float maxdepth = depth.minCoeff();
 
         // find(depth < maxdepth + 5e-2) is an abstracted method to get indices where all values in depth are < 5e-2
-        if (maxdepth < 0.2f) {
+        if (maxdepth < 0.2f)
+        {
             std::vector<int> cindices;
-            for (size_t i = 0; i < depth.size(); i++) {
-                if (depth(i) < maxdepth + 5e-2f) {
+            for (size_t i = 0; i < depth.size(); i++)
+            {
+                if (depth(i) < maxdepth + 5e-2f)
+                {
                     cindices.push_back(i);
                 }
             }
 
             // if there are more than 8 such indices, create subindices
-            if (cindices.size() > 8) {
+            if (cindices.size() > 8)
+            {
                 std::vector<int> subindices(4, 0);
                 // [~, subindices(1)] = min(xg(1, cindices)) means find idx of minimum value in xg(0, i)
                 size_t min_idx = 0;
                 float min_val = std::numeric_limits<float>::max();
-                for (size_t i = 0; i < cindices.size(); i++) {
-                    if (xg(0, cindices[i]) < min_val) {
+                for (size_t i = 0; i < cindices.size(); i++)
+                {
+                    if (xg(0, cindices[i]) < min_val)
+                    {
                         min_val = xg(0, cindices[i]);
                         min_idx = i;
                     }
@@ -182,8 +192,10 @@ namespace apbd {
 
                 size_t max_idx = 0;
                 float max_val = std::numeric_limits<float>::min();
-                for (size_t i = 0; i < cindices.size(); i++) {
-                    if (xg(1, cindices[i]) > max_val) {
+                for (size_t i = 0; i < cindices.size(); i++)
+                {
+                    if (xg(1, cindices[i]) > max_val)
+                    {
                         max_val = xg(1, cindices[i]);
                         max_idx = i;
                     }
@@ -192,8 +204,10 @@ namespace apbd {
 
                 min_idx = 0;
                 min_val = std::numeric_limits<float>::max();
-                for (size_t i = 0; i < cindices.size(); i++) {
-                    if (xg(2, cindices[i]) < min_val) {
+                for (size_t i = 0; i < cindices.size(); i++)
+                {
+                    if (xg(2, cindices[i]) < min_val)
+                    {
                         min_val = xg(2, cindices[i]);
                         min_idx = i;
                     }
@@ -202,19 +216,22 @@ namespace apbd {
 
                 max_idx = 0;
                 max_val = std::numeric_limits<float>::min();
-                for (size_t i = 0; i < cindices.size(); i++) {
-                    if (xg(2, cindices[i]) > max_val) {
+                for (size_t i = 0; i < cindices.size(); i++)
+                {
+                    if (xg(2, cindices[i]) > max_val)
+                    {
                         max_val = xg(2, cindices[i]);
                         max_idx = i;
                     }
                 }
                 subindices[3] = max_idx;
 
-                cindices = subindices;                
+                cindices = subindices;
             }
 
             int cdata_count = 0;
-            for (int idx : cindices) {
+            for (int idx : cindices)
+            {
                 float d = xg(2, idx);
 
                 // FIXME: direct porting to eigen provided difficult - this may not do the same thing
@@ -226,8 +243,7 @@ namespace apbd {
                 cdata[cdata_count++] = Contact{
                     Eg.block<3, 1>(0, 2),
                     xl.col(idx).head<3>(),
-                    Eg_sub * xgproj
-                };
+                    Eg_sub * xgproj};
             }
 
             return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(cdata_count));
@@ -236,7 +252,8 @@ namespace apbd {
         return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, 0);
     }
 
-    __host__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
+    __host__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const
+    {
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
@@ -248,22 +265,24 @@ namespace apbd {
         return d <= 1.2f * (r1 + r2);
     }
 
-    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const {
+    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const
+    {
         cuda::std::array<Contact, 8> cdata;
-        
+
         Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
         Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
-        // FIXME: Potentially refactor to only use doubles, as this 
+        // FIXME: Potentially refactor to only use doubles, as this
         Eigen::Matrix4d mat1 = (E1 * E_io).cast<double>();
         Eigen::Matrix4d mat2 = (E2 * other.E_io).cast<double>();
 
         // const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other.E_io, other.filename);
         const auto collisions = coalMeshMesh(mat1, this->filename, mat2, other.filename);
-        const Eigen::Vector3f& nw = collisions.normal.cast<float>();
-        for (int i = 0; i < collisions.count; i++) {
+        const Eigen::Vector3f &nw = collisions.normal.cast<float>();
+        for (int i = 0; i < collisions.count; i++)
+        {
             Eigen::Vector3f xw = collisions.positions[i].cast<float>();
             float d = static_cast<float>(collisions.depths[i]);
 
@@ -278,16 +297,17 @@ namespace apbd {
             cdata[i] = Contact{
                 nw,
                 x1,
-                x2
-            };
+                x2};
         }
-        
+
         return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(collisions.count));
     }
 
-    void ShapeMeshObj::readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F) {
+    void ShapeMeshObj::readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F)
+    {
         std::ifstream file(filename);
-        if (!file.is_open()) {
+        if (!file.is_open())
+        {
             throw std::runtime_error("Couldn't open OBJ file in readOBJ: " + filename);
         }
 
@@ -295,12 +315,14 @@ namespace apbd {
         std::vector<Eigen::Vector3i> faces;
 
         std::string line;
-        while (std::getline(file, line)) {
+        while (std::getline(file, line))
+        {
             // vertex
             {
                 float x, y, z;
                 int matches = sscanf(line.c_str(), "v %f %f %f", &x, &y, &z);
-                if (matches == 3) {
+                if (matches == 3)
+                {
                     vertices.emplace_back(x, y, z);
                     continue;
                 }
@@ -310,7 +332,8 @@ namespace apbd {
             {
                 int i1, i2, i3;
                 int matches = sscanf(line.c_str(), "f %d %d %d", &i1, &i2, &i3);
-                if (matches == 3) {
+                if (matches == 3)
+                {
                     faces.emplace_back(i1, i2, i3);
                     continue;
                 }
@@ -321,7 +344,8 @@ namespace apbd {
                 int i1, i2, i3;
                 int j1, j2, j3;
                 int matches = sscanf(line.c_str(), "f %d/%d %d/%d %d/%d", &i1, &j1, &i2, &j2, &i3, &j3);
-                if (matches == 6) {
+                if (matches == 6)
+                {
                     faces.emplace_back(i1, i2, i3);
                     continue;
                 }
@@ -332,7 +356,8 @@ namespace apbd {
                 int i1, i2, i3;
                 int n1, n2, n3;
                 int matches = sscanf(line.c_str(), "f %d//%d %d//%d %d//%d", &i1, &n1, &i2, &n2, &i3, &n3);
-                if (matches == 6) {
+                if (matches == 6)
+                {
                     faces.emplace_back(i1, i2, i3);
                     continue;
                 }
@@ -344,7 +369,8 @@ namespace apbd {
                 int j1, j2, j3;
                 int n1, n2, n3;
                 int matches = sscanf(line.c_str(), "f %d/%d/%d %d/%d/%d %d/%d/%d", &i1, &j1, &n1, &i2, &j2, &n2, &i3, &j3, &n3);
-                if (matches == 9) {
+                if (matches == 9)
+                {
                     faces.emplace_back(i1, i2, i3);
                     continue;
                 }
@@ -354,29 +380,31 @@ namespace apbd {
         file.close();
 
         V.resize(3, vertices.size());
-        for (size_t i = 0; i < vertices.size(); i++) {
+        for (size_t i = 0; i < vertices.size(); i++)
+        {
             V.col(i) = vertices[i];
         }
 
         // FIXME: Not sure if it really matters whether we are in 1-based or 0-based, can mess with this later
         F.resize(3, faces.size());
-        for (size_t i = 0; i < faces.size(); i++) {
+        for (size_t i = 0; i < faces.size(); i++)
+        {
             Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1, 1, 1);
             F.col(i) = f;
         }
 
-        for (size_t i = 0; i < faces.size(); i++) {
-            Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1,1,1);
+        for (size_t i = 0; i < faces.size(); i++)
+        {
+            Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1, 1, 1);
             // Check range
-            if (f.x() < 0 || f.y() < 0 || f.z() < 0
-                || f.x() >= (int)V.cols()
-                || f.y() >= (int)V.cols()
-                || f.z() >= (int)V.cols()) {
+            if (f.x() < 0 || f.y() < 0 || f.z() < 0 || f.x() >= (int)V.cols() || f.y() >= (int)V.cols() || f.z() >= (int)V.cols())
+            {
                 std::cerr << "Face " << i << " out of range: " << f.transpose() << "\n";
                 // Possibly skip or clamp or handle error
             }
             // If any of them are the same => degenerate
-            if (f.x() == f.y() || f.y() == f.z() || f.z() == f.x()) {
+            if (f.x() == f.y() || f.y() == f.z() || f.z() == f.x())
+            {
                 std::cerr << "Face " << i << " has repeated indices: " << f.transpose() << "\n";
             }
         }
@@ -385,11 +413,11 @@ namespace apbd {
     // Based on volInt.c https://people.eecs.berkeley.edu/~jfc/mirtich/massProps.html
     // TODO: Work on readability/comments
     void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V,
-                        const Eigen::Matrix<int, 3, Eigen::Dynamic> &F,
-                        float &T0,
-                        Eigen::Vector3f &T1,
-                        Eigen::Vector3f &T2,
-                        Eigen::Vector3f &TP)
+                                         const Eigen::Matrix<int, 3, Eigen::Dynamic> &F,
+                                         float &T0,
+                                         Eigen::Vector3f &T1,
+                                         Eigen::Vector3f &T2,
+                                         Eigen::Vector3f &TP)
     {
         Eigen::Matrix<float, Eigen::Dynamic, 3> Xn = V.transpose();
 
@@ -437,16 +465,16 @@ namespace apbd {
             // A,B are the other two indices
             int A = (C + 1) % 3;
             int B = (A + 1) % 3;
-            
+
             /*
                 Gets weird here. MATLAB does A = A + 1, B = B + 1, etc... but that is for 1-based
 
                 We can just keep 0-based but offset correctly
             */
-            float w = -(Normal(0)*v0(0) + Normal(1)*v0(1) + Normal(2)*v0(2));
+            float w = -(Normal(0) * v0(0) + Normal(1) * v0(1) + Normal(2) * v0(2));
 
-            float P1=0, Pa=0, Paa=0, Paaa=0,
-                Pb=0, Pbb=0, Pbbb=0, Pab=0, Paab=0, Pabb=0;
+            float P1 = 0, Pa = 0, Paa = 0, Paaa = 0,
+                  Pb = 0, Pbb = 0, Pbbb = 0, Pab = 0, Paab = 0, Pabb = 0;
 
             for (int j = 0; j < 3; j++)
             {
@@ -461,55 +489,55 @@ namespace apbd {
                 float da = a1 - a0;
                 float db = b1 - b0;
 
-                float a0_2 = a0*a0;
-                float a0_3 = a0_2*a0;
-                float a0_4 = a0_3*a0;
-                float b0_2 = b0*b0;
-                float b0_3 = b0_2*b0;
-                float b0_4 = b0_3*b0;
+                float a0_2 = a0 * a0;
+                float a0_3 = a0_2 * a0;
+                float a0_4 = a0_3 * a0;
+                float b0_2 = b0 * b0;
+                float b0_3 = b0_2 * b0;
+                float b0_4 = b0_3 * b0;
 
-                float a1_2 = a1*a1;
-                float a1_3 = a1_2*a1;
-                float b1_2 = b1*b1;
-                float b1_3 = b1_2*b1;
+                float a1_2 = a1 * a1;
+                float a1_3 = a1_2 * a1;
+                float b1_2 = b1 * b1;
+                float b1_3 = b1_2 * b1;
 
-                float C1  = a1 + a0;
-                float Ca  = a1*C1 + a0_2;
-                float Caa = a1*Ca + a0_3;
-                float Caaa= a1*Caa + a0_4;
+                float C1 = a1 + a0;
+                float Ca = a1 * C1 + a0_2;
+                float Caa = a1 * Ca + a0_3;
+                float Caaa = a1 * Caa + a0_4;
 
-                float Cb  = b1*(b1+b0) + b0_2;
-                float Cbb = b1*Cb + b0_3;
-                float Cbbb= b1*Cbb + b0_4;
+                float Cb = b1 * (b1 + b0) + b0_2;
+                float Cbb = b1 * Cb + b0_3;
+                float Cbbb = b1 * Cbb + b0_4;
 
-                float Cab = 3*a1_2 + 2*a1*a0 + a0_2;
-                float Kab = a1_2 + 2*a1*a0 + 3*a0_2;
-                float Caab= a0*Cab + 4*a1_3;
-                float Kaab= a1*Kab + 4*a0_3;
+                float Cab = 3 * a1_2 + 2 * a1 * a0 + a0_2;
+                float Kab = a1_2 + 2 * a1 * a0 + 3 * a0_2;
+                float Caab = a0 * Cab + 4 * a1_3;
+                float Kaab = a1 * Kab + 4 * a0_3;
 
-                float Cabb= 4*b1_3 + 3*b1_2*b0 + 2*b1*b0_2 + b0_3;
-                float Kabb= b1_3 + 2*b1_2*b0 + 3*b1*b0_2 + 4*b0_3;
+                float Cabb = 4 * b1_3 + 3 * b1_2 * b0 + 2 * b1 * b0_2 + b0_3;
+                float Kabb = b1_3 + 2 * b1_2 * b0 + 3 * b1 * b0_2 + 4 * b0_3;
 
-                P1   += (db * C1);
-                Pa   += (db * Ca);
-                Paa  += (db * Caa);
+                P1 += (db * C1);
+                Pa += (db * Ca);
+                Paa += (db * Caa);
                 Paaa += (db * Caaa);
-                Pb   += (da * Cb);
-                Pbb  += (da * Cbb);
+                Pb += (da * Cb);
+                Pbb += (da * Cbb);
                 Pbbb += (da * Cbbb);
-                Pab  += db*(b1*Cab + b0*Kab);
-                Paab += db*(b1*Caab + b0*Kaab);
-                Pabb += da*(a1*Cabb + a0*Kabb);
+                Pab += db * (b1 * Cab + b0 * Kab);
+                Paab += db * (b1 * Caab + b0 * Kaab);
+                Pabb += da * (a1 * Cabb + a0 * Kabb);
             }
 
-            P1   /= 2.0f;
-            Pa   /= 6.0f;
-            Paa  /= 12.0f;
+            P1 /= 2.0f;
+            Pa /= 6.0f;
+            Paa /= 12.0f;
             Paaa /= 20.0f;
-            Pb   /= -6.0f;
-            Pbb  /= -12.0f;
+            Pb /= -6.0f;
+            Pbb /= -12.0f;
             Pbbb /= -20.0f;
-            Pab  /= 24.0f;
+            Pab /= 24.0f;
             Paab /= 60.0f;
             Pabb /= -60.0f;
 
@@ -522,30 +550,30 @@ namespace apbd {
             float k3 = k2 * k1;
             float k4 = k3 * k1;
 
-            float Fa   = k1 * Pa;
-            float Fb   = k1 * Pb;
-            float Fc   = -k2*(N_A*Pa + N_B*Pb + w*P1);
+            float Fa = k1 * Pa;
+            float Fb = k1 * Pb;
+            float Fc = -k2 * (N_A * Pa + N_B * Pb + w * P1);
 
-            float Faa  = k1 * Paa;
-            float Fbb  = k1 * Pbb;
-            float Fcc  = k3*( (N_A*N_A)*Paa + 2*N_A*N_B*Pab + (N_B*N_B)*Pbb +
-                            w*(2*(N_A*Pa + N_B*Pb) + w*P1));
+            float Faa = k1 * Paa;
+            float Fbb = k1 * Pbb;
+            float Fcc = k3 * ((N_A * N_A) * Paa + 2 * N_A * N_B * Pab + (N_B * N_B) * Pbb +
+                              w * (2 * (N_A * Pa + N_B * Pb) + w * P1));
 
             float Faaa = k1 * Paaa;
             float Fbbb = k1 * Pbbb;
-            float Fccc = -k4*( (N_A*N_A*N_A)*Paaa +
-                            3*N_A*N_A*N_B*Paab +
-                            3*N_A*N_B*N_B*Pabb +
-                            (N_B*N_B*N_B)*Pbbb +
-                            3*w*( (N_A*N_A)*Paa + 2*N_A*N_B*Pab + (N_B*N_B)*Pbb ) +
-                            w*w*(3*(N_A*Pa + N_B*Pb) + w*P1 ));
+            float Fccc = -k4 * ((N_A * N_A * N_A) * Paaa +
+                                3 * N_A * N_A * N_B * Paab +
+                                3 * N_A * N_B * N_B * Pabb +
+                                (N_B * N_B * N_B) * Pbbb +
+                                3 * w * ((N_A * N_A) * Paa + 2 * N_A * N_B * Pab + (N_B * N_B) * Pbb) +
+                                w * w * (3 * (N_A * Pa + N_B * Pb) + w * P1));
 
             float Faab = k1 * Paab;
-            float Fbbc = -k2*(N_A*Pabb + N_B*Pbbb + w*Pbb);
-            float Fcca = k3*((N_A*N_A)*Paaa +
-                             2*N_A*N_B*Paab +
-                             (N_B*N_B)*Pabb +
-                             w*(2*(N_A*Paa + N_B*Pab) + w*Pa));
+            float Fbbc = -k2 * (N_A * Pabb + N_B * Pbbb + w * Pbb);
+            float Fcca = k3 * ((N_A * N_A) * Paaa +
+                               2 * N_A * N_B * Paab +
+                               (N_B * N_B) * Pabb +
+                               w * (2 * (N_A * Paa + N_B * Pab) + w * Pa));
 
             float Part = 0.0f;
             if (A == 0)
@@ -570,9 +598,15 @@ namespace apbd {
             TP(C) += N_C * Fcca;
         }
 
-        T1(0) /= 2.0f; T1(1) /= 2.0f; T1(2) /= 2.0f;
-        T2(0) /= 3.0f; T2(1) /= 3.0f; T2(2) /= 3.0f;
-        TP(0) /= 2.0f; TP(1) /= 2.0f; TP(2) /= 2.0f;
+        T1(0) /= 2.0f;
+        T1(1) /= 2.0f;
+        T1(2) /= 2.0f;
+        T2(0) /= 3.0f;
+        T2(1) /= 3.0f;
+        T2(2) /= 3.0f;
+        TP(0) /= 2.0f;
+        TP(1) /= 2.0f;
+        TP(2) /= 2.0f;
     }
 
     // void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
@@ -606,7 +640,6 @@ namespace apbd {
     //         // print partial sums
     //         std::cout << "Triangle i=" << i << " normal=" << normal.transpose()
     //                 << " normalNorm=" << normal.norm() << "\n";
-
 
     //         Eigen::Vector3f Normal = normal / normal.norm();
     //         if (normal.norm() < 1e-9f) {
@@ -722,7 +755,7 @@ namespace apbd {
     //         float Faab = k1 * Paab;
     //         float Fbbc = -k2 * (N_A * Pabb + N_B * Pbbb + w * Pbb);
     //         float Fcca = k3 * (N_A * N_A * Paaa + 2 * N_A * N_B * Paab + N_B * N_B * Pabb + w * (2 * (N_A * Paa + N_B * Pab) + w * Pa));
-            
+
     //         float Part;
     //         if (A == 1) {
     //             Part = Fa;

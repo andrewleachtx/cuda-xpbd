@@ -11,7 +11,7 @@ fi
 
 # assumedly we want the gdb one
 # cmake --build build/$version --parallel -t performance
-cmake --build build/$version -t performance
+cmake --build build/$version --parallel -t performance
 
 # if that cmake failed do nothing
 if [ $? -ne 0 ]; then

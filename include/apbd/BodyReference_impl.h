@@ -102,6 +102,13 @@ namespace apbd
         diag(2, 2) = sqrtMr(2);
 
         auto sqrtIntertia = R * diag * R.transpose();
+
+        printf("this->w = %f %f %f\n", this->w()(0), this->w()(1), this->w()(2));
+        printf("sqrtInertia = %f %f %f\n", sqrtIntertia(0, 0), sqrtIntertia(1, 1),
+               sqrtIntertia(2, 2));
+        printf("R = %f %f %f\n", R(0, 0), R(1, 1), R(2, 2));
+        printf("diag = %f %f %f\n", diag(0, 0), diag(1, 1), diag(2, 2));
+
         this->w(sqrtIntertia * w);
         this->v(v);
     }
@@ -169,6 +176,13 @@ namespace apbd
         const auto s = this->shape();
         const auto I = s.computeInertia(d);
         this->Mr(I.block<3, 1>(0, 0));
+
+        if (I.x() < 0 || I.y() < 0 || I.z() < 0 || I.hasNaN())
+        {
+            printf("WARNING - NEGATIVE MOMENT OF INERTIA: [%f %f %f] - using identity, check your computeInertia!\n", I.x(), I.y(), I.z());
+            this->Mr(Eigen::Vector3f(1.0, 1.0, 1.0));
+        }
+
         this->Mp(I(4));
     }
 
