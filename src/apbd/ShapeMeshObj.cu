@@ -1,5 +1,6 @@
 #include "apbd/ShapeMeshObj.h"
 #include "collideBoxBox/coalMeshMesh.h"
+#include "se3/lib.h"
 
 #include <fstream>
 #include <sstream>
@@ -25,25 +26,25 @@ namespace apbd
 
     __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density) {
         // Instead of calling readOBJ here I will do it in constructor to initialize V, F
-        // readOBJ(filename, this->V, this->F);
-
-        /*
-            The density argument is optional. We can easily multiply the resulting
-            inertia (element-by-element) by any density to get the same result.
-        */
+        // edit, lets do it anyways
+        readOBJ(filename, V, F);
 
         // Call VolInt
         float T0;
         Eigen::Vector3f T1, T2, TP;
         VolumeIntegration(V, F, T0, T1, T2, TP);
+        
+        if (T0 == 0.0f) {
+            throw std::runtime_error("V0 is zero, will cause div by zero in ShapeMeshObj::computeInertia");
+        }
 
         float mass = density * T0;
 
         // compute center of mass
-        Eigen::Vector3f r = T1 / T0;
+        Eigen::Vector3f r(T1 / T0);
 
         // compute inertia tensor
-        Eigen::Matrix3f J;
+        Eigen::Matrix<float, 3, 3> J;
         J(0, 0) = density * (T2(1) + T2(2));
         J(1, 1) = density * (T2(2) + T2(0));
         J(2, 2) = density * (T2(0) + T2(1));
@@ -61,30 +62,21 @@ namespace apbd
         J(1, 0) += mass * r(0) * r(1);
         J(2, 1) += mass * r(1) * r(2);
         J(0, 2) += mass * r(2) * r(0);
+        J(0, 1) = J(1, 0);
+        J(1, 2) = J(2, 1);
+        J(2, 0) = J(0, 2);
 
         // Eigenvalue decomposition to get aligned frame
+        // https://eigen.tuxfamily.org/dox/classEigen_1_1EigenSolver.html#title11
         Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
         Eigen::Matrix<float, 6, 1> I = Eigen::Matrix<float, 6, 1>::Zero();
-
-        // eig(J) -> [Mat3 JV, Mat3 JD] does eigenvalue decomposition, in Eigen we can use a solver
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es(J);
-        if (es.info() != Eigen::Success) {
-            printf("eig(J) decomposition failed @ line %d\n", __LINE__);
-        }
-
-        /*
-            JD is the diagonal of eigenvalues, and JV eigenvectors. JV, JD are Mat3 in MATLAB, but in Eigen
-            .eigenvalues() returns a Vec3f. We can use .asDiagonal but we actually don't use JD anywhere else
-
-            Also, the line "I(4:6) = mass;" really just sets each value to mass
-        */
-        Eigen::Matrix3f JV = es.eigenvectors();
-        Eigen::Vector3f JD = es.eigenvalues();
-
+        Eigen::EigenSolver<Eigen::Matrix<float, 3, 3>> es(J);
+        auto JV = es.eigenvectors().real();
+        auto JD = es.eigenvalues().real();
         I.head<3>() = JD;
-        I.tail<3>() = Eigen::Vector3f::Constant(mass);
-
-        // This sets top left 3x3
+        I(3) = mass;
+        I(4) = mass;
+        I(5) = mass;
         E.block<3, 3>(0, 0) = JV;
         E.block<3, 1>(0, 3) = r;
 
@@ -97,32 +89,24 @@ namespace apbd
         }
 
         E_oi = E;
-        E_io = E.inverse();
+        // E_io = E.inverse();
+        E_io = se3::inv(E);
 
-        /*
-            V_ is as if you transformed the vertices to the inverse of the E_oi matrix, and then
-            took the max of the 3D norm, which is the radius
-
-            We don't know the size so at compile time - use Eigen::Dynamic and for slicing just
-            update separately
-        */
         int nverts = V.cols();
-        Eigen::Matrix<float, 4, Eigen::Dynamic> V_(4, nverts);
-        V_.topRows<3>() = V;
-        V_.row(3).setOnes();
-        V_ = E_io * V_;
-
-        Eigen::Matrix<float, 3, Eigen::Dynamic> V_sliced = V_.topRows<3>();
-        radius = 0.0f;
-        for (int i = 0; i < V_sliced.cols(); i++) {
-            float vecnorm = V_sliced.col(i).norm();
-            if (vecnorm > radius) {
-                radius = vecnorm;
+        Eigen::Matrix<float, 4, Eigen::Dynamic> V_ = E_io * Eigen::Matrix<float, 4, Eigen::Dynamic>::Ones(4, nverts);
+        float max_norm = 0.0f;
+        for (int i = 0; i < nverts; i++) {
+            float norm = V_.block<3, 1>(0, i).norm();
+            if (norm > max_norm) {
+                max_norm = norm;
             }
         }
+        radius = max_norm;
 
+        if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
+            throw std::runtime_error("I has NaN or negative values in ShapeMeshObj::computeInertia");
+        }
         printf("returning I = %f %f %f %f %f %f\n", I(0), I(1), I(2), I(3), I(4), I(5));
-        // return I;
         return I;
     }
 
@@ -392,22 +376,6 @@ namespace apbd
             Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1, 1, 1);
             F.col(i) = f;
         }
-
-        for (size_t i = 0; i < faces.size(); i++)
-        {
-            Eigen::Vector3i f = faces[i] - Eigen::Vector3i(1, 1, 1);
-            // Check range
-            if (f.x() < 0 || f.y() < 0 || f.z() < 0 || f.x() >= (int)V.cols() || f.y() >= (int)V.cols() || f.z() >= (int)V.cols())
-            {
-                std::cerr << "Face " << i << " out of range: " << f.transpose() << "\n";
-                // Possibly skip or clamp or handle error
-            }
-            // If any of them are the same => degenerate
-            if (f.x() == f.y() || f.y() == f.z() || f.z() == f.x())
-            {
-                std::cerr << "Face " << i << " has repeated indices: " << f.transpose() << "\n";
-            }
-        }
     }
 
     // Based on volInt.c https://people.eecs.berkeley.edu/~jfc/mirtich/massProps.html
@@ -608,175 +576,4 @@ namespace apbd
         TP(1) /= 2.0f;
         TP(2) /= 2.0f;
     }
-
-    // void ShapeMeshObj::VolumeIntegration(const Eigen::Matrix<float, 3, Eigen::Dynamic> &V, const Eigen::Matrix<int, 3, Eigen::Dynamic> &F, float &T0, Eigen::Vector3f &T1, Eigen::Vector3f &T2, Eigen::Vector3f &TP) {
-    //     Eigen::Matrix<float, 3, Eigen::Dynamic> Xn = V.transpose();
-    //     Eigen::Matrix<int, 3, Eigen::Dynamic> Triangles = F.transpose();
-
-    //     // The Tx, Ty, Tz, ..., Tzx stuff is unused, but you could add the floats if needed later
-    //     T0 = 0.0f;
-    //     T1 = Eigen::Vector3f::Zero();
-    //     T2 = Eigen::Vector3f::Zero();
-    //     TP = Eigen::Vector3f::Zero();
-
-    //     for (size_t i = 0; i < Triangles.rows(); i++) {
-    //         // Compute face normal - the indices are 1-based in MATLAB but we converted to 0 in readOBJ
-    //         Eigen::Vector3i tri = Triangles.row(i);
-
-    //         // TODO: Is it Xn.row or Xn.col
-    //         Eigen::Vector3f v0 = Xn.row(tri(0));
-    //         Eigen::Vector3f v1 = Xn.row(tri(1));
-    //         Eigen::Vector3f v2 = Xn.row(tri(2));
-    //         Eigen::Vector3f d10 = v1 - v0;
-    //         Eigen::Vector3f d20 = v2 - v0;
-    //         Eigen::Vector3f normal = d10.cross(d20);
-
-    //         // Just after computing "normal = d10.cross(d20);"
-    //         if (!std::isfinite(normal.norm()) || normal.norm() < 1e-9f) {
-    //             std::cerr << "Skipping degenerate face i=" << i << "\n";
-    //             continue;
-    //         }
-
-    //         // print partial sums
-    //         std::cout << "Triangle i=" << i << " normal=" << normal.transpose()
-    //                 << " normalNorm=" << normal.norm() << "\n";
-
-    //         Eigen::Vector3f Normal = normal / normal.norm();
-    //         if (normal.norm() < 1e-9f) {
-    //             continue;
-    //         }
-
-    //         float nx = std::abs(Normal(0));
-    //         float ny = std::abs(Normal(1));
-    //         float nz = std::abs(Normal(2));
-    //         int C;
-
-    //         if ((nx > ny) && (nx > nz)) {
-    //             C = 0;
-    //         }
-    //         else if (ny > nz) {
-    //             C = 1;
-    //         }
-    //         else {
-    //             C = 2;
-    //         }
-
-    //         int A = (C + 1) % 3;
-    //         int B = (A + 1) % 3;
-    //         A += 1;
-    //         B += 1;
-    //         C += 1;
-
-    //         float N_A(Normal(A - 1)), N_B(Normal(B - 1)), N_C(Normal(C - 1));
-    //         float w = -Normal(0) * Xn(tri(0), 0) - Normal(1) * Xn(tri(0), 1) - Normal(2) * Xn(tri(0), 2);
-
-    //         float P1(0), Pa(0), Paa(0), Paaa(0), Pb(0), Pbb(0), Pbbb(0), Pab(0), Paab(0), Pabb(0);
-
-    //         for (int j = 0; j < 3; j++) {
-    //             int curr_idx = j;
-    //             int next_idx = (j+1)%3;
-
-    //             float a0 = Xn(tri(curr_idx), A-1);
-    //             float b0 = Xn(tri(curr_idx), B-1);
-    //             float a1 = Xn(tri(next_idx), A-1);
-    //             float b1 = Xn(tri(next_idx), B-1);
-    //             float da = a1 - a0;
-    //             float db = b1 - b0;
-
-    //             float a0_2 = a0*a0;
-    //             float a0_3 = a0_2*a0;
-    //             float a0_4 = a0_3*a0;
-    //             float b0_2 = b0*b0;
-    //             float b0_3 = b0_2*b0;
-    //             float b0_4 = b0_3*b0;
-    //             float a1_2 = a1*a1;
-    //             float a1_3 = a1_2*a1;
-    //             float b1_2 = b1*b1;
-    //             float b1_3 = b1_2*b1;
-
-    //             float C1 = a1+a0;
-    //             float Ca = a1*C1 + a0_2;
-    //             float Caa = a1*Ca + a0_3;
-    //             float Caaa = a1*Caa + a0_4;
-    //             float Cb = b1*(b1+b0)+b0_2;
-    //             float Cbb = b1*Cb + b0_3;
-    //             float Cbbb = b1*Cbb + b0_4;
-    //             float Cab = 3*a1_2+2*a1*a0+a0_2;
-    //             float Kab = a1_2+2*a1*a0+3*a0_2;
-    //             float Caab = a0*Cab+4*a1_3;
-    //             float Kaab = a1*Kab+4*a0_3;
-    //             float Cabb = 4*b1_3+3*b1_2*b0+2*b1*b0_2+b0_3;
-    //             float Kabb = b1_3+2*b1_2*b0+3*b1*b0_2+4*b0_3;
-
-    //             P1 += (db*C1);
-    //             Pa += (db*Ca);
-    //             Paa += db*Caa;
-    //             Paaa += db*Caaa;
-    //             Pb += (da*Cb);
-    //             Pbb += da*Cbb;
-    //             Pbbb += da*Cbbb;
-    //             Pab += db*(b1*Cab+b0*Kab);
-    //             Paab += db*(b1*Caab+b0*Kaab);
-    //             Pabb += da*(a1*Cabb+a0*Kabb);
-    //         }
-
-    //         P1 /= 2.0f;
-    //         Pa /= 6.0f;
-    //         Paa /= 12.0f;
-    //         Paaa /= 20.0f;
-    //         Pb /= -6.0f;
-    //         Pbb /= -12.0f;
-    //         Pbbb /= -20.0f;
-    //         Pab /= 24.0f;
-    //         Paab /= 60.0f;
-    //         Pabb /= -60.0f;
-
-    //         // float N_A = Normal(A - 1);
-    //         // float N_B = Normal(B - 1);
-    //         // float N_C = Normal(C - 1);
-
-    //         float k1 = 1.0f / N_C;
-    //         float k2 = k1 * k1;
-    //         float k3 = k2 * k1;
-    //         float k4 = k3 * k1;
-
-    //         float Fa = k1 * Pa;
-    //         float Fb = k1 * Pb;
-    //         float Fc = -k2 * (N_A * Pa + N_B * Pb + w * P1);
-
-    //         float Faa = k1 * Paa;
-    //         float Fbb = k1 * Pbb;
-    //         float Fcc = k3 * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb + w * (2 * (N_A * Pa + N_B * Pb) + w * P1));
-
-    //         float Faaa = k1 * Paaa;
-    //         float Fbbb = k1 * Pbbb;
-    //         float Fccc = -k4 * (N_A * N_A * N_A * Paaa + 3 * N_A * N_A * N_B * Paab + 3 * N_A * N_B * N_B * Pabb + N_B * N_B * N_B * Pbbb + 3 * w * (N_A * N_A * Paa + 2 * N_A * N_B * Pab + N_B * N_B * Pbb) + w * w * (3 * (N_A * Pa + N_B * Pb) + w * P1));
-
-    //         float Faab = k1 * Paab;
-    //         float Fbbc = -k2 * (N_A * Pabb + N_B * Pbbb + w * Pbb);
-    //         float Fcca = k3 * (N_A * N_A * Paaa + 2 * N_A * N_B * Paab + N_B * N_B * Pabb + w * (2 * (N_A * Paa + N_B * Pab) + w * Pa));
-
-    //         float Part;
-    //         if (A == 1) {
-    //             Part = Fa;
-    //         }
-    //         else if (B == 1) {
-    //             Part = Fb;
-    //         }
-    //         else {
-    //             Part = Fc;
-    //         }
-
-    //         T0 += Normal(0) * Part;
-    //         T1(A - 1) += N_A * Faa;
-    //         T1(B - 1) += N_B * Fbb;
-    //         T1(C - 1) += N_C * Fcc;
-    //         T2(A - 1) += N_A * Faaa;
-    //         T2(B - 1) += N_B * Fbbb;
-    //         T2(C - 1) += N_C * Fccc;
-    //         TP(A - 1) += N_A * Faab;
-    //         TP(B - 1) += N_B * Fbbc;
-    //         TP(C - 1) += N_C * Fcca;
-    //     }
-    // }
 } // namespace apbd

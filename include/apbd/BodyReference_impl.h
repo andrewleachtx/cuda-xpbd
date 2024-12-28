@@ -102,7 +102,10 @@ namespace apbd
         diag(2, 2) = sqrtMr(2);
 
         auto sqrtIntertia = R * diag * R.transpose();
-
+        
+        printf("m = %f\n", m);
+        printf("f = %f %f %f\n", f(0), f(1), f(2));
+        printf("v = %f %f %f\n", v(0), v(1), v(2));
         printf("this->w = %f %f %f\n", this->w()(0), this->w()(1), this->w()(2));
         printf("sqrtInertia = %f %f %f\n", sqrtIntertia(0, 0), sqrtIntertia(1, 1),
                sqrtIntertia(2, 2));

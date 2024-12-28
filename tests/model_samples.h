@@ -636,7 +636,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
         {
             // Stacking: Mesh
             substeps = 1;
-            model.tEnd = 1.0f;
+            model.tEnd = 0.1f;
             model.h = h;
             model.substeps = substeps;
             model.forward_iters = substeps;
