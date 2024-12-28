@@ -4,12 +4,6 @@ version=$1
 m=$2
 s=$3
 
-# if it doesnt exist
-if [ ! -d "build/$version" ]; then
-  cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=Debug -DUSE_CUDA=OFF -DWRITE=ON
-fi
-
-# assumedly we want the gdb one
 # cmake --build build/$version --parallel -t performance
 cmake --build build/$version --parallel -t performance
 

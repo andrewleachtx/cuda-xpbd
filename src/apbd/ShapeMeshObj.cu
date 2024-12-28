@@ -106,7 +106,6 @@ namespace apbd
         if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
             throw std::runtime_error("I has NaN or negative values in ShapeMeshObj::computeInertia");
         }
-        printf("returning I = %f %f %f %f %f %f\n", I(0), I(1), I(2), I(3), I(4), I(5));
         return I;
     }
 

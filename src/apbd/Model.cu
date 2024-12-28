@@ -117,10 +117,10 @@ namespace apbd
     void Model::simulate(Collider *collider)
     {
         float hs = this->h / static_cast<float>(this->substeps);
-        printf("Simulating a total of %u steps.\n", this->steps);
+        // printf("Simulating a total of %u steps.\n", this->steps);
         for (unsigned int step = 0; step < this->steps; step++)
         {
-            printf("==== Step %u starting ====\n", step);
+            // printf("==== Step %u starting ====\n", step);
             this->solveConTGS(collider, hs);
 
             for (size_t i = 0; i < this->body_count; i++)
@@ -128,9 +128,9 @@ namespace apbd
                 auto pos = this->bodies[i].get_rigid().position();
                 auto vel = this->bodies[i].get_rigid().v();
                 auto w = this->bodies[i].get_rigid().w();
-                printf("Body %zu: Position = [%f, %f, %f], Velocity = [%f, %f, %f]\n",
-                       i, pos(0), pos(1), pos(2), vel(0), vel(1), vel(2));
-                printf("Body Angular Velocity: [%f, %f, %f]\n", w(0), w(1), w(2));
+                // printf("Body %zu: Position = [%f, %f, %f], Velocity = [%f, %f, %f]\n",
+                    //    i, pos(0), pos(1), pos(2), vel(0), vel(1), vel(2));
+                // printf("Body Angular Velocity: [%f, %f, %f]\n", w(0), w(1), w(2));
             }
 
             this->write_state(step + 1);
@@ -150,17 +150,17 @@ namespace apbd
     void Model::solveConTGS(Collider *collider, float hs)
     {
         // ---- START DEBUG PRINT ----
-        printf("==== solveConTGS start, hs = %f ====\n", hs);
+        // printf("==== solveConTGS start, hs = %f ====\n", hs);
         // Print basic info about the bodies before we do anything
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            auto w = this->bodies[i].get_rigid().w();
-            printf("Initial Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-            printf("Body Angular Velocity: [%f, %f, %f]\n", w(0), w(1), w(2));
-        }
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     auto w = this->bodies[i].get_rigid().w();
+        //     printf("Initial Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        //     printf("Body Angular Velocity: [%f, %f, %f]\n", w(0), w(1), w(2));
+        // }
         // ---- END DEBUG PRINT ----
 
         this->stepBDF1(this->h);
@@ -174,19 +174,19 @@ namespace apbd
         // individually.
 
         // ---- START DEBUG PRINT ----
-        printf("[After stepBDF1(%f)]\n", this->h);
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            // Check for NaN
-            if (!pos.allFinite() || !vel.allFinite())
-            {
-                printf("** NaN DETECTED after stepBDF1 for body %zu **\n", i);
-            }
-            printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-        }
+        // printf("[After stepBDF1(%f)]\n", this->h);
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     // Check for NaN
+        //     if (!pos.allFinite() || !vel.allFinite())
+        //     {
+        //         printf("** NaN DETECTED after stepBDF1 for body %zu **\n", i);
+        //     }
+        //     printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        // }
         // ---- END DEBUG PRINT ----
 
         // Shock propagation
@@ -206,18 +206,18 @@ namespace apbd
         }
 
         // ---- START DEBUG PRINT ----
-        printf("[After forward_iters, shock propagation]\n");
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            if (!pos.allFinite() || !vel.allFinite())
-            {
-                printf("** NaN DETECTED after forward_iters for body %zu **\n", i);
-            }
-            printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-        }
+        // printf("[After forward_iters, shock propagation]\n");
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     if (!pos.allFinite() || !vel.allFinite())
+        //     {
+        //         printf("** NaN DETECTED after forward_iters for body %zu **\n", i);
+        //     }
+        //     printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        // }
         // ---- END DEBUG PRINT ----
 
         // work backward now
@@ -234,18 +234,18 @@ namespace apbd
         }
 
         // ---- START DEBUG PRINT ----
-        printf("[After reverse_iters]\n");
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            if (!pos.allFinite() || !vel.allFinite())
-            {
-                printf("** NaN DETECTED after reverse_iters for body %zu **\n", i);
-            }
-            printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-        }
+        // printf("[After reverse_iters]\n");
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     if (!pos.allFinite() || !vel.allFinite())
+        //     {
+        //         printf("** NaN DETECTED after reverse_iters for body %zu **\n", i);
+        //     }
+        //     printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        // }
         // ---- END DEBUG PRINT ----
 
         for (size_t i = 0; i < this->body_count; i++)
@@ -253,18 +253,18 @@ namespace apbd
             this->bodies[i].updateStates(hs);
         }
 
-        printf("[After first updateStates]\n");
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            if (!pos.allFinite() || !vel.allFinite())
-            {
-                printf("** NaN DETECTED after first updateStates for body %zu **\n", i);
-            }
-            printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-        }
+        // printf("[After first updateStates]\n");
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     if (!pos.allFinite() || !vel.allFinite())
+        //     {
+        //         printf("** NaN DETECTED after first updateStates for body %zu **\n", i);
+        //     }
+        //     printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        // }
 
         unsigned int ks = 0;
         while (ks < this->substeps)
@@ -297,18 +297,18 @@ namespace apbd
                 this->bodies[i].updateStates(hs);
             }
 
-            printf("[Substep %u / %u]\n", ks + 1, this->substeps);
-            for (size_t i = 0; i < this->body_count; i++)
-            {
-                auto pos = this->bodies[i].get_rigid().position();
-                auto vel = this->bodies[i].get_rigid().v();
-                if (!pos.allFinite() || !vel.allFinite())
-                {
-                    printf("** NaN DETECTED in substep for body %zu **\n", i);
-                }
-                printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                       i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-            }
+            // printf("[Substep %u / %u]\n", ks + 1, this->substeps);
+            // for (size_t i = 0; i < this->body_count; i++)
+            // {
+            //     auto pos = this->bodies[i].get_rigid().position();
+            //     auto vel = this->bodies[i].get_rigid().v();
+            //     if (!pos.allFinite() || !vel.allFinite())
+            //     {
+            //         printf("** NaN DETECTED in substep for body %zu **\n", i);
+            //     }
+            //     printf("Body %zu: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+            //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+            // }
 
             ks++;
         }
@@ -327,22 +327,22 @@ namespace apbd
             this->bodies[i].integrateStates();
         }
 
-        // ---- START DEBUG PRINT ----
-        printf("[After final integrateStates]\n");
-        for (size_t i = 0; i < this->body_count; i++)
-        {
-            auto pos = this->bodies[i].get_rigid().position();
-            auto vel = this->bodies[i].get_rigid().v();
-            if (!pos.allFinite() || !vel.allFinite())
-            {
-                printf("** NaN DETECTED after final integrateStates for body %zu **\n", i);
-            }
-            printf("Body %zu final: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
-                   i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
-        }
-        // ---- END DEBUG PRINT ----
+        // // ---- START DEBUG PRINT ----
+        // printf("[After final integrateStates]\n");
+        // for (size_t i = 0; i < this->body_count; i++)
+        // {
+        //     auto pos = this->bodies[i].get_rigid().position();
+        //     auto vel = this->bodies[i].get_rigid().v();
+        //     if (!pos.allFinite() || !vel.allFinite())
+        //     {
+        //         printf("** NaN DETECTED after final integrateStates for body %zu **\n", i);
+        //     }
+        //     printf("Body %zu final: pos=[%f, %f, %f], vel=[%f, %f, %f]\n",
+        //            i, pos.x(), pos.y(), pos.z(), vel.x(), vel.y(), vel.z());
+        // }
+        // // ---- END DEBUG PRINT ----
 
-        printf("==== solveConTGS end ====\n");
+        // printf("==== solveConTGS end ====\n");
     }
 
     void Model::write_state(unsigned int step)

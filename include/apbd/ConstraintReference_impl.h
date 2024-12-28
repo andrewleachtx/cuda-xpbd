@@ -394,9 +394,8 @@ namespace apbd
             Eigen::Vector3f normalVel =
                 nw.array() * body1v.array() + body1w.array() * raXnI1_0.array();
             float dlambdaNor = bias / w1_0 - normalVel.sum() / w1_0;
-            // print w1_0, normalVel.sum.()
-            printf("w1_0 = %f\n", w1_0);
-            printf("normalVel.sum() = %f\n", normalVel.sum());
+            // printf("w1_0 = %f\n", w1_0);
+            // printf("normalVel.sum() = %f\n", normalVel.sum());
             float nplambda = lambda(0) + dlambdaNor;
             if (nplambda < 0)
             {
@@ -404,11 +403,11 @@ namespace apbd
                 this->collision().broken(true);
             }
             lambda(0) = lambda(0) + dlambdaNor;
-            printf("Previous velocity for body 0 = [%f, %f, %f]\n", body1.v().x(), body1.v().y(), body1.v().z());
-            printf("dlambdaNor = %f\n", dlambdaNor);
-            printf("delLinVel1_0 = [%f, %f, %f]\n", delLinVel1_0.x(), delLinVel1_0.y(), delLinVel1_0.z());
+            // printf("Previous velocity for body 0 = [%f, %f, %f]\n", body1.v().x(), body1.v().y(), body1.v().z());
+            // printf("dlambdaNor = %f\n", dlambdaNor);
+            // printf("delLinVel1_0 = [%f, %f, %f]\n", delLinVel1_0.x(), delLinVel1_0.y(), delLinVel1_0.z());
             body1.v(body1v + dlambdaNor * delLinVel1_0);
-            printf("After velocity for body 0 = [%f, %f, %f]\n", body1.v().x(), body1.v().y(), body1.v().z());
+            // printf("After velocity for body 0 = [%f, %f, %f]\n", body1.v().x(), body1.v().y(), body1.v().z());
             body1.w(body1w + dlambdaNor * raXnI1_0);
             dlambdaSP(0) += dlambdaNor;
             this->dlambdaSP(dlambdaSP);
