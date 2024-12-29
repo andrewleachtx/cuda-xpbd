@@ -128,9 +128,11 @@ namespace apbd
                 auto pos = this->bodies[i].get_rigid().position();
                 auto vel = this->bodies[i].get_rigid().v();
                 auto w = this->bodies[i].get_rigid().w();
+                auto r = this->bodies[i].get_rigid().rotation().coeffs();
                 // printf("Body %zu: Position = [%f, %f, %f], Velocity = [%f, %f, %f]\n",
-                    //    i, pos(0), pos(1), pos(2), vel(0), vel(1), vel(2));
+                //        i, pos(0), pos(1), pos(2), vel(0), vel(1), vel(2));
                 // printf("Body Angular Velocity: [%f, %f, %f]\n", w(0), w(1), w(2));
+                // printf("Body Rotation: [%f, %f, %f, %f]\n", r(0), r(1), r(2), r(3));
             }
 
             this->write_state(step + 1);

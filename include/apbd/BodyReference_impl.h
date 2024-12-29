@@ -64,6 +64,10 @@ namespace apbd
         this->computeInertiaConst();
         this->position(xInit.block<3, 1>(4, 0));
         this->rotation(Eigen::Quaternionf(xInit.block<4, 1>(0, 0)));
+
+        // printf("Initializing rot with xInit.block<4, 1>(0, 0) aka %f %f %f %f\n",
+        //        xInit(0), xInit(1), xInit(2), xInit(3));
+        
         this->x0(xInit);
     }
 

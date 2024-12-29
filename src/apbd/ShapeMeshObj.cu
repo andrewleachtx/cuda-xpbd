@@ -27,7 +27,7 @@ namespace apbd
     __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density) {
         // Instead of calling readOBJ here I will do it in constructor to initialize V, F
         // edit, lets do it anyways
-        readOBJ(filename, V, F);
+        // readOBJ(filename, V, F);
 
         // Call VolInt
         float T0;
@@ -70,9 +70,13 @@ namespace apbd
         // https://eigen.tuxfamily.org/dox/classEigen_1_1EigenSolver.html#title11
         Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
         Eigen::Matrix<float, 6, 1> I = Eigen::Matrix<float, 6, 1>::Zero();
-        Eigen::EigenSolver<Eigen::Matrix<float, 3, 3>> es(J);
-        auto JV = es.eigenvectors().real();
-        auto JD = es.eigenvalues().real();
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, 3, 3>> es(J);
+        if (es.info() != Eigen::Success) {
+            throw std::runtime_error("Eigenvalue decomposition failed in ShapeMeshObj::computeInertia");
+        }
+        
+        auto JV = es.eigenvectors();
+        auto JD = es.eigenvalues();
         I.head<3>() = JD;
         I(3) = mass;
         I(4) = mass;
@@ -93,15 +97,19 @@ namespace apbd
         E_io = se3::inv(E);
 
         int nverts = V.cols();
-        Eigen::Matrix<float, 4, Eigen::Dynamic> V_ = E_io * Eigen::Matrix<float, 4, Eigen::Dynamic>::Ones(4, nverts);
-        float max_norm = 0.0f;
-        for (int i = 0; i < nverts; i++) {
-            float norm = V_.block<3, 1>(0, i).norm();
-            if (norm > max_norm) {
-                max_norm = norm;
-            }
+        Eigen::Matrix<float, 4, Eigen::Dynamic> V_(4, nverts);
+        V_.topRows<3>() = V;
+        V_.row(3).setOnes();
+        V_ = E_io * V_;
+
+        Eigen::Matrix<float, 3, Eigen::Dynamic> V_sliced = V_.topRows<3>();
+        radius = 0.0f;
+        for (int i = 0; i < V_sliced.cols(); i++) {
+            float vecnorm = V_sliced.col(i).norm();
+            if (vecnorm > radius) {
+                radius = vecnorm;
+            }            
         }
-        radius = max_norm;
 
         if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
             throw std::runtime_error("I has NaN or negative values in ShapeMeshObj::computeInertia");
