@@ -12,5 +12,6 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+
 ./build/$version/tests/performance -m $m -s $s
 # gdb --args ./build/$version/tests/performance -m $m -s $s

@@ -74,11 +74,13 @@ namespace apbd
     ModelBuffers Model::allocate_buffers(size_t count, const Model &model)
     {
         ModelBuffers buffers;
-        if (model.constraint_count > 0)
+        if (model.constraint_count > 0) {
             buffers.constraints =
                 alloc_device<Constraint>(count * model.constraint_count);
-        else
+        }
+        else {
             buffers.constraints = nullptr;
+        }
         return buffers;
     }
 
@@ -169,7 +171,7 @@ namespace apbd
         collider->run(this);
         float biasCoefficient = 2 * sqrt(hs / this->h);
         // 1e20 is used instead of oo for maximum hardware compatibilty/predictability
-        const float Inf = 1e20;
+        const float Inf = 1e30f;
 
         // We solve contstraints in the layer order. The exact layer sizes don't
         // matter at this step, so we don't bother walking through each layer

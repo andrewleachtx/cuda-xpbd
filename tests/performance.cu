@@ -133,10 +133,6 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
     {
         if (i < sims)
         {
-            // FIXME: Avoiding global buffer alloc approach to avoid corruption for now
-            // auto thread_buf = apbd::Model::allocate_buffers(1, model);
-            // apbd::Model *thread_model = new apbd::Model(model.clone_with_buffers(thread_buf, i));
-
             apbd::Model *thread_model =
                 new apbd::Model(std::move(model.clone_with_buffers(buffers, i)));
 

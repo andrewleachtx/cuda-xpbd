@@ -19,8 +19,15 @@ A CUDA-accelerated XPBD-based physics simulation framework.
    3. Comment these after building cmake for the first time, or after deleting `build/`.
 
 There may be hardcoded paths to `coal` and `octomap` in the project root's `CMakeLists.txt`.
-
+f
 You would need to clone and install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md) as necessary, as well as its dependencies. Also, building can be frustrating. You should activate a new environment with `conda`, using
+
+pixi shell
+conda install -c conda-forge coal
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON
+make && make install
+
 
 1. `conda install -c conda-forge coal qhull octomap`
 2. Run `cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON` in `coal/build` (make it if it doesn't exist) to add the 
