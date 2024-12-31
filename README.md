@@ -14,26 +14,21 @@ A CUDA-accelerated XPBD-based physics simulation framework.
       1. This should come with the CUDA install, if **nvcc --version doesn't work, make sure /usr/local/CUDA/bin is added to your path**
       2. Add `PATH=/usr/local/cuda/bin:$PATH` to your `~/.bashrc` to get CMake to recognize NVCC.
 2. Once you have these downloads (it will take some time), install `Eigen` by uncommenting the fetch content lines in `./CMakeLists.txt`:
-   1. Line 2
-   2. Lines 20-25
    3. Comment these after building cmake for the first time, or after deleting `build/`.
 
-There may be hardcoded paths to `coal` and `octomap` in the project root's `CMakeLists.txt`.
-f
-You would need to clone and install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md) as necessary, as well as its dependencies. Also, building can be frustrating. You should activate a new environment with `conda`, using
+There may be hardcoded paths to `coal` and `octomap` in the project root's `CMakeLists.txt`. You will need to **install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md)** as well as its dependencies. Building can be frustrating, just be patient. You should activate a new environment with `conda`. If you do not have `conda`, install `miniconda3`.
 
-pixi shell
-conda install -c conda-forge coal
-mkdir build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON
-make && make install
+1. Go to your `coal` directory, and run:
+    ```sh
+    pixi shell
+    conda install -c conda-forge coal qhull octomap
+    mkdir build && cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON
+    make && make install # you can do make -j<nprocs> && make install to speed this up
+    ```
+2. At this point, you should be able to see `install/` in your `coal` directory. You should run `ldd install/lib/libcoal.so` and confirm everything has linked correctly.
+3. Note that after this, you should use a base environment to build later on in any context. The exact environment I built and ran in `cudaxpbd` is in `environment.yml`, and you can retrieve it with `conda env create -f environment.yml`.
 
-
-1. `conda install -c conda-forge coal qhull octomap`
-2. Run `cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON` in `coal/build` (make it if it doesn't exist) to add the 
-to get the `install` directory which you can link to in this project's `CMakeLists.txt`. Make sure you are using the correct conda environment, as pixi may create one. You can view with `conda env list`.
-
-It is necessary to build with `COAL_HAS_QHULL=ON` as otherwise the project will not compile.
    
 ## First Build / Clean Resets
 Run
@@ -51,7 +46,7 @@ Now that the `build/` has been populated, you should use
 cmake --build build
 ```
 
-to build after any changes - or use any of the additional targets described below. You can add `--parallel` to speed this up, or use `-G Ninja` if you have that generator.
+to build after any changes - or use any of the additional targets described below. You can add `--parallel` to speed this up.
 
 ## Building
 ```bash

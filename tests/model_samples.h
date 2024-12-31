@@ -631,9 +631,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             bodies[13].setInitTransform(E);
             break;
         }
-        /*
-            CASES 15-17 CAN BE ADDED, BUT FOR NOW I'M JUST DOING 18 AS THAT IS THE ONE REFERENCED
-        */
         case 18:
         {
             // Stacking: Mesh
@@ -652,7 +649,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             
             float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
             apbd::ShapeMeshObj mesh = apbd::ShapeMeshObj("./resources/bunny.obj");
-            // This function on first intuition is pointless, however it actually populates many member variables
+            // This function call is pointless on first intuition, however it actually populates many member variables
             mesh.computeInertia(density);
 
             // There are four total bodies (bunnies) for the scene
@@ -664,12 +661,10 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.bodies = new apbd::BodyReference[total_bodies];
 
             for (int i = 0; i < n; i++) {
-                apbd::BodyRigid br(apbd::ShapeMeshObj(mesh), density, true, mu);
+                apbd::BodyRigid br(mesh, density, true, mu);
                 bodies[i] = apbd::Body(br);
 
                 auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
-                // R(0, 0) = 0.0f;
-                // R(1, 1) = 0.0f;
 
                 float x = 0.0f;
                 float y = 0.75f * w * (i - 1);

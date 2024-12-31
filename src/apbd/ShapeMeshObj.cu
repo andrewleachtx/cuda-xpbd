@@ -24,7 +24,8 @@ namespace apbd
 
     __host__ ShapeMeshObj::~ShapeMeshObj() {}
 
-    __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density) {
+    __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(const float density)
+    {
         // Instead of calling readOBJ here I will do it in constructor to initialize V, F
         // edit, lets do it anyways
         // readOBJ(filename, V, F);
@@ -33,8 +34,9 @@ namespace apbd
         float T0;
         Eigen::Vector3f T1, T2, TP;
         VolumeIntegration(V, F, T0, T1, T2, TP);
-        
-        if (T0 == 0.0f) {
+
+        if (T0 == 0.0f)
+        {
             throw std::runtime_error("V0 is zero, will cause div by zero in ShapeMeshObj::computeInertia");
         }
 
@@ -71,10 +73,11 @@ namespace apbd
         Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
         Eigen::Matrix<float, 6, 1> I = Eigen::Matrix<float, 6, 1>::Zero();
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, 3, 3>> es(J);
-        if (es.info() != Eigen::Success) {
+        if (es.info() != Eigen::Success)
+        {
             throw std::runtime_error("Eigenvalue decomposition failed in ShapeMeshObj::computeInertia");
         }
-        
+
         auto JV = es.eigenvectors();
         auto JD = es.eigenvalues();
         I.head<3>() = JD;
@@ -88,7 +91,8 @@ namespace apbd
         Eigen::Vector3f x = E.block<3, 1>(0, 0);
         Eigen::Vector3f y = E.block<3, 1>(0, 1);
         Eigen::Vector3f z = E.block<3, 1>(0, 2);
-        if (x.cross(y).dot(z) < 0.0f) {
+        if (x.cross(y).dot(z) < 0.0f)
+        {
             E.block<3, 1>(0, 2) = -z;
         }
 
@@ -104,14 +108,17 @@ namespace apbd
 
         Eigen::Matrix<float, 3, Eigen::Dynamic> V_sliced = V_.topRows<3>();
         radius = 0.0f;
-        for (int i = 0; i < V_sliced.cols(); i++) {
+        for (int i = 0; i < V_sliced.cols(); i++)
+        {
             float vecnorm = V_sliced.col(i).norm();
-            if (vecnorm > radius) {
+            if (vecnorm > radius)
+            {
                 radius = vecnorm;
-            }            
+            }
         }
 
-        if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
+        if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f)
+        {
             throw std::runtime_error("I has NaN or negative values in ShapeMeshObj::computeInertia");
         }
         return I;
@@ -135,112 +142,132 @@ namespace apbd
 
         Eigen::Vector4f xg = Eg.inverse() * xw;
         float r = radius;
+
+        if (xg(2) < 1.2f * r)
+        {
+            printf("# Detected groundphase\n");
+        }
         return xg(2) < 1.2f * r;
     }
 
-    // TODO: This one I am a bit unsure on, reference ShapeMeshObj : 125
     __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const
     {
-        cuda::std::array<Contact, 8> cdata;
-        int nverts = V.cols();
-        // Matrix4Xf == Matrix<float, 4, Eigen::Dynamic>
-        Eigen::Matrix4Xf xl(4, nverts);
-        Eigen::Matrix4Xf V_ones = Eigen::Matrix4Xf::Ones(4, nverts);
-        xl = E_io * V_ones;
-        Eigen::Matrix4Xf xw = E * xl;
-        Eigen::Matrix4Xf xg = Eg.inverse() * xw;
-        Eigen::VectorXf depth = xg.row(2);
-        float maxdepth = depth.minCoeff();
+        cuda::std::array<Contact, 8> cdata{};
+        size_t contactCount = 0;
 
-        // find(depth < maxdepth + 5e-2) is an abstracted method to get indices where all values in depth are < 5e-2
-        if (maxdepth < 0.2f)
+        const int nverts = V.cols();
+        Eigen::Matrix<float, 4, Eigen::Dynamic> V4(4, nverts);
+        V4.topRows<3>() = V;
+        V4.row(3).setOnes();
+
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xl = E_io * V4;
+
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
+
+        Eigen::Matrix4f Eg_inv = Eg.inverse();
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg_inv * xw;
+
+        Eigen::RowVectorXf depth = xg.row(2);
+        float maxDepth = depth.minCoeff();
+
+        if (maxDepth < 0.2f)
         {
             std::vector<int> cindices;
-            for (size_t i = 0; i < depth.size(); i++)
+            cindices.reserve(nverts);
+            float threshold = maxDepth + 5e-2f;
+            for (int i = 0; i < nverts; ++i)
             {
-                if (depth(i) < maxdepth + 5e-2f)
+                if (depth(i) < threshold)
                 {
                     cindices.push_back(i);
                 }
             }
 
-            // if there are more than 8 such indices, create subindices
             if (cindices.size() > 8)
             {
-                std::vector<int> subindices(4, 0);
-                // [~, subindices(1)] = min(xg(1, cindices)) means find idx of minimum value in xg(0, i)
-                size_t min_idx = 0;
-                float min_val = std::numeric_limits<float>::max();
-                for (size_t i = 0; i < cindices.size(); i++)
+                int minXIdx(-1), maxXIdx(-1);
+                int minYIdx(-1), maxYIdx(-1);
+                float minXVal = std::numeric_limits<float>::infinity();
+                float maxXVal = -std::numeric_limits<float>::infinity();
+                float minYVal = std::numeric_limits<float>::infinity();
+                float maxYVal = -std::numeric_limits<float>::infinity();
+
+                for (int idx : cindices)
                 {
-                    if (xg(0, cindices[i]) < min_val)
+                    float xVal = xg(0, idx);
+                    float yVal = xg(1, idx);
+
+                    if (xVal < minXVal)
                     {
-                        min_val = xg(0, cindices[i]);
-                        min_idx = i;
+                        minXVal = xVal;
+                        minXIdx = idx;
+                    }
+                    if (xVal > maxXVal)
+                    {
+                        maxXVal = xVal;
+                        maxXIdx = idx;
+                    }
+                    if (yVal < minYVal)
+                    {
+                        minYVal = yVal;
+                        minYIdx = idx;
+                    }
+                    if (yVal > maxYVal)
+                    {
+                        maxYVal = yVal;
+                        maxYIdx = idx;
                     }
                 }
-                subindices[0] = min_idx;
 
-                size_t max_idx = 0;
-                float max_val = std::numeric_limits<float>::min();
-                for (size_t i = 0; i < cindices.size(); i++)
+                std::vector<int> sub4;
+                sub4.reserve(4);
+                if (minXIdx >= 0)
                 {
-                    if (xg(1, cindices[i]) > max_val)
-                    {
-                        max_val = xg(1, cindices[i]);
-                        max_idx = i;
-                    }
+                    sub4.push_back(minXIdx);
                 }
-                subindices[1] = max_idx;
-
-                min_idx = 0;
-                min_val = std::numeric_limits<float>::max();
-                for (size_t i = 0; i < cindices.size(); i++)
+                if (maxXIdx >= 0)
                 {
-                    if (xg(2, cindices[i]) < min_val)
-                    {
-                        min_val = xg(2, cindices[i]);
-                        min_idx = i;
-                    }
+                    sub4.push_back(maxXIdx);
                 }
-                subindices[2] = min_idx;
-
-                max_idx = 0;
-                max_val = std::numeric_limits<float>::min();
-                for (size_t i = 0; i < cindices.size(); i++)
+                if (minYIdx >= 0)
                 {
-                    if (xg(2, cindices[i]) > max_val)
-                    {
-                        max_val = xg(2, cindices[i]);
-                        max_idx = i;
-                    }
+                    sub4.push_back(minYIdx);
                 }
-                subindices[3] = max_idx;
+                if (maxYIdx >= 0)
+                {
+                    sub4.push_back(maxYIdx);
+                }
 
-                cindices = subindices;
+                cindices = std::move(sub4);
             }
 
-            int cdata_count = 0;
             for (int idx : cindices)
             {
-                float d = xg(2, idx);
+                if (contactCount >= 8)
+                    break;
 
-                // FIXME: direct porting to eigen provided difficult - this may not do the same thing
+                Eigen::Vector3f localPt = xl.col(idx).head<3>();
+
                 Eigen::Vector4f xgproj = xg.col(idx);
                 xgproj(2) = 0.0f;
-                Eigen::Matrix<float, 3, 4> Eg_sub = Eg.block<3, 4>(0, 0);
 
-                // all vec3f: nw, x1, x2 - it seems like d and vw are ignored even for cuboid Contact case, may need to refactor Contact class
-                cdata[cdata_count++] = Contact{
-                    Eg.block<3, 1>(0, 2),
-                    xl.col(idx).head<3>(),
-                    Eg_sub * xgproj};
+                Eigen::Vector4f x2Hom = Eg * xgproj;
+                Eigen::Vector3f x2World = x2Hom.head<3>();
+
+                Eigen::Vector3f normal = Eg.block<3, 1>(0, 2);
+
+                Contact contact;
+                contact.nw = normal;
+                contact.x1 = localPt;
+                contact.x2 = x2World;
+
+                cdata[contactCount++] = contact;
             }
-
-            return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(cdata_count));
         }
 
-        return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, 0);
+        printf("# Collision count: %zu\n", contactCount);
+
+        return cuda::std::make_pair(cdata, contactCount);
     }
 
     __host__ bool ShapeMeshObj::broadphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const
@@ -256,42 +283,53 @@ namespace apbd
         return d <= 1.2f * (r1 + r2);
     }
 
-    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t> ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other, const Eigen::Matrix4f E2) const
+    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1,
+                                       const ShapeMeshObj &other,
+                                       const Eigen::Matrix4f E2) const
     {
-        cuda::std::array<Contact, 8> cdata;
+        cuda::std::array<Contact, 8> cdata{};
+        size_t contactCount = 0;
+
+        Eigen::Matrix4d M1 = (E1 * E_io).cast<double>();
+        Eigen::Matrix4d M2 = (E2 * other.E_io).cast<double>();
+
+        auto collisions = coalMeshMesh(M1, this->filename, M2, other.filename);
+
+        Eigen::Vector3f nw = collisions.normal.cast<float>();
 
         Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
-        Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
         Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
+
+        Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
         Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
 
-        // FIXME: Potentially refactor to only use doubles, as this
-        Eigen::Matrix4d mat1 = (E1 * E_io).cast<double>();
-        Eigen::Matrix4d mat2 = (E2 * other.E_io).cast<double>();
-
-        // const auto collisions = coalMeshMesh(E1 * E_io, this->filename, E2 * other.E_io, other.filename);
-        const auto collisions = coalMeshMesh(mat1, this->filename, mat2, other.filename);
-        const Eigen::Vector3f &nw = collisions.normal.cast<float>();
-        for (int i = 0; i < collisions.count; i++)
+        int n = collisions.count;
+        if (n > 8)
         {
-            Eigen::Vector3f xw = collisions.positions[i].cast<float>();
-            float d = static_cast<float>(collisions.depths[i]);
+            n = 8;
+        }
 
-            // Compute local point on body 1
+        for (int i = 0; i < n; i++)
+        {
+            float d = static_cast<float>(collisions.depths[i]);
+            Eigen::Vector3f xw = collisions.positions[i].cast<float>();
+
             Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
             Eigen::Vector3f x1 = R1.transpose() * (xw1 - p1);
 
-            // Compute local point on body 2
             Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
             Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
 
-            cdata[i] = Contact{
-                nw,
-                x1,
-                x2};
+            Contact contact;
+            contact.nw = nw;
+            contact.x1 = x1;
+            contact.x2 = x2;
+
+            cdata[contactCount++] = contact;
         }
 
-        return cuda::std::pair<cuda::std::array<Contact, 8>, size_t>(cdata, static_cast<size_t>(collisions.count));
+        return cuda::std::make_pair(cdata, contactCount);
     }
 
     void ShapeMeshObj::readOBJ(const std::string &filename, Eigen::Matrix<float, 3, Eigen::Dynamic> &V, Eigen::Matrix<int, 3, Eigen::Dynamic> &F)

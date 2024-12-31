@@ -106,9 +106,9 @@ namespace apbd
         this->constructCollisionOrder(model);
 
         // print if there are any collisions
-        // printf("active collision ct: %d\n", active_collision_count);
-        // printf("ground constraint ct: %d\n", ground_constraint_count);
-        // printf("rigid constraint ct: %d\n", rigid_constraint_count);
+        printf("# active collision ct: %d\n", active_collision_count);
+        printf("# ground constraint ct: %d\n", ground_constraint_count);
+        printf("# rigid constraint ct: %d\n", rigid_constraint_count);
     }
 
     void Collider::constructCollisionOrder(Model *model)

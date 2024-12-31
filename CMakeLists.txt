@@ -40,6 +40,7 @@ file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h 
 add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
+# SET TO YOUR COAL LOCATION
 list(APPEND CMAKE_PREFIX_PATH "/home/andy/pkgs/coal/install")
 find_package(coal CONFIG REQUIRED)
 include_directories("/home/andy/pkgs/coal/install/include")

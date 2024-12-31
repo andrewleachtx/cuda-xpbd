@@ -93,20 +93,6 @@ void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
         model->copy_data_to_store(bodies);
         Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
-        // Eigen::Matrix3f R = se3::aaToMat(
-        //     Eigen::Vector3f(1, 1, 1), static_cast<float>(i) * 0.5 * M_PI / 4);
-        // E.block<3, 3>(0, 0) = R;
-
-        // for (size_t index = 0; index < model->body_count; index++) {
-        //   auto &body = model->bodies[index];
-        //   E.block<3, 1>(0, 3) = body.get_rigid().position() +
-        //                         Eigen::Vector3f(0,
-        //                                         (static_cast<float>(i) - 4) *
-        //                                             static_cast<float>(index) *
-        //                                             0.1,
-        //                                         0);
-        //   body.setInitTransform(E);
-        // }
         if (model->body_count > 1 && do_variations)
             model->bodies[1].setInitVelocity(Eigen::Matrix<float, 6, 1>(
                 0, 0, 0, float(_thread_scene_id % 1000), 0, 0));
@@ -121,6 +107,7 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
 {
     _global_scene_count = (size_t)sims;
     const auto processor_count = std::thread::hardware_concurrency();
+    // const auto processor_count = 1;
     if (processor_count == 0)
     {
         throw runtime_error("Failed to detect concurrency.");
