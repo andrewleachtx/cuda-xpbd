@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16...3.28)
+
 include(FetchContent)
 
 project(cuda-xpbd VERSION 0.1
@@ -6,11 +7,6 @@ project(cuda-xpbd VERSION 0.1
 
 option(USE_CUDA "Use CUDA implementation instead of CPU" OFF)
 option(WRITE "Write the state of the simulation to stdout" OFF)
-
-# set(CMAKE_CXX_STANDARD 17)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# set(CMAKE_CUDA_STANDARD 17)
-# set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Relative to GPU, compute 8.6
 set(CMAKE_CUDA_ARCHITECTURES 75 86)
@@ -41,10 +37,15 @@ add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
 # SET TO YOUR COAL LOCATION
-list(APPEND CMAKE_PREFIX_PATH "/home/andy/pkgs/coal/install")
+set(COAL_PATH "/home/andy/pkgs/coal/install")
+if (NOT EXISTS ${COAL_PATH})
+    message(FATAL_ERROR "${COAL_PATH} not found, did you forget to change COAL_PATH in CMakeLists.txt?")
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH ${COAL_PATH})
 find_package(coal CONFIG REQUIRED)
-include_directories("/home/andy/pkgs/coal/install/include")
-link_directories("/home/andy/pkgs/coal/install/lib")
+include_directories(${COAL_PATH}/include)
+link_directories(${COAL_PATH}/lib)
 
 add_subdirectory(src)
 

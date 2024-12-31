@@ -1,21 +1,27 @@
 // Command for compiling
-// mex COPTIMFLAGS='-O3 -DNDEBUG' -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include" -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include\eigen3" -L"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\lib" -lcoal coalMeshMesh.cpp
-// mex COPTIMFLAGS='-O3 -DNDEBUG' -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include" -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include\eigen3" -L"C:\Users\andre\anaconda3\envs\coal_env\Library\lib" -lcoal coalMeshMesh.cpp
+// mex COPTIMFLAGS='-O3 -DNDEBUG'
+// -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include"
+// -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include\eigen3"
+// -L"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\lib" -lcoal coalMeshMesh.cpp
+// mex COPTIMFLAGS='-O3 -DNDEBUG'
+// -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include"
+// -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include\eigen3"
+// -L"C:\Users\andre\anaconda3\envs\coal_env\Library\lib" -lcoal
+// coalMeshMesh.cpp
 #pragma warning(disable : 4996)
-#include "collideBoxBox/coalMeshMesh.h"
+#include <iostream>
+#include <memory>
 
-#include "coal/math/transform.h"
-#include "coal/mesh_loader/loader.h"
 #include "coal/BVH/BVH_model.h"
 #include "coal/collision.h"
 #include "coal/collision_data.h"
 #include "coal/contact_patch.h"
+#include "coal/math/transform.h"
+#include "coal/mesh_loader/loader.h"
+#include "collideBoxBox/coalMeshMesh.h"
 
-#include <iostream>
-#include <memory>
-
-//#define DEBUG_MAIN
-// #define MATLAB_MEX_BUILD
+// #define DEBUG_MAIN
+//  #define MATLAB_MEX_BUILD
 
 /** If instricuted, compile a mex function for Matlab.  */
 // #ifdef MATLAB_MEX_BUILD
@@ -42,121 +48,119 @@
 
 namespace apbd {
 
-std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& file_name) {
-  coal::NODE_TYPE bv_type = coal::BV_AABB;
-  coal::MeshLoader loader(bv_type);
-  coal::BVHModelPtr_t bvh = loader.load(file_name);
-  bvh->buildConvexHull(true, "Qt");
-  return bvh->convex;
+std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name) {
+    coal::NODE_TYPE bv_type = coal::BV_AABB;
+    coal::MeshLoader loader(bv_type);
+    coal::BVHModelPtr_t bvh = loader.load(file_name);
+    bvh->buildConvexHull(true, "Qt");
+    return bvh->convex;
 }
 
 #ifdef DEBUG_MAIN
-    int main() {
-      // Create the coal shapes.
-      // Coal supports many primitive shapes: boxes, spheres, capsules, cylinders,
-      // ellipsoids, cones, planes, halfspace and convex meshes (i.e. convex hulls
-      // of clouds of points). It also supports BVHs (bounding volumes hierarchies),
-      // height-fields and octrees.
-      std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh("./cube1.obj");
-      std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh("./cube1.obj");
+int main() {
+    // Create the coal shapes.
+    // Coal supports many primitive shapes: boxes, spheres, capsules, cylinders,
+    // ellipsoids, cones, planes, halfspace and convex meshes (i.e. convex hulls
+    // of clouds of points). It also supports BVHs (bounding volumes
+    // hierarchies), height-fields and octrees.
+    std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh("./cube1.obj");
+    std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh("./cube1.obj");
 
-      // Define the shapes' placement in 3D space
-      coal::Transform3s T1;
-      T1.setQuatRotation(coal::Quaternion3f::Identity());
-      T1.setTranslation(coal::Vec3s(0.0, 0.0, 0.0));
-      coal::Transform3s T2 = coal::Transform3s::Identity();
-      // T2.setQuatRotation(coal::Quaternion3f::UnitRandom());
-      T2.setTranslation(coal::Vec3s(0.2, 0.0, 2.1));
+    // Define the shapes' placement in 3D space
+    coal::Transform3s T1;
+    T1.setQuatRotation(coal::Quaternion3f::Identity());
+    T1.setTranslation(coal::Vec3s(0.0, 0.0, 0.0));
+    coal::Transform3s T2 = coal::Transform3s::Identity();
+    // T2.setQuatRotation(coal::Quaternion3f::UnitRandom());
+    T2.setTranslation(coal::Vec3s(0.2, 0.0, 2.1));
 
-      // Define collision requests and results.
-      //
-      // The collision request allows to set parameters for the collision pair.
-      // For example, we can set a positive or negative security margin.
-      // If the distance between the shapes is less than the security margin, the
-      // shapes will be considered in collision. Setting a positive security margin
-      // can be usefull in motion planning, i.e to prevent shapes from getting too
-      // close to one another. In physics simulation, allowing a negative security
-      // margin may be usefull to stabilize the simulation.
-      coal::CollisionRequest col_req;
-      col_req.security_margin = 1e-1;
-      // A collision result stores the result of the collision test (signed distance
-      // between the shapes, witness points location, normal etc.)
-      coal::CollisionResult col_res;
+    // Define collision requests and results.
+    //
+    // The collision request allows to set parameters for the collision pair.
+    // For example, we can set a positive or negative security margin.
+    // If the distance between the shapes is less than the security margin, the
+    // shapes will be considered in collision. Setting a positive security
+    // margin can be usefull in motion planning, i.e to prevent shapes from
+    // getting too close to one another. In physics simulation, allowing a
+    // negative security margin may be usefull to stabilize the simulation.
+    coal::CollisionRequest col_req;
+    col_req.security_margin = 1e-1;
+    // A collision result stores the result of the collision test (signed
+    // distance between the shapes, witness points location, normal etc.)
+    coal::CollisionResult col_res;
 
-      // Collision call
-      coal::collide(shape1.get(), T1, shape2.get(), T2, col_req, col_res);
+    // Collision call
+    coal::collide(shape1.get(), T1, shape2.get(), T2, col_req, col_res);
 
-      coal::ContactPatchRequest patch_req;
-      coal::ContactPatchResult patch_res;
-      coal::computeContactPatch(shape1.get(), T1, shape2.get(), T2, col_res,
-                                patch_req, patch_res);
+    coal::ContactPatchRequest patch_req;
+    coal::ContactPatchResult patch_res;
+    coal::computeContactPatch(shape1.get(), T1, shape2.get(), T2, col_res,
+                              patch_req, patch_res);
 
-      // We can access the collision result once it has been populated
-      std::cout << "Collision? " << col_res.isCollision() << "\n";
-      if (col_res.isCollision()) {
+    // We can access the collision result once it has been populated
+    std::cout << "Collision? " << col_res.isCollision() << "\n";
+    if (col_res.isCollision()) {
         coal::Contact contact = col_res.getContact(0);
-        // The penetration depth does **not** take into account the security margin.
-        // Consequently, the penetration depth is the true signed distance which
-        // separates the shapes. To have the distance which takes into account the
-        // security margin, we can simply add the two together.
+        // The penetration depth does **not** take into account the security
+        // margin. Consequently, the penetration depth is the true signed
+        // distance which separates the shapes. To have the distance which takes
+        // into account the security margin, we can simply add the two together.
         std::cout << "Penetration depth: " << contact.penetration_depth << "\n";
-        std::cout << "Distance between the shapes including the security margin: "
-                  << contact.penetration_depth + col_req.security_margin << "\n";
+        std::cout
+            << "Distance between the shapes including the security margin: "
+            << contact.penetration_depth + col_req.security_margin << "\n";
         std::cout << "Witness point on shape1: "
                   << contact.nearest_points[0].transpose() << "\n";
         std::cout << "Witness point on shape2: "
                   << contact.nearest_points[1].transpose() << "\n";
         std::cout << "Normal: " << contact.normal.transpose() << "\n";
-      }
+    }
 
-      // We can access the collision result once it has been populated
-      std::cout << "Contact patch number: " << patch_res.numContactPatches()
-                << "\n";
-      if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
+    // We can access the collision result once it has been populated
+    std::cout << "Contact patch number: " << patch_res.numContactPatches()
+              << "\n";
+    if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
         coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
 
         std::cout << "Penetration depth: " << contactpatch.penetration_depth
                   << "\n";
-        std::cout << "Distance between the shapes including the security margin: "
-                  << contactpatch.penetration_depth + col_req.security_margin
-                  << "\n";
+        std::cout
+            << "Distance between the shapes including the security margin: "
+            << contactpatch.penetration_depth + col_req.security_margin << "\n";
         for (size_t i = 0; i < contactpatch.size(); ++i) {
-          std::cout << "Witness point on shape1: "
-                    << (contactpatch.getPoint(i) +
-                        0.5 * contactpatch.penetration_depth *
-                            contactpatch.getNormal())
-                           .transpose()
-                    << "\n";
-          std::cout << "Witness point on shape2: "
-                    << (contactpatch.getPoint(i) -
-                        0.5 * contactpatch.penetration_depth *
-                            contactpatch.getNormal())
-                           .transpose()
-                    << "\n";
+            std::cout << "Witness point on shape1: "
+                      << (contactpatch.getPoint(i) +
+                          0.5 * contactpatch.penetration_depth *
+                              contactpatch.getNormal())
+                             .transpose()
+                      << "\n";
+            std::cout << "Witness point on shape2: "
+                      << (contactpatch.getPoint(i) -
+                          0.5 * contactpatch.penetration_depth *
+                              contactpatch.getNormal())
+                             .transpose()
+                      << "\n";
         }
 
         std::cout << "Normal: " << contactpatch.getNormal().transpose() << "\n";
-      }
-
-      // Before calling another collision test, it is important to clear the
-      // previous results stored in the collision result.
-      col_res.clear();
-
-      return 0;
     }
+
+    // Before calling another collision test, it is important to clear the
+    // previous results stored in the collision result.
+    col_res.clear();
+
+    return 0;
+}
 #endif  // DEBUG
 
-Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
-                        const std::string &meshPath1,
-                        const Eigen::Matrix4d& M2,
-                        const std::string &meshPath2) {
-
+Contacts coalMeshMesh(const Eigen::Matrix4d &M1, const std::string &meshPath1,
+                      const Eigen::Matrix4d &M2, const std::string &meshPath2) {
     std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
     std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
 
     coal::Transform3s T1;
-    T1.setRotation(M1.topLeftCorner(3,3));
-    T1.setTranslation(M1.topRightCorner(3,1));
+    T1.setRotation(M1.topLeftCorner(3, 3));
+    T1.setTranslation(M1.topRightCorner(3, 1));
     coal::Transform3s T2;
     T2.setRotation(M2.topLeftCorner(3, 3));
     T2.setTranslation(M2.topRightCorner(3, 1));
@@ -165,7 +169,7 @@ Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
     col_req.security_margin = 1e-1;
     coal::CollisionResult col_res;
 
-// Collision call
+    // Collision call
     coal::collide(shape1.get(), T1, shape2.get(), T2, col_req, col_res);
 
     coal::ContactPatchRequest patch_req;
@@ -173,29 +177,28 @@ Contacts coalMeshMesh(const Eigen::Matrix4d& M1,
     patch_req.setPatchTolerance(5e-2);
     patch_req.setNumSamplesCurvedShapes(8);
     coal::computeContactPatch(shape1.get(), T1, shape2.get(), T2, col_res,
-                            patch_req, patch_res);
+                              patch_req, patch_res);
 
     Contacts results;
     if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
-    coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
+        coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
 
-    // size_t
-    printf("# Detected contactpatch.size() = %lu\n", contactpatch.size());
+        // size_t
+        printf("# Detected contactpatch.size() = %lu\n", contactpatch.size());
 
-    results.depthMax = contactpatch.penetration_depth;
-    results.count = contactpatch.size();
-    if(results.count > 8)
-        results.count = 8;
+        results.depthMax = contactpatch.penetration_depth;
+        results.count = contactpatch.size();
+        if (results.count > 8) results.count = 8;
 
-    for (size_t i = 0; i < contactpatch.size() && i < 8; ++i) {
-        results.positions[i] = contactpatch.getPoint(i);
-        results.depths[i] = contactpatch.penetration_depth;
-    }
-    results.normal << contactpatch.getNormal();
+        for (size_t i = 0; i < contactpatch.size() && i < 8; ++i) {
+            results.positions[i] = contactpatch.getPoint(i);
+            results.depths[i] = contactpatch.penetration_depth;
+        }
+        results.normal << contactpatch.getNormal();
     }
 
     return results;
 }
 
-} // namespace apbd
+}  // namespace apbd
 // #endif

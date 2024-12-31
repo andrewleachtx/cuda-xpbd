@@ -2,7 +2,7 @@
 #include <stddef.h>
 
 /// Maximum number of collision constraints within the entire simulation
-const size_t MAX_COLLISION_CONSTRAINTS = 65536;
+const size_t MAX_COLLISION_CONSTRAINTS = 512;
 /// Block size used in CUDA kernel
 const size_t BLOCK_SIZE = 256;
 /// Number of blocks per SM minimum
