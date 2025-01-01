@@ -245,7 +245,6 @@ void Model::solveConTGS(Collider *collider, float hs) {
     }
 }
 
-
 void Model::solveConGPQP(Collider* collider, float hs) {
     collider->run(this);
 
@@ -275,6 +274,10 @@ void Model::solveConGPQP(Collider* collider, float hs) {
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
     }
+}
+
+void Model::GPQP(Collider* collider, int n) {
+    /* TODO: Returns "output". Longest method by far */
 }
 
 void Model::write_state(unsigned int step) {

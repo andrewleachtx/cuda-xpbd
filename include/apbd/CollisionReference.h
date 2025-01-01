@@ -14,6 +14,7 @@ class CollisionReference {
     __host__ __device__ CollisionReference(const unsigned int index)
         : index(data::soa_index(index)) {}
 
+    // TODO: Probably should zero initialize new members or find what calls this thing
     __host__ __device__ void create(unsigned int contactNum, bool broken,
                                     BodyReference body1, BodyReference body2) {
         this->contactNum(contactNum);

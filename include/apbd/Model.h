@@ -49,6 +49,8 @@ class Model {
     __host__ __device__ void solveConGS(Collider *collider, float hs);
     __host__ __device__ void solveConTGS(Collider *collider, float hs);
     __host__ __device__ void solveConGPQP(Collider* collider, float hs);
+    // TODO: Add return type
+    __host__ __device__ void GPQP(Collider* collider, int n);
 
     /**
      * Constructs default data structures

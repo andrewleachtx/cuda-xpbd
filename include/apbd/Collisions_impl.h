@@ -88,4 +88,54 @@ inline void Collision::computeJ_b(CollisionReference clr) {
         }
     }
 }
+
+inline void Collision::compute_LTlambda(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_degenerate_LTlambda(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_LTd_cg(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_LTp(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_LLTx(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_degenerate_LLTx(CollisionReference clr) {
+    /* TODO */
+}
+
+// TODO: fix return type
+inline void Collision::compute_tbar(CollisionReference clr) {
+    /* TODO */
+}
+
+inline void Collision::compute_lambdac(CollisionReference clr, float t) {
+    /* TODO */
+}
+
+inline void Collision::compute_lambdad(CollisionReference clr, float t) {
+    /* TODO */
+}
+
+inline void Collision::compute_p(CollisionReference clr, float t) {
+    /* TODO */
+}
+
+inline void Collision::project(CollisionReference clr) {
+    /* TODO */
+}
+
+inline bool Collision::update_cg(CollisionReference clr, float alpha) {
+    /* TODO */
+}
+
 }  // namespace apbd
