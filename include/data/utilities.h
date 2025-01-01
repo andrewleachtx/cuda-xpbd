@@ -26,8 +26,8 @@
 
 namespace data {
 
-typedef Eigen::Matrix<float, 7, 1> vec7;
-typedef Eigen::Matrix<float, 12, 1> vec12;
+using vec7 = Eigen::Matrix<float, 7, 1>;
+using vec12 = Eigen::Matrix<float, 12, 1>;
 
 /// Calculates the index for accessing SOA data for the current thread.
 __host__ __device__ inline size_t soa_index(unsigned int index) {

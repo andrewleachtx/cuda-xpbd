@@ -80,4 +80,12 @@ inline void Collision::initConstraints(CollisionReference clr) {
         }
     }
 }
+
+inline void Collision::computeJ_b(CollisionReference clr) {
+    if (this->is_ground(clr)) {
+        for (unsigned int i = 0; i < clr.contactNum(); i++) {
+            
+        }
+    }
+}
 }  // namespace apbd

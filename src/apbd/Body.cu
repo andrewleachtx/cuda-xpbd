@@ -70,6 +70,20 @@ void Body::setInitVelocity(Eigen::Matrix<float, 6, 1> velocity) {
     }
 }
 
+void Body::clearJacobi() {
+    switch (this->type) {
+        case BODY_AFFINE: {
+            break;
+        }
+        case BODY_RIGID: {
+            auto &data = this->data.rigid;
+            data.dxJacobi = vec7::Zero();
+        }
+        default:
+            break;
+    }
+}
+
 BodyRigid::BodyRigid(Shape shape, float density)
     : xInit(vec7::Zero()),
       x(vec7::Zero()),
@@ -82,7 +96,9 @@ BodyRigid::BodyRigid(Shape shape, float density)
       Mr(Eigen::Vector3f::Zero()),
       Mp(0),
       v(Vector3f::Zero()),
-      w(Vector3f::Zero()) {}
+      w(Vector3f::Zero()),
+      dxJacobi(vec7::Zero()),
+      dphiJacobi(vec7::Zero()) {}
 BodyRigid::BodyRigid(Shape shape, float density, bool collide, float mu)
     : xInit(vec7::Zero()),
       x(vec7::Zero()),
@@ -95,6 +111,8 @@ BodyRigid::BodyRigid(Shape shape, float density, bool collide, float mu)
       Mr(Eigen::Vector3f::Zero()),
       Mp(0),
       v(Vector3f::Zero()),
-      w(Vector3f::Zero()) {}
+      w(Vector3f::Zero()),
+      dxJacobi(vec7::Zero()),
+      dphiJacobi(vec7::Zero()) {}
 
 }  // namespace apbd

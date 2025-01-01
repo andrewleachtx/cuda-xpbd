@@ -54,6 +54,9 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
                            deltaLinDt)
 
+IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dxJacobi)
+IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dphiJacobi)
+
 inline void BodyRigidReference::init(vec7 xInit) {
     this->computeInertiaConst();
     this->position(xInit.block<3, 1>(4, 0));
@@ -266,6 +269,11 @@ inline void BodyRigidReference::integrateStates() {
 
 inline Eigen::Vector3f BodyRigidReference::transformPoint(Eigen::Vector3f xl) {
     return this->rotation() * xl + this->position();
+}
+
+inline void BodyRigidReference::clearJacobi() {
+    this->dxJacobi(vec7::Zero());
+    this->dphiJacobi(vec7::Zero());
 }
 
 }  // namespace apbd

@@ -37,6 +37,8 @@ struct alignas(16) Collision {
     __host__ __device__ void applyLambdaSP(CollisionReference clr);
 
     __host__ __device__ void initConstraints(CollisionReference clr);
+
+    __host__ __device__ void computeJ_b(CollisionReference clr);
 };
 
 }  // namespace apbd

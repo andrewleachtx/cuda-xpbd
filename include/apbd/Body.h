@@ -52,6 +52,10 @@ struct BodyRigid {
     /// Rotational velocity
     Eigen::Vector3f w;
 
+    // dxJacobi & dphiJacopbi for Jacobi updates
+    vec7 dxJacobi;
+    vec7 dphiJacobi;
+
     BodyRigid(Shape shape, float density);
     BodyRigid(Shape shape, float density, bool collide, float mu);
 };
@@ -100,6 +104,8 @@ class Body {
 
     __host__ __device__ void setInitVelocity(
         Eigen::Matrix<float, 6, 1> velocity);
+
+    __host__ __device__ void clearJacobi();
 };
 
 }  // namespace apbd

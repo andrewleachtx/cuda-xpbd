@@ -12,6 +12,8 @@ class Collision;
 
 namespace data {
 
+// TODO: For new GPQP matrices, should add _SOAStoreVec24, etc
+
 struct _SOAStoreConstraintGround {
     _SOAStoreVec3 lambda;
     _SOAStoreVec3 nw;
@@ -97,17 +99,26 @@ struct _SOAStoreBodyRigid {
     _SOAStoreVec3 deltaAngDt;
     _SOAStoreVec3 deltaLinDt;
 
+    _SOAStoreVec7 dxJacobi;
+    _SOAStoreVec7 dphiJacobi;
+
     __host__ __device__ _SOAStoreBodyRigid() {}
     _SOAStoreBodyRigid(byte *data_store, size_t &offset, size_t count);
     /// Calculates the size necessary to store the data in this buffer with
     /// count elements.
+    // TODO: For readability added variables, can remove
     static constexpr size_t size(size_t count) {
-        return _SOAStoreVec7::size(count) + _SOAStoreVec3::size(count) * 7 +
-               _SOAStoreQuaterion::size(count) * 2 +
-               _SOAStoreGeneric<float>::size(count) * 3 +
-               _SOAStoreGeneric<bool>::size(count) +
-               _SOAStoreGeneric<apbd::Shape>::size(count) +
-               _SOAStoreGeneric<unsigned int>::size(count);
+        size_t init_sz = _SOAStoreVec7::size(count) +
+                         _SOAStoreVec3::size(count) * 7 +
+                         _SOAStoreQuaterion::size(count) * 2 +
+                         _SOAStoreGeneric<float>::size(count) * 3 +
+                         _SOAStoreGeneric<bool>::size(count) +
+                         _SOAStoreGeneric<apbd::Shape>::size(count) +
+                         _SOAStoreGeneric<unsigned int>::size(count);
+
+        size_t gpqp_sz = _SOAStoreVec7::size(count) * 2;
+
+        return init_sz + gpqp_sz;
     }
 
     __host__ __device__ void set(unsigned int index,
@@ -120,14 +131,52 @@ struct _SOAStoreCollision {
     _SOAStoreGeneric<apbd::BodyReference> body1;
     _SOAStoreGeneric<apbd::BodyReference> body2;
 
+    // GPQP
+    _SOAStoreGeneric<unsigned int> mIndices;
+    // May not need this
+    _SOAStoreGeneric<int> layer;
+
+    _SOAStoreGeneric<Mat24x6f> J1I;
+    _SOAStoreGeneric<Mat24x6f> J2I;
+    _SOAStoreGeneric<Vec24f> b;
+    _SOAStoreGeneric<float> mu;
+
+    _SOAStoreGeneric<Vec24f> lambda;
+    _SOAStoreGeneric<Vec24f> lambdac;
+    _SOAStoreGeneric<Vec24f> lambdad;
+    _SOAStoreGeneric<Vec24f> t_bar;
+    _SOAStoreGeneric<Vec24f> g;
+    _SOAStoreGeneric<Vec24f> p;
+    _SOAStoreGeneric<Vec24f> Ax;
+    _SOAStoreGeneric<Vec24b> freeIndex;
+
+    // CG
+    _SOAStoreGeneric<Vec24f> r_cg;
+    _SOAStoreGeneric<Vec24f> b_cg;
+    _SOAStoreGeneric<Mat24x6f> J1I_cg;
+    _SOAStoreGeneric<Mat24x6f> J2I_cg;
+    _SOAStoreGeneric<Vec24f> Minv_cg;
+    _SOAStoreGeneric<Vec24f> g_cg;
+    _SOAStoreGeneric<Vec24f> d_cg;
+
     __host__ __device__ _SOAStoreCollision() {}
     _SOAStoreCollision(byte *data_store, size_t &offset, size_t count);
     /// Calculates the size necessary to store the data in this buffer with
     /// count elements.
+    // TODO: For readability added variables, can remove
     static constexpr size_t size(size_t count) {
-        return _SOAStoreGeneric<unsigned int>::size(count) +
-               _SOAStoreGeneric<bool>::size(count) +
-               _SOAStoreGeneric<apbd::BodyReference>::size(count) * 2;
+        size_t init_sz = _SOAStoreGeneric<unsigned int>::size(count) +
+                         _SOAStoreGeneric<bool>::size(count) +
+                         _SOAStoreGeneric<apbd::BodyReference>::size(count) * 2;
+
+        size_t new_sz = _SOAStoreGeneric<unsigned int>::size(count) +
+                        _SOAStoreGeneric<int>::size(count) +
+                        _SOAStoreGeneric<Mat24x6f>::size(count) * 4 +
+                        _SOAStoreGeneric<Vec24f>::size(count) * 13 +
+                        _SOAStoreGeneric<float>::size(count) * 1 +
+                        _SOAStoreGeneric<Vec24b>::size(count);
+
+        return init_sz + new_sz;
     }
 };
 
@@ -256,7 +305,28 @@ inline _SOAStoreCollision::_SOAStoreCollision(byte *data_store, size_t &offset,
     : contactNum(data_store, offset, count),
       broken(data_store, offset, count),
       body1(data_store, offset, count),
-      body2(data_store, offset, count) {}
+      body2(data_store, offset, count),
+      mIndices(data_store, offset, count),
+      layer(data_store, offset, count),
+      J1I(data_store, offset, count),
+      J2I(data_store, offset, count),
+      b(data_store, offset, count),
+      mu(data_store, offset, count),
+      lambda(data_store, offset, count),
+      lambdac(data_store, offset, count),
+      lambdad(data_store, offset, count),
+      t_bar(data_store, offset, count),
+      g(data_store, offset, count),
+      p(data_store, offset, count),
+      Ax(data_store, offset, count),
+      freeIndex(data_store, offset, count),
+      r_cg(data_store, offset, count),
+      b_cg(data_store, offset, count),
+      J1I_cg(data_store, offset, count),
+      J2I_cg(data_store, offset, count),
+      Minv_cg(data_store, offset, count),
+      g_cg(data_store, offset, count),
+      d_cg(data_store, offset, count) {}
 
 inline void _SOAStoreBodyRigid::set(unsigned int index,
                                     const apbd::BodyRigid &data) {

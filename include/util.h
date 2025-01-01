@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <Eigen/Dense>
 
 #include "config.h"
 
@@ -92,6 +93,12 @@ extern thread_local size_t _thread_scene_id;
 extern size_t _global_scene_count;
 
 using byte = unsigned char;
+
+// GPQP
+using Mat24x6f = Eigen::Matrix<float, 24, 6>;
+using Vec24f = Eigen::Matrix<float, 24, 1>;
+// Should be bool but interpret as int instead
+using Vec24b = Eigen::Matrix<int, 24, 1>;
 
 /**
  * Allocates a buffer with the given size in bytes from the appropriate device
