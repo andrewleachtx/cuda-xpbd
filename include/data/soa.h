@@ -99,10 +99,12 @@ struct _SOAStoreBodyRigid {
     _SOAStoreVec3 deltaAngDt;
     _SOAStoreVec3 deltaLinDt;
 
+    // GPQP
     _SOAStoreVec7 dxJacobi;
     _SOAStoreVec7 dphiJacobi;
+    _SOAStoreGeneric<vec6f> LTx;
 
-    __host__ __device__ _SOAStoreBodyRigid() {}
+        __host__ __device__ _SOAStoreBodyRigid() {}
     _SOAStoreBodyRigid(byte *data_store, size_t &offset, size_t count);
     /// Calculates the size necessary to store the data in this buffer with
     /// count elements.
@@ -116,7 +118,8 @@ struct _SOAStoreBodyRigid {
                          _SOAStoreGeneric<apbd::Shape>::size(count) +
                          _SOAStoreGeneric<unsigned int>::size(count);
 
-        size_t gpqp_sz = _SOAStoreVec7::size(count) * 2;
+        size_t gpqp_sz = _SOAStoreVec7::size(count) * 2 +
+                         _SOAStoreGeneric<vec6f>::size(count);
 
         return init_sz + gpqp_sz;
     }
@@ -136,28 +139,28 @@ struct _SOAStoreCollision {
     // May not need this
     _SOAStoreGeneric<int> layer;
 
-    _SOAStoreGeneric<Mat24x6f> J1I;
-    _SOAStoreGeneric<Mat24x6f> J2I;
-    _SOAStoreGeneric<Vec24f> b;
+    _SOAStoreGeneric<mat24x6f> J1I;
+    _SOAStoreGeneric<mat24x6f> J2I;
+    _SOAStoreGeneric<vec24f> b;
     _SOAStoreGeneric<float> mu;
 
-    _SOAStoreGeneric<Vec24f> lambda;
-    _SOAStoreGeneric<Vec24f> lambdac;
-    _SOAStoreGeneric<Vec24f> lambdad;
-    _SOAStoreGeneric<Vec24f> t_bar;
-    _SOAStoreGeneric<Vec24f> g;
-    _SOAStoreGeneric<Vec24f> p;
-    _SOAStoreGeneric<Vec24f> Ax;
-    _SOAStoreGeneric<Vec24b> freeIndex;
+    _SOAStoreGeneric<vec24f> lambda;
+    _SOAStoreGeneric<vec24f> lambdac;
+    _SOAStoreGeneric<vec24f> lambdad;
+    _SOAStoreGeneric<vec24f> t_bar;
+    _SOAStoreGeneric<vec24f> g;
+    _SOAStoreGeneric<vec24f> p;
+    _SOAStoreGeneric<vec24f> Ax;
+    _SOAStoreGeneric<vec24b> freeIndex;
 
     // CG
-    _SOAStoreGeneric<Vec24f> r_cg;
-    _SOAStoreGeneric<Vec24f> b_cg;
-    _SOAStoreGeneric<Mat24x6f> J1I_cg;
-    _SOAStoreGeneric<Mat24x6f> J2I_cg;
-    _SOAStoreGeneric<Vec24f> Minv_cg;
-    _SOAStoreGeneric<Vec24f> g_cg;
-    _SOAStoreGeneric<Vec24f> d_cg;
+    _SOAStoreGeneric<vec24f> r_cg;
+    _SOAStoreGeneric<vec24f> b_cg;
+    _SOAStoreGeneric<mat24x6f> J1I_cg;
+    _SOAStoreGeneric<mat24x6f> J2I_cg;
+    _SOAStoreGeneric<vec24f> Minv_cg;
+    _SOAStoreGeneric<vec24f> g_cg;
+    _SOAStoreGeneric<vec24f> d_cg;
 
     __host__ __device__ _SOAStoreCollision() {}
     _SOAStoreCollision(byte *data_store, size_t &offset, size_t count);
@@ -171,10 +174,10 @@ struct _SOAStoreCollision {
 
         size_t new_sz = _SOAStoreGeneric<unsigned int>::size(count) +
                         _SOAStoreGeneric<int>::size(count) +
-                        _SOAStoreGeneric<Mat24x6f>::size(count) * 4 +
-                        _SOAStoreGeneric<Vec24f>::size(count) * 13 +
+                        _SOAStoreGeneric<mat24x6f>::size(count) * 4 +
+                        _SOAStoreGeneric<vec24f>::size(count) * 13 +
                         _SOAStoreGeneric<float>::size(count) * 1 +
-                        _SOAStoreGeneric<Vec24b>::size(count);
+                        _SOAStoreGeneric<vec24b>::size(count);
 
         return init_sz + new_sz;
     }

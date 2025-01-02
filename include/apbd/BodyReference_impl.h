@@ -56,6 +56,7 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Vector3f, BodyRigidReference, BodyRigid,
 
 IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dxJacobi)
 IMPLEMENT_ACCESS_FUNCTIONS(vec7, BodyRigidReference, BodyRigid, dphiJacobi)
+IMPLEMENT_ACCESS_FUNCTIONS(vec6f, BodyRigidReference, BodyRigid, LTx)
 
 inline void BodyRigidReference::init(vec7 xInit) {
     this->computeInertiaConst();

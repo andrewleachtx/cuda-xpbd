@@ -39,8 +39,9 @@ struct alignas(16) Collision {
     __host__ __device__ void initConstraints(CollisionReference clr);
 
     // GPQP
-    __host__ __device__ void computeJ_b(CollisionReference clr);
+    __host__ __device__ void computeJ_b(CollisionReference clr, float h);
     __host__ __device__ void compute_LTlambda(CollisionReference clr);
+    __host__ __device__ void compute_degenerate_J1I_J2I_b(CollisionReference clr);
     __host__ __device__ void compute_degenerate_LTlambda(CollisionReference clr);
     __host__ __device__ void compute_LTd_cg(CollisionReference clr);
     __host__ __device__ void compute_LTp(CollisionReference clr);

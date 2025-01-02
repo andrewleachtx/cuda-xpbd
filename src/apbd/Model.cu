@@ -245,7 +245,7 @@ void Model::solveConTGS(Collider *collider, float hs) {
     }
 }
 
-void Model::solveConGPQP(Collider* collider, float hs) {
+void Model::solveConGPQP(Collider* collider) {
     collider->run(this);
 
     for (size_t i = 0; i < collider->active_collision_count; i++) {

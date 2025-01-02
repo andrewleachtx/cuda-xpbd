@@ -4,12 +4,9 @@
 
 #include "apbd/Contact.h"
 #include "apbd/Shape.h"
+#include "data/utilities.h"
 
 namespace apbd {
-
-// aliases for convenience
-typedef Eigen::Matrix<float, 7, 1> vec7;
-typedef Eigen::Matrix<float, 12, 1> vec12;
 
 /**
  * The different types a body could be. 0 is reserved for an invalid type to
@@ -52,9 +49,10 @@ struct BodyRigid {
     /// Rotational velocity
     Eigen::Vector3f w;
 
-    // dxJacobi & dphiJacopbi for Jacobi updates
+    // GPQP
     vec7 dxJacobi;
     vec7 dphiJacobi;
+    vec6f LTx;
 
     BodyRigid(Shape shape, float density);
     BodyRigid(Shape shape, float density, bool collide, float mu);

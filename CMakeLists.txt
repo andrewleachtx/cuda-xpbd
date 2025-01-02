@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16...3.28)
 
-include(FetchContent)
+# include(FetchContent)
 
 project(cuda-xpbd VERSION 0.1
     LANGUAGES CUDA CXX)
@@ -24,20 +24,21 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 endif()
 
 # Uncomment on first build to fetch Eigen
-FetchContent_Declare(
-  Eigen-git
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG        25270e35dbfb9d407175a321707a3b51a079588d
-)
-FetchContent_MakeAvailable(Eigen-git)
-find_package (Eigen3 3.4 REQUIRED NO_MODULE)
+# FetchContent_Declare(
+#   Eigen-git
+#   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+#   GIT_TAG        25270e35dbfb9d407175a321707a3b51a079588d
+# )
+# FetchContent_MakeAvailable(Eigen-git)
+add_subdirectory(include/eigen)
+find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
 file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h ${CMAKE_CURRENT_BINARY_DIR}/svd3_cuda.h)
 add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
 # SET TO YOUR COAL LOCATION
-set(COAL_PATH "/home/andy/pkgs/coal/install")
+set(COAL_PATH "/home/andyleach/pkgs/coal/install")
 if (NOT EXISTS ${COAL_PATH})
     message(FATAL_ERROR "${COAL_PATH} not found, did you forget to change COAL_PATH in CMakeLists.txt?")
 endif()

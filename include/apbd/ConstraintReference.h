@@ -52,6 +52,7 @@ class ConstraintGroundReference {
     __host__ __device__ void solveNorPos(float hs, float biasCoef,
                                          float minpenetration);
     __host__ __device__ void solveTanVel(float hs, float biasCoef);
+    __host__ __device__ float evalCs(float h);
 };
 
 class ConstraintRigidReference {
@@ -105,6 +106,7 @@ class ConstraintRigidReference {
                                          bool doShockProp);
     __host__ __device__ void solveTanVel(float hs, float biasCoef,
                                          bool doShockProp);
+    __host__ __device__ float evalCs(float h);
 };
 
 class ConstraintReference {

@@ -24,10 +24,9 @@
         data::global_store.Type.attribute.set(index, new_val);              \
     }
 
-namespace data {
-
 using vec7 = Eigen::Matrix<float, 7, 1>;
 using vec12 = Eigen::Matrix<float, 12, 1>;
+namespace data {
 
 /// Calculates the index for accessing SOA data for the current thread.
 __host__ __device__ inline size_t soa_index(unsigned int index) {
