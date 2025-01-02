@@ -1,3 +1,4 @@
+# to be used as visualize.blend
 import bpy
 from mathutils import Quaternion, Vector
 from math import radians

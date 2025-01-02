@@ -29,7 +29,6 @@ class ConstraintGroundReference {
     }
 
     // access the data elements in ConstraintGround
-
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Vector3f, lambda)
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Vector3f, nw)
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Vector3f, xl)
@@ -52,7 +51,7 @@ class ConstraintGroundReference {
     __host__ __device__ void solveNorPos(float hs, float biasCoef,
                                          float minpenetration);
     __host__ __device__ void solveTanVel(float hs, float biasCoef);
-    __host__ __device__ float evalCs(float h);
+    __host__ __device__ Eigen::Vector3f evalCs(float h);
 };
 
 class ConstraintRigidReference {
@@ -106,7 +105,7 @@ class ConstraintRigidReference {
                                          bool doShockProp);
     __host__ __device__ void solveTanVel(float hs, float biasCoef,
                                          bool doShockProp);
-    __host__ __device__ float evalCs(float h);
+    __host__ __device__ Eigen::Vector3f evalCs(float h);
 };
 
 class ConstraintReference {

@@ -1,5 +1,0 @@
-[  5%] Building CUDA object src/CMakeFiles/apbd-lib.dir/apbd/Body.cu.o
-[ 10%] Building CUDA object src/CMakeFiles/apbd-lib.dir/apbd/Collider.cu.o
-[ 15%] Building CUDA object src/CMakeFiles/apbd-lib.dir/apbd/Constraint.cu.o
-[ 20%] Building CUDA object src/CMakeFiles/apbd-lib.dir/apbd/Model.cu.o
-[ 25%] Building CUDA object src/CMakeFiles/apbd-lib.dir/data/soa.cu.o

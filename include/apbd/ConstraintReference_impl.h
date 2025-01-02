@@ -216,19 +216,21 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
 inline void ConstraintGroundReference::applyLambdaSP() {}
 
 /*
-    Performing contactFrame' * v + raXn' * w + contactFrame' * dt
-
-    is the same as dot(contactFrame, v) + dot(raXn, w) + ...
-
-    // FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong.
+    FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong
+    TODO: Performing a division here each time for d() / h, pass in 1/h or just
+   store
 */
-inline float ConstraintGroundReference::evalCs(float h) {
+inline Eigen::Vector3f ConstraintGroundReference::evalCs(float h) {
     auto c_frame = this->contactFrame();
     auto raXn = this->raXnI1();
     auto v = this->body().v();
     auto w = this->body().w();
 
-    return c_frame.dot(v) + raXn.dot(w) + c_frame.dot(this->d() / h);
+    Eigen::Vector3f linear = c_frame.transpose() * v;
+    Eigen::Vector3f angular = raXn.transpose() * w;
+    Eigen::Vector3f dt = c_frame.transpose() * (this->d() / h);
+
+    return linear + angular + dt;
 }
 
 inline void ConstraintRigidReference::applyLambdaSP() {
@@ -508,11 +510,11 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
 }
 
 /*
-function Cs = evalCs(this)
-        Cs = this.contactFrame' * (this.body1.v - this.body2.v) + this.raXn1' * this.body1.w - this.raXn2' * this.body2.w + this.contactFrame'* this.dt;
-end
+    FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong
+    TODO: Performing a division here each time for d() / h, pass in 1/h or just
+   store
 */
-inline float ConstraintRigidReference::evalCs(float h) {
+inline Eigen::Vector3f ConstraintRigidReference::evalCs(float h) {
     auto c_frame = this->contactFrame();
     auto raXn1 = this->raXnI1();
     auto raXn2 = this->raXnI2();
@@ -522,8 +524,11 @@ inline float ConstraintRigidReference::evalCs(float h) {
     auto w1 = this->body1().w();
     auto w2 = this->body2().w();
 
-    return c_frame.dot(v1 - v2) + raXn1.dot(w1) - raXn2.dot(w2) +
-           c_frame.dot(this->d() / h);
+    Eigen::Vector3f linear = c_frame.transpose() * (v1 - v2);
+    Eigen::Vector3f angular = raXn1.transpose() * w1 - raXn2.transpose() * w2;
+    Eigen::Vector3f dt = c_frame.transpose() * (this->d() / h);
+
+    return linear + angular + dt;
 }
 
 }  // namespace apbd
