@@ -104,7 +104,7 @@ struct _SOAStoreBodyRigid {
     _SOAStoreVec7 dphiJacobi;
     _SOAStoreGeneric<vec6f> LTx;
 
-        __host__ __device__ _SOAStoreBodyRigid() {}
+    __host__ __device__ _SOAStoreBodyRigid() {}
     _SOAStoreBodyRigid(byte *data_store, size_t &offset, size_t count);
     /// Calculates the size necessary to store the data in this buffer with
     /// count elements.

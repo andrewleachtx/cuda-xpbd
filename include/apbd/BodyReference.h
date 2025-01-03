@@ -67,12 +67,12 @@ class alignas(8) BodyRigidReference {
     __host__ __device__ Eigen::Vector3f deltaLinDt() const;
     __host__ __device__ void deltaLinDt(const Eigen::Vector3f new_val);
 
-    __host__ __device__ vec7  dxJacobi() const;
-    __host__ __device__ void  dxJacobi(const vec7 new_val);
-    __host__ __device__ vec7  dphiJacobi() const;
-    __host__ __device__ void  dphiJacobi(const vec7 new_val);
+    __host__ __device__ vec7 dxJacobi() const;
+    __host__ __device__ void dxJacobi(const vec7 new_val);
+    __host__ __device__ vec7 dphiJacobi() const;
+    __host__ __device__ void dphiJacobi(const vec7 new_val);
     __host__ __device__ vec6f LTx() const;
-    __host__ __device__ void  LTx(const vec6f new_val);
+    __host__ __device__ void LTx(const vec6f new_val);
 
     // readonly elements
     __host__ __device__ bool collide() const;
@@ -227,8 +227,8 @@ class alignas(8) BodyReference {
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
         __host__ __device__ void integrateStates(), data.integrateStates());
 
-    IMPLEMENT_DELEGATED_BODY_FUNCTION(
-        __host__ __device__ void clearJacobi(), data.clearJacobi());
+    IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void clearJacobi(),
+                                      data.clearJacobi());
 };
 
 #define NULL_BODY BodyReference(0, BODY_INVALID)

@@ -694,8 +694,9 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             halfAngle = 0.5 * pi / n;
             halfDistance = 0.4 * w;
             for i = 1 : n
-                model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, halfDistance, halfAngle),density);
-                %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+                model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides,
+           sides, halfDistance, halfAngle),density); %model.bodies{end+1} =
+           apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
                 model.bodies{end}.collide = true;
                 model.bodies{end}.mu = mu;
                 theta = (i*2-1)*halfAngle;
@@ -718,9 +719,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.tEnd = 1.0f;
             model.h = h;
             model.substeps = substeps;
-            
 
-            
             break;
         }
     }

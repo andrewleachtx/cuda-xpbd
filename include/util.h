@@ -1,6 +1,6 @@
 #pragma once
-#include <iostream>
 #include <Eigen/Dense>
+#include <iostream>
 
 #include "config.h"
 

@@ -41,15 +41,17 @@ struct alignas(16) Collision {
     // GPQP
     __host__ __device__ void computeJ_b(CollisionReference clr, float h);
     __host__ __device__ void compute_LTlambda(CollisionReference clr);
-    __host__ __device__ void compute_degenerate_J1I_J2I_b(CollisionReference clr);
-    __host__ __device__ void compute_degenerate_LTlambda(CollisionReference clr);
+    __host__ __device__ void compute_degenerate_J1I_J2I_b(
+        CollisionReference clr);
+    __host__ __device__ void compute_degenerate_LTlambda(
+        CollisionReference clr);
     __host__ __device__ void compute_LTd_cg(CollisionReference clr);
     __host__ __device__ void compute_LTp(CollisionReference clr);
     __host__ __device__ void compute_LLTx(CollisionReference clr);
     __host__ __device__ void compute_degenerate_LLTx(CollisionReference clr);
 
     // FIXME: compute_tbar returns a "tbar_i"
-    __host__ __device__ void compute_tbar(CollisionReference clr);
+    __host__ __device__ vec24f compute_tbar(CollisionReference clr);
     __host__ __device__ void compute_lambdac(CollisionReference clr, float t);
     __host__ __device__ void compute_lambdad(CollisionReference clr, float t);
     __host__ __device__ void compute_p(CollisionReference clr, float t);

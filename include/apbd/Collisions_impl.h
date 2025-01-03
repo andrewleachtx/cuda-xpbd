@@ -104,7 +104,7 @@ inline void Collision::initConstraints(CollisionReference clr) {
     }
 }
 
-// TODO: I don't like the structure of being forced to return a copy when updating
+// TODO: I don't like the structure of being forced to return a copy when
 inline void Collision::computeJ_b(CollisionReference clr, float h) {
     unsigned int n = clr.contactNum();
 
@@ -128,17 +128,16 @@ inline void Collision::computeJ_b(CollisionReference clr, float h) {
             clr.J1I(J1I_cpy);
             clr.b(b_cpy);
         }
-    }
-    else {
+    } else {
         for (unsigned int i = 0; i < n; i++) {
             unsigned int rows = 3 * i;
-            
+
             auto rig = this->constraints[i].get_rigid();
 
             Eigen::Matrix3f raXnI1 = rig.raXnI1();
             Eigen::Matrix3f c_frame1 = rig.contactFrame();
             float b1_Mp = rig.body1().Mp();
-            
+
             Eigen::Matrix3f raXnI2 = rig.raXnI2();
             Eigen::Matrix3f c_frame2 = rig.contactFrame();
             float b2_Mp = rig.body2().Mp();
@@ -171,9 +170,11 @@ end
 inline void Collision::compute_LTlambda(CollisionReference clr) {
     auto b1_LTxCpy = clr.body1().get_rigid().LTx();
     auto b2_LTxCpy = clr.body2().get_rigid().LTx();
-    
-    clr.body1().get_rigid().LTx(b1_LTxCpy + clr.J1I().transpose() * clr.lambda());
-    clr.body2().get_rigid().LTx(b1_LTxCpy + clr.J2I().transpose() * clr.lambda());
+
+    clr.body1().get_rigid().LTx(b1_LTxCpy +
+                                clr.J1I().transpose() * clr.lambda());
+    clr.body2().get_rigid().LTx(b1_LTxCpy +
+                                clr.J2I().transpose() * clr.lambda());
 }
 
 /*
@@ -193,18 +194,19 @@ function compute_degenerate_J1I_J2I_b(this)
 end
 */
 inline void Collision::compute_degenerate_J1I_J2I_b(CollisionReference clr) {
-    auto J1I_cpy  = clr.J1I();
-    auto J2I_cpy  = clr.J2I();
-    auto b_cpy    = clr.b();
-    auto lm_cpy   = clr.lambda();
-    auto lmd_cpy  = clr.lambdad();
+    auto J1I_cpy = clr.J1I();
+    auto J2I_cpy = clr.J2I();
+    auto b_cpy = clr.b();
+    auto lm_cpy = clr.lambda();
+    auto lmd_cpy = clr.lambdad();
     auto fidx_cpy = clr.freeIndex();
 
     auto J1I_cgCpy = J1I_cpy;
     auto J2I_cgCpy = J2I_cpy;
-    auto b_cgCpy   = b_cpy;
+    auto b_cgCpy = b_cpy;
 
-    // FIXME: May need to support "collapse" semantics in MATLAB which would zero other indices
+    // FIXME: May need to support "collapse" semantics in MATLAB which would
+    // zero other indices
     unsigned int n = 3 * clr.contactNum();
     for (unsigned int i = 0; i < n; i += 3) {
         if (fidx_cpy(i) != 0 && fidx_cpy(i + 1) == 0) {
@@ -235,7 +237,7 @@ inline void Collision::compute_degenerate_J1I_J2I_b(CollisionReference clr) {
             if (i + 2 < n) {
                 b_cgCpy(i + 2) = 0.0f;
             }
-            
+
             // this.lambdad(i:i+2)' * this.lambda(i:i+2)
             lm_cpy(i) = lmd_tmp.dot(lm_tmp);
             if (i + 1 < n) {
@@ -256,9 +258,9 @@ inline void Collision::compute_degenerate_J1I_J2I_b(CollisionReference clr) {
 
 /*
 function compute_degenerate_LTlambda(this)
-    this.body1.LTx = this.body1.LTx + this.J1I_cg(this.freeIndex,:)' * this.lambda(this.freeIndex);
-    this.body2.LTx = this.body2.LTx + this.J2I_cg(this.freeIndex,:)' * this.lambda(this.freeIndex);
-end
+    this.body1.LTx = this.body1.LTx + this.J1I_cg(this.freeIndex,:)' *
+this.lambda(this.freeIndex); this.body2.LTx = this.body2.LTx +
+this.J2I_cg(this.freeIndex,:)' * this.lambda(this.freeIndex); end
 */
 inline void Collision::compute_degenerate_LTlambda(CollisionReference clr) {
     auto J2I_cgCpy = clr.J2I_cg();
@@ -294,19 +296,74 @@ inline void Collision::compute_degenerate_LTlambda(CollisionReference clr) {
         J1I_free.row(r) = J1I_cgCpy.row(r_idx);
     }
 
-    // TODO: Add J1I_free + lm_free and then repeat for J2I_free based on J2IcgCpy
+    // this.body1.LTx += this.J1I_cg(this.freeIndex,:)' *
+    // this.lambda(this.freeIndex);
+    b1_LTx += J1I_free.topRows(row_ct).transpose() * lm_free.topRows(row_ct);
+
+    // TODO: Add J1I_free + lm_free and then repeat for J2I_free based on
+    // J2IcgCpy
+    Eigen::Matrix<float, 24, 6> J2I_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        int r_idx = free_rows[r];
+        J2I_free.row(r) = J2I_cgCpy.row(r_idx);
+    }
+
+    b2_LTx += J2I_free.topRows(row_ct).transpose() * lm_free.topRows(row_ct);
+
+    // FIXME: Depending on if b1 is a const T& we may need
+    // clr.body1().get_rigid().LTx(...)
+    b1.LTx(b1_LTx);
+    b2.LTx(b2_LTx);
 }
 
 /*
 function compute_LTd_cg(this)
-    this.body1.LTx = this.body1.LTx + this.J1I_cg(this.freeIndex,:)' * this.d_cg(this.freeIndex);
-    this.body2.LTx = this.body2.LTx + this.J2I_cg(this.freeIndex,:)' * this.d_cg(this.freeIndex);
-end
+    this.body1.LTx = this.body1.LTx + this.J1I_cg(this.freeIndex,:)' *
+this.d_cg(this.freeIndex); this.body2.LTx = this.body2.LTx +
+this.J2I_cg(this.freeIndex,:)' * this.d_cg(this.freeIndex); end
 */
 inline void Collision::compute_LTd_cg(CollisionReference clr) {
-    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
-    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
-    /* TODO: */
+    auto J1I_cgCpy = clr.J1I_cg();
+    auto J2I_cgCpy = clr.J2I_cg();
+    auto d_cgCpy = clr.d_cg();
+    auto fidx_cpy = clr.freeIndex();
+
+    auto b1 = clr.body1().get_rigid();
+    auto b2 = clr.body2().get_rigid();
+    auto b1_LTx = b1.LTx();
+    auto b2_LTx = b2.LTx();
+
+    int free_rows[24];
+    unsigned int row_ct = 0;
+    unsigned int n = d_cgCpy.size();
+    for (unsigned int i = 0; i < n; i++) {
+        if (fidx_cpy(i) != 0) {
+            free_rows[row_ct++] = i;
+        }
+    }
+
+    Eigen::Matrix<float, 24, 1> d_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        d_free(r) = d_cgCpy(free_rows[r]);
+    }
+
+    Eigen::Matrix<float, 24, 6> J1I_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        int idx = free_rows[r];
+        J1I_free.row(r) = J1I_cgCpy.row(idx);
+    }
+
+    b1_LTx += J1I_free.topRows(row_ct).transpose() * d_free.topRows(row_ct);
+
+    Eigen::Matrix<float, 24, 6> J2I_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        int idx = free_rows[r];
+        J2I_free.row(r) = J2I_cgCpy.row(idx);
+    }
+    b2_LTx += J2I_free.topRows(row_ct).transpose() * d_free.topRows(row_ct);
+
+    b1.LTx(b1_LTx);
+    b2.LTx(b2_LTx);
 }
 
 /*
@@ -316,9 +373,20 @@ function compute_LTp(this)
 end
 */
 inline void Collision::compute_LTp(CollisionReference clr) {
-    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
-    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
-    /* TODO: */
+    auto J1I_cpy = clr.J1I();
+    auto J2I_cpy = clr.J2I();
+    auto p_cpy = clr.p();
+
+    auto b1 = clr.body1().get_rigid();
+    auto b2 = clr.body2().get_rigid();
+    auto b1_LTx = b1.LTx();
+    auto b2_LTx = b2.LTx();
+
+    b1_LTx += J1I_cpy.transpose() * p_cpy;
+    b2_LTx += J2I_cpy.transpose() * p_cpy;
+
+    b1.LTx(b1_LTx);
+    b2.LTx(b2_LTx);
 }
 
 /*
@@ -327,9 +395,14 @@ function compute_LLTx(this)
 end
 */
 inline void Collision::compute_LLTx(CollisionReference clr) {
-    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
-    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
-    /* TODO: */
+    auto J1I_cpy = clr.J1I();
+    auto J2I_cpy = clr.J2I();
+    auto b1 = clr.body1().get_rigid();
+    auto b2 = clr.body2().get_rigid();
+    Eigen::Matrix<float, 6, 1> LTx1 = b1.LTx();
+    Eigen::Matrix<float, 6, 1> LTx2 = b2.LTx();
+
+    clr.Ax(J1I_cpy * LTx1 + J2I_cpy * LTx2);
 }
 
 /*
@@ -338,10 +411,14 @@ function compute_degenerate_LLTx(this)
 end
 */
 inline void Collision::compute_degenerate_LLTx(CollisionReference clr) {
-    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
-    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
-    /* TODO: */
-    clr.Ax(clr.J1I_cg() * b1_LTxCpy + clr.J2I_cg() * b1_LTxCpy);
+    auto J1I_cgCpy = clr.J1I_cg();
+    auto J2I_cgCpy = clr.J2I_cg();
+    auto b1 = clr.body1().get_rigid();
+    auto b2 = clr.body2().get_rigid();
+    Eigen::Matrix<float, 6, 1> LTx1 = b1.LTx();
+    Eigen::Matrix<float, 6, 1> LTx2 = b2.LTx();
+
+    clr.Ax(J1I_cgCpy * LTx1 + J2I_cgCpy * LTx2);
 }
 
 /*
@@ -362,10 +439,43 @@ function tbar_i = compute_tbar(this)
     tbar_i = this.t_bar;
 end
 
-    TODO: fix return type
+FIXME: can be void if we use it as a mechanism to update clr.t_bar, depends on
+use - MATLAB does both
+TODO: Add rayConeIntersection
 */
-inline void Collision::compute_tbar(CollisionReference clr) {
-    /* TODO */
+inline vec24f Collision::compute_tbar(CollisionReference clr) {
+    auto lm_cpy = clr.lambda();
+    auto g_cpy = clr.g();
+    auto tbar_cpy = clr.t_bar();
+    float mu_cpy = clr.mu();
+    unsigned int n = 3 * clr.contactNum();
+
+    for (unsigned int i = 0; i < n; i += 3) {
+        Eigen::Vector3f lm_seg, g_seg;
+        for (int k = 0; k < 3; k++) {
+            lm_seg(k) = lm_cpy(i + k);
+            g_seg(k) = g_cpy(i + k);
+        }
+        Eigen::Vector3f g_neg = -g_seg;
+
+        // TODO: Add rayConeIntersection
+        // float t = Collision::rayConeIntersection(lm_seg, g_neg, mu_cpy);
+        float t = 0.0f;
+        tbar_cpy(i) = t;
+
+        if (std::fabs(g_cpy(i)) < 1e-9f && std::fabs(lm_cpy(i)) < 1e-9f) {
+            tbar_cpy(i + 1) = 0.f;
+        } else if (g_cpy(i) > 0.f) {
+            tbar_cpy(i + 1) = lm_cpy(i) / g_cpy(i);
+        } else {
+            tbar_cpy(i + 1) = std::numeric_limits<float>::infinity();
+        }
+        tbar_cpy(i + 2) = std::numeric_limits<float>::infinity();
+    }
+
+    clr.t_bar(tbar_cpy);
+
+    return tbar_cpy;
 }
 
 /*
@@ -401,27 +511,25 @@ inline void Collision::compute_lambdac(CollisionReference clr, float t) {
 
 /*
 function compute_lambdad(this, t)
-            for i = 1:3:3*this.contactNum
-                if(t<this.t_bar(i))
-                    this.freeIndex(i:i+2) = true;
-                elseif(t<this.t_bar(i+1))
-                    this.freeIndex(i) = true;
-                    this.freeIndex(i+1:i+2) = false;
-                else
-                    this.freeIndex(i:i+2) = false;
-                end
-
-                if(norm(this.lambdac(i:i+2))<1e-9)
-                    this.lambdad(i:i+2) = [1 0 0]';
-                else
-                    this.lambdad(i:i+2) = this.lambdac(i:i+2) / norm(this.lambdac(i:i+2));
-                end
-            end
+    for i = 1:3:3*this.contactNum
+        if(t<this.t_bar(i))
+            this.freeIndex(i:i+2) = true;
+        elseif(t<this.t_bar(i+1))
+            this.freeIndex(i) = true;
+            this.freeIndex(i+1:i+2) = false;
+        else
+            this.freeIndex(i:i+2) = false;
         end
+
+        if(norm(this.lambdac(i:i+2))<1e-9)
+            this.lambdad(i:i+2) = [1 0 0]';
+        else
+            this.lambdad(i:i+2) = this.lambdac(i:i+2) / norm(this.lambdac(i:i+2));
+        end
+    end
+end
 */
-inline void Collision::compute_lambdad(CollisionReference clr, float t) {
-    /* TODO */
-}
+inline void Collision::compute_lambdad(CollisionReference clr, float t) { /* TODO */ }
 
 /*
 function project(this)
@@ -441,9 +549,7 @@ function project(this)
     end
 end
 */
-inline void Collision::compute_p(CollisionReference clr, float t) {
-    /* TODO */
-}
+inline void Collision::compute_p(CollisionReference clr, float t) { /* TODO */ }
 
 /*
 function project(this)
@@ -462,9 +568,7 @@ function project(this)
     end
 end
 */
-inline void Collision::project(CollisionReference clr) {
-    /* TODO */
-}
+inline void Collision::project(CollisionReference clr) { /* TODO */ }
 
 /*
 function feasible = update_cg(this, alpha)

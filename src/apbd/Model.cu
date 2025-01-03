@@ -161,7 +161,8 @@ void Model::stepBDF1(float hs) {
     }
 }
 
-// TODO: In addition to the GPQP changes, it appears this method in Model.m has changed as well.
+// TODO: In addition to the GPQP changes, it appears this method in Model.m has
+// changed as well.
 void Model::solveConTGS(Collider *collider, float hs) {
     this->stepBDF1(this->h);
     collider->run(this);
@@ -245,12 +246,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
     }
 }
 
-void Model::solveConGPQP(Collider* collider) {
+void Model::solveConGPQP(Collider *collider) {
     collider->run(this);
 
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
-        collider->collisions[collider->activeCollisions[i]].initConstraints(clr);
+        collider->collisions[collider->activeCollisions[i]].initConstraints(
+            clr);
     }
 
     this->stepBDF1(this->h);
@@ -276,7 +278,7 @@ void Model::solveConGPQP(Collider* collider) {
     }
 }
 
-void Model::GPQP(Collider* collider, int n) {
+void Model::GPQP(Collider *collider, int n) {
     /* TODO: Returns "output". Longest method by far */
 }
 
