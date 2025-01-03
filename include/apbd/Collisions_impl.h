@@ -169,11 +169,11 @@ function compute_LTlambda(this)
 end
 */
 inline void Collision::compute_LTlambda(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
+    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
+    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
     
-    clr.body1().get_rigid().LTx(body1_LTx_0 + clr.J1I().transpose() * clr.lambda());
-    clr.body2().get_rigid().LTx(body2_LTx_0 + clr.J2I().transpose() * clr.lambda());
+    clr.body1().get_rigid().LTx(b1_LTxCpy + clr.J1I().transpose() * clr.lambda());
+    clr.body2().get_rigid().LTx(b1_LTxCpy + clr.J2I().transpose() * clr.lambda());
 }
 
 /*
@@ -193,7 +193,65 @@ function compute_degenerate_J1I_J2I_b(this)
 end
 */
 inline void Collision::compute_degenerate_J1I_J2I_b(CollisionReference clr) {
+    auto J1I_cpy  = clr.J1I();
+    auto J2I_cpy  = clr.J2I();
+    auto b_cpy    = clr.b();
+    auto lm_cpy   = clr.lambda();
+    auto lmd_cpy  = clr.lambdad();
+    auto fidx_cpy = clr.freeIndex();
 
+    auto J1I_cgCpy = J1I_cpy;
+    auto J2I_cgCpy = J2I_cpy;
+    auto b_cgCpy   = b_cpy;
+
+    // FIXME: May need to support "collapse" semantics in MATLAB which would zero other indices
+    unsigned int n = 3 * clr.contactNum();
+    for (unsigned int i = 0; i < n; i += 3) {
+        if (fidx_cpy(i) != 0 && fidx_cpy(i + 1) == 0) {
+            Eigen::Vector3f lm_tmp, lmd_tmp, b_tmp;
+            lm_tmp = lm_cpy.block<3, 1>(i, 0);
+            lmd_tmp = lmd_cpy.block<3, 1>(i, 0);
+            b_tmp = b_cpy.block<3, 1>(i, 0);
+
+            // this.lambdad(i:i+2)' * this.J1I(i:i+2,:)
+            Eigen::Matrix<float, 3, 6> sJ1I = J1I_cpy.block<3, 6>(i, 0);
+            J1I_cgCpy.block<1, 6>(i, 0) = lmd_tmp.transpose() * sJ1I;
+            if (i + 1 < n) {
+                J1I_cgCpy.block<2, 6>(i + 1, 0).setZero();
+            }
+
+            // this.lambdad(i:i+2)' * this.J2I(i:i+2,:)
+            Eigen::Matrix<float, 3, 6> sJ2I = J2I_cpy.block<3, 6>(i, 0);
+            J2I_cgCpy.block<1, 6>(i, 0) = lmd_tmp.transpose() * sJ2I;
+            if (i + 1 < n) {
+                J1I_cgCpy.block<2, 6>(i + 1, 0).setZero();
+            }
+
+            // vec24f' * vec24 == 1x24 * 24x1 == 1x1 (dot product)
+            b_cgCpy(i) = lmd_tmp.dot(b_tmp);
+            if (i + 1 < n) {
+                b_cgCpy(i + 1) = 0.0f;
+            }
+            if (i + 2 < n) {
+                b_cgCpy(i + 2) = 0.0f;
+            }
+            
+            // this.lambdad(i:i+2)' * this.lambda(i:i+2)
+            lm_cpy(i) = lmd_tmp.dot(lm_tmp);
+            if (i + 1 < n) {
+                lm_cpy(i + 1) = 0.0f;
+            }
+            if (i + 2 < n) {
+                lm_cpy(i + 2) = 0.0f;
+            }
+        }
+    }
+
+    clr.J1I_cg(J1I_cgCpy);
+    clr.J2I_cg(J2I_cgCpy);
+    clr.b_cg(b_cgCpy);
+    clr.lambda(lm_cpy);
+    clr.Minv_cg(vec24f::Ones());
 }
 
 /*
@@ -203,9 +261,40 @@ function compute_degenerate_LTlambda(this)
 end
 */
 inline void Collision::compute_degenerate_LTlambda(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
-    /* TODO: */
+    auto J2I_cgCpy = clr.J2I_cg();
+    auto J1I_cgCpy = clr.J1I_cg();
+    auto lm_cpy = clr.lambda();
+    auto fidx_cpy = clr.freeIndex();
+
+    auto b1 = clr.body1().get_rigid();
+    auto b2 = clr.body2().get_rigid();
+    auto b1_LTx = b1.LTx();
+    auto b2_LTx = b2.LTx();
+
+    // lm_cpy = size should be 24 - we can gather the # of nonzero rows
+    int free_rows[24] = {0};
+    unsigned int n = lm_cpy.size();
+    unsigned int row_ct = 0;
+    for (unsigned int i = 0; i < n; i++) {
+        if (fidx_cpy(i) != 0) {
+            // simulates push_back, at worst we have 24 spots
+            free_rows[row_ct++] = i;
+        }
+    }
+
+    Eigen::Matrix<float, 24, 1> lm_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        lm_free(r) = lm_cpy(free_rows[r]);
+    }
+
+    // simulating MatrixXf by assuming the worst case
+    Eigen::Matrix<float, 24, 6> J1I_free;
+    for (unsigned int r = 0; r < row_ct; r++) {
+        int r_idx = free_rows[r];
+        J1I_free.row(r) = J1I_cgCpy.row(r_idx);
+    }
+
+    // TODO: Add J1I_free + lm_free and then repeat for J2I_free based on J2IcgCpy
 }
 
 /*
@@ -215,8 +304,8 @@ function compute_LTd_cg(this)
 end
 */
 inline void Collision::compute_LTd_cg(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
+    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
+    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
     /* TODO: */
 }
 
@@ -227,8 +316,8 @@ function compute_LTp(this)
 end
 */
 inline void Collision::compute_LTp(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
+    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
+    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
     /* TODO: */
 }
 
@@ -238,8 +327,8 @@ function compute_LLTx(this)
 end
 */
 inline void Collision::compute_LLTx(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
+    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
+    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
     /* TODO: */
 }
 
@@ -249,10 +338,10 @@ function compute_degenerate_LLTx(this)
 end
 */
 inline void Collision::compute_degenerate_LLTx(CollisionReference clr) {
-    const auto& body1_LTx_0 = clr.body1().get_rigid().LTx();
-    const auto& body2_LTx_0 = clr.body1().get_rigid().LTx();
+    auto b1_LTxCpy = clr.body1().get_rigid().LTx();
+    auto b2_LTxCpy = clr.body2().get_rigid().LTx();
     /* TODO: */
-    clr.Ax(clr.J1I_cg() * body1_LTx_0 + clr.J2I_cg() * body2_LTx_0);
+    clr.Ax(clr.J1I_cg() * b1_LTxCpy + clr.J2I_cg() * b1_LTxCpy);
 }
 
 /*

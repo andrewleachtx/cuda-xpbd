@@ -664,6 +664,64 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             E.block<3, 3>(0, 0) = R;
             E.block<3, 1>(0, 3) = R * pos;
             bodies[3].setInitTransform(E);
+
+            break;
+        }
+
+        /*
+            case 21
+            model.name = 'Stacking : Arch';
+            model.plotH = false;
+            model.tEnd = 5;
+            model.h = h;
+            model.substeps = substeps;
+            model.iters = 1;
+            %model.itersSP = 3;
+            density = 1.0;
+            w = 3;
+            sides = [w w w];
+            model.grav = [0 0 -981]';
+            model.ground.E = eye(4);
+            mu = 0.5;
+
+            model.ground.size = 10;
+            model.axis = 30*[-1 1 -1 1 0 1];
+            model.drawHz = 60;
+
+            model.view = [0 0];
+
+            n = 12;
+            halfAngle = 0.5 * pi / n;
+            halfDistance = 0.4 * w;
+            for i = 1 : n
+                model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, halfDistance, halfAngle),density);
+                %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+                model.bodies{end}.collide = true;
+                model.bodies{end}.mu = mu;
+                theta = (i*2-1)*halfAngle;
+                r = (0.5*w + cos(halfAngle) * halfDistance) / sin(halfAngle);
+                R = se3.aaToMat([0 1 0], pi/2 + theta);
+                E = eye(4);
+                x = -r * cos(theta);
+                y = 0;
+                z = r*sin(theta);
+                E(1:3,1:3) = R;
+                E(1:3,4) = [x y z]';
+                model.bodies{end}.setInitTransform(E);
+                if i == 1
+                    %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+                end
+            end
+        */
+        case 21: {
+            // Stacking: Arch
+            model.tEnd = 1.0f;
+            model.h = h;
+            model.substeps = substeps;
+            
+
+            
+            break;
         }
     }
 
