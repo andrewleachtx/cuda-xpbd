@@ -424,7 +424,8 @@ inline void Collision::compute_degenerate_LLTx(CollisionReference clr) {
 /*
 function tbar_i = compute_tbar(this)
     for i = 1:3:3*this.contactNum
-        t = Collision.rayConeIntersection(this.lambda(i:i+2),-this.g(i:i+2),this.mu);
+        t =
+Collision.rayConeIntersection(this.lambda(i:i+2),-this.g(i:i+2),this.mu);
         this.t_bar(i) = t;
         if((abs(this.g(i)) < 1e-9 && abs(this.lambda(i))<1e-9))
             this.t_bar(i+1) = 0;
@@ -442,6 +443,8 @@ end
 FIXME: can be void if we use it as a mechanism to update clr.t_bar, depends on
 use - MATLAB does both
 TODO: Add rayConeIntersection
+TODO: If numeric limits doesn't GPU compile use the same INF as in other file
+(1e20 iirc)
 */
 inline vec24f Collision::compute_tbar(CollisionReference clr) {
     auto lm_cpy = clr.lambda();
@@ -488,25 +491,67 @@ function compute_lambdac(this, t)
             if(norm(this.lambda(i:i+2))<1e-9)
                 this.lambdad(i:i+2) = [1 0 0]';
             else
-                this.lambdad(i:i+2) = this.lambda(i:i+2) / norm(this.lambda(i:i+2));
-            end
-            gp = (this.lambdad(i:i+2)'*gp)*this.lambdad(i:i+2);
-            this.lambdac(i:i+2) = this.lambda(i:i+2) - this.t_bar(i)*this.g(i:i+2) - (t - this.t_bar(i))*gp;
-        else
+                this.lambdad(i:i+2) = this.lambda(i:i+2) /
+norm(this.lambda(i:i+2)); end gp =
+(this.lambdad(i:i+2)'*gp)*this.lambdad(i:i+2); this.lambdac(i:i+2) =
+this.lambda(i:i+2) - this.t_bar(i)*this.g(i:i+2) - (t - this.t_bar(i))*gp; else
             gp = this.g(i:i+2);
             if(norm(this.lambda(i:i+2))<1e-9)
                 this.lambdad(i:i+2) = [1 0 0]';
             else
-                this.lambdad(i:i+2) = this.lambda(i:i+2) / norm(this.lambda(i:i+2));
-            end
-            gp = (this.lambdad(i:i+2)'*gp)*this.lambdad(i:i+2);
-            this.lambdac(i:i+2) = this.lambda(i:i+2) -this.t_bar(i)*this.g(i:i+2) + (this.t_bar(i+1) - this.t_bar(i))*gp;
-        end
-    end
-end
+                this.lambdad(i:i+2) = this.lambda(i:i+2) /
+norm(this.lambda(i:i+2)); end gp =
+(this.lambdad(i:i+2)'*gp)*this.lambdad(i:i+2); this.lambdac(i:i+2) =
+this.lambda(i:i+2) -this.t_bar(i)*this.g(i:i+2) + (this.t_bar(i+1) -
+this.t_bar(i))*gp; end end end
 */
 inline void Collision::compute_lambdac(CollisionReference clr, float t) {
-    /* TODO */
+    auto lm_cpy = clr.lambda();
+    auto lmc_cpy = clr.lambdac();
+    auto lmd_cpy = clr.lambdad();
+    auto g_cpy = clr.g();
+    auto tb_cpy = clr.t_bar();
+
+    unsigned int n = 3 * clr.contactNum();
+    for (unsigned int i = 0; i < n; i += 3) {
+        float t0(tb_cpy(i)), t1(tb_cpy(i + 1));
+
+        Eigen::Vector3f lm_seg, g_seg;
+        lm_seg = lm_cpy.block<3, 1>(i, 0);
+        g_seg = g_cpy.block<3, 1>(i, 0);
+
+        // if(t < this.t_bar(i))
+        if (t < t0) {
+            lmc_cpy.block<3, 1>(i, 0) = lm_seg - t * g_seg;
+        } else if (t < t1) {
+            Eigen::Vector3f gp = g_seg;
+            float lm_segNorm = lm_seg.norm();
+
+            if (lm_segNorm < 1e-9f) {
+                lmd_cpy.block<3, 1>(i, 0) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+            } else {
+                lmd_cpy.block<3, 1>(i, 0) = lm_seg / lm_segNorm;
+            }
+
+            gp = (lmd_cpy.block<3, 1>(i, 0).transpose() * gp) *
+                 lmd_cpy.block<3, 1>(i, 0);
+            lmc_cpy.block<3, 1>(i, 0) = lm_seg - t0 * g_seg - (t - t0) * gp;
+        } else {
+            Eigen::Vector3f gp = g_seg;
+            if (lm_seg.norm() < 1e-9f) {
+                lmd_cpy.block<3, 1>(i, 0) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+            } else {
+                lmd_cpy.block<3, 1>(i, 0) = lm_seg / lm_seg.norm();
+            }
+
+            gp = (lmd_cpy.block<3, 1>(i, 0).transpose() * gp) *
+                 lmd_cpy.block<3, 1>(i, 0);
+            lmc_cpy.block<3, 1>(i, 0) = lm_seg - t0 * g_seg + (t1 - t0) * gp;
+        }
+    }
+
+    clr.lambdac(lmc_cpy);
+    clr.lambdad(lmd_cpy);
 }
 
 /*
@@ -524,16 +569,99 @@ function compute_lambdad(this, t)
         if(norm(this.lambdac(i:i+2))<1e-9)
             this.lambdad(i:i+2) = [1 0 0]';
         else
-            this.lambdad(i:i+2) = this.lambdac(i:i+2) / norm(this.lambdac(i:i+2));
+            this.lambdad(i:i+2) = this.lambdac(i:i+2) /
+norm(this.lambdac(i:i+2)); end end end
+*/
+inline void Collision::compute_lambdad(CollisionReference clr, float t) {
+    auto lmc_cpy = clr.lambdac();
+    auto lmd_cpy = clr.lambdad();
+    auto fidx_cpy = clr.freeIndex();
+    auto tb_cpy = clr.t_bar();
+
+    unsigned int n = 3 * clr.contactNum();
+    for (unsigned int i = 0; i < n; i += 3) {
+        float t0(tb_cpy(i)), t1(tb_cpy(i + 1));
+
+        // if(t<this.t_bar(i))
+        if (t < t0) {
+            fidx_cpy.block<3, 1>(i, 0).setOnes();
+        } else if (t < t1) {
+            fidx_cpy(i) = 1;
+            fidx_cpy.block<2, 1>(i + 1, 0).setZero();
+        } else {
+            fidx_cpy.block<3, 1>(i, 0).setZero();
+        }
+
+        Eigen::Vector3f lmc_seg = lmc_cpy.block<3, 1>(i, 0);
+        float lmc_segNorm = lmc_seg.norm();
+        if (lmc_segNorm < 1e-9f) {
+            lmd_cpy.block<3, 1>(i, 0) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+        } else {
+            lmd_cpy.block<3, 1>(i, 0) = lmc_seg / lmc_segNorm;
+        }
+    }
+
+    clr.lambdad(lmd_cpy);
+    clr.freeIndex(fidx_cpy);
+}
+
+/*
+function compute_p(this,t)
+    for i = 1:3:3*this.contactNum
+        if(t < this.t_bar(i))
+            this.p(i:i+2) = -this.g(i:i+2);
+        elseif(t < this.t_bar(i+1))
+            gp = this.g(i:i+2);
+            if(norm(this.lambda(i:i+2))<1e-9)
+                this.lambdad(i:i+2) = [1 0 0]';
+            else
+                this.lambdad(i:i+2) = this.lambda(i:i+2) /
+norm(this.lambda(i:i+2)); end gp =
+(this.lambdad(i:i+2)'*gp)*this.lambdad(i:i+2); this.p(i:i+2) = -gp; else
+            this.p(i:i+2) = zeros(3,1);
         end
     end
 end
 */
-inline void Collision::compute_lambdad(CollisionReference clr, float t) { /* TODO */ }
+inline void Collision::compute_p(CollisionReference clr, float t) {
+    auto lm_cpy = clr.lambda();
+    auto lmd_cpy = clr.lambdad();
+    auto g_cpy = clr.g();
+    auto p_cpy = clr.p();
+    auto tb_cpy = clr.t_bar();
+
+    unsigned int n = 3 * clr.contactNum();
+    for (unsigned int i = 0; i < n; i += 3) {
+        float t0(tb_cpy(i)), t1(tb_cpy(i + 1));
+
+        Eigen::Vector3f g_seg = g_cpy.block<3, 1>(i, 0);
+        if (t < t0) {
+            p_cpy.block<3, 1>(i, 0) = -g_seg;
+        } else if (t < t1) {
+            Eigen::Vector3f gp = g_seg;
+            float lm_segNorm = lm_cpy.block<3, 1>(i, 0).norm();
+
+            if (lm_segNorm < 1e-9f) {
+                lmd_cpy.block<3, 1>(i, 0) = Eigen::Vector3f(1.0f, 0.0f, 0.0f);
+            } else {
+                lmd_cpy.block<3, 1>(i, 0) =
+                    lm_cpy.block<3, 1>(i, 0) / lm_segNorm;
+            }
+
+            gp = (lmd_cpy.block<3, 1>(i, 0).transpose() * gp) *
+                 lmd_cpy.block<3, 1>(i, 0);
+            p_cpy.block<3, 1>(i, 0) = -gp;
+        } else {
+            p_cpy.block<3, 1>(i, 0).setZero();
+        }
+    }
+
+    clr.p(p_cpy);
+    clr.lambdad(lmd_cpy);
+}
 
 /*
 function project(this)
-
     for i = 1:3:3*this.contactNum
         if(this.lambda(i) < 0)
             this.lambda(i) = 0;
@@ -549,44 +677,73 @@ function project(this)
     end
 end
 */
-inline void Collision::compute_p(CollisionReference clr, float t) { /* TODO */ }
+inline void Collision::project(CollisionReference clr) {
+    auto lm_cpy = clr.lambda();
+    auto lmd_cpy = clr.lambdad();
+    auto fidx_cpy = clr.freeIndex();
+    float mu_cpy = clr.mu();
 
-/*
-function project(this)
-    for i = 1:3:3*this.contactNum
-        if(this.lambda(i) < 0)
-            this.lambda(i) = 0;
-        end
-        if(this.freeIndex(i) && ~this.freeIndex(i+1))
-            this.lambda(i:i+2) = this.lambda(i) * this.lambdad(i:i+2);
-        else
-            if (norm(this.lambda(i+1:i+2)) > this.mu * this.lambda(i))
-                scale = this.mu * this.lambda(i) / norm(this.lambda(i+1:i+2));
-                this.lambda(i+1:i+2) = scale * this.lambda(i+1:i+2);
-            end
-        end
-    end
-end
-*/
-inline void Collision::project(CollisionReference clr) { /* TODO */ }
+    unsigned int n = 3 * clr.contactNum();
+    for (unsigned int i = 0; i < n; i += 3) {
+        if (lm_cpy(i) < 0) {
+            lm_cpy(i) = 0;
+        }
+
+        if (fidx_cpy(i) && !fidx_cpy(i + 1)) {
+            lm_cpy.block<3, 1>(i, 0) = lm_cpy(i) * lmd_cpy.block<3, 1>(i, 0);
+        } else {
+            float lm_norm = lm_cpy.block<2, 1>(i + 1, 0).norm();
+            if (lm_norm > mu_cpy * lm_cpy(i)) {
+                float scale = mu_cpy * lm_cpy(i) / lm_norm;
+                lm_cpy.block<2, 1>(i + 1, 0) =
+                    scale * lm_cpy.block<2, 1>(i + 1, 0);
+            }
+        }
+    }
+
+    clr.lambda(lm_cpy);
+}
 
 /*
 function feasible = update_cg(this, alpha)
     feasible = true;
-    this.lambda(this.freeIndex) = this.lambda(this.freeIndex) + alpha * this.d_cg(this.freeIndex);
-    for i = 1:3:3*this.contactNum
-        if(this.freeIndex(i) && this.lambda(i) < 0)
-            feasible = false;
-        end
+    this.lambda(this.freeIndex) = this.lambda(this.freeIndex) + alpha *
+this.d_cg(this.freeIndex); for i = 1:3:3*this.contactNum if(this.freeIndex(i) &&
+this.lambda(i) < 0) feasible = false; end
 
-        if (this.freeIndex(i+1) && norm(this.lambda(i+1:i+2)) > this.mu * this.lambda(i))
-            feasible = false;
-        end
-    end
-end
+        if (this.freeIndex(i+1) && norm(this.lambda(i+1:i+2)) > this.mu *
+this.lambda(i)) feasible = false; end end end
 */
 inline bool Collision::update_cg(CollisionReference clr, float alpha) {
-    /* TODO */
+    bool feasible = true;
+    auto lam_cpy = clr.lambda();
+    auto d_cgCpy = clr.d_cg();
+    auto fidx_cpy = clr.freeIndex();
+    float mu = clr.mu();
+    unsigned int n = 3 * clr.contactNum();
+
+    for (unsigned int i = 0; i < n; i++) {
+        if (fidx_cpy(i) != 0) {
+            lam_cpy(i) += alpha * d_cgCpy(i);
+        }
+    }
+
+    for (unsigned int i = 0; i < n; i += 3) {
+        if (fidx_cpy(i) != 0 && lam_cpy(i) < 0.0f) {
+            feasible = false;
+        }
+
+        if ((i + 1 < n) && (fidx_cpy(i + 1) != 0)) {
+            float tangMag = std::sqrt(lam_cpy(i + 1) * lam_cpy(i + 1) +
+                                      lam_cpy(i + 2) * lam_cpy(i + 2));
+            if (tangMag > mu * lam_cpy(i)) {
+                feasible = false;
+            }
+        }
+    }
+
+    clr.lambda(lam_cpy);
+    return feasible;
 }
 
 }  // namespace apbd
