@@ -6,6 +6,7 @@
 
 #include "Contact.h"
 #include "ShapeMeshObj.h"
+#include "ShapeTwoCuboid.h"
 
 namespace apbd {
 
@@ -25,7 +26,7 @@ struct ShapeCuboid {
                                       Eigen::Vector3f n) const;
 };
 
-enum SHAPE_TYPE { SHAPE_CUBOID, SHAPE_MESHOBJ };
+enum SHAPE_TYPE { SHAPE_CUBOID, SHAPE_MESHOBJ, SHAPE_TWOCUBOID };
 
 union _ShapeInner {
     ShapeCuboid cuboid;

@@ -695,8 +695,8 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             halfDistance = 0.4 * w;
             for i = 1 : n
                 model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides,
-           sides, halfDistance, halfAngle),density); %model.bodies{end+1} =
-           apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+            sides, halfDistance, halfAngle),density); %model.bodies{end+1} =
+            apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
                 model.bodies{end}.collide = true;
                 model.bodies{end}.mu = mu;
                 theta = (i*2-1)*halfAngle;
@@ -719,6 +719,49 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.tEnd = 1.0f;
             model.h = h;
             model.substeps = substeps;
+            model.forward_iters = 1;
+            float density = 1.0f;
+            float w = 3.0f;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -981).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5f;
+
+            model.ground_size = 10;
+
+            size_t n = 12;
+            float halfAngle = 0.5f * M_PI / n;
+            float halfDistance = 0.4f * w;
+
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            // FIXME: Raw transfer probably messes up some arithmetic bc 1-based
+            // indexing, look into this
+            for (size_t i = 0; i < n; i++) {
+                /* TODO: Add ShapeTwoCuboid */
+                apbd::ShapeTwoCuboid shape(sides, sides, halfDistance,
+                                           halfAngle);
+                bodies[i] =
+                    apbd::Body(apbd::BodyRigid(shape, density, true, mu));
+                float theta = (i * 2 - 1) * halfAngle;
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                float r =
+                    (0.5f * w + cos(halfAngle) * halfDistance) / sin(halfAngle);
+                Eigen::Matrix3f R =
+                    se3::aaToMat(Eigen::Vector3f(0, 1, 0), M_PI / 2 + theta);
+                float x = -r * cos(theta);
+                float y = 0.0f;
+                float z = r * sin(theta);
+                E.block<3, 3>(0, 0) = R;
+                E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+                bodies[i].setInitTransform(E);
+                if (i == 1) {
+                    bodies[i].setInitVelocity(
+                        Eigen::Matrix<float, 6, 1>(0, 0, 0, 0, 0, 0));
+                }
+            }
 
             break;
         }

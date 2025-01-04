@@ -10,9 +10,9 @@
 
 /*
     Inherits from Shape superclass, most notably is an unknown size at compile
-   time. My initial processing is to overwrite existing methods that may use the
-   tagged union for effective polymorphism for now, so in cases such as
-   computeInertia, instead of relying on the Shape.cu implementation which
+    time. My initial processing is to overwrite existing methods that may use
+   the tagged union for effective polymorphism for now, so in cases such as
+    computeInertia, instead of relying on the Shape.cu implementation which
     checks enum, I will first just overwrite here.
 */
 namespace apbd {

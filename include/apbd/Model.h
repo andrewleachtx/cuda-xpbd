@@ -13,6 +13,27 @@ struct ModelBuffers {
     Constraint *constraints;
 };
 
+/*
+    output.iterations
+    output.lambdas
+    output.cgiterations
+    output.rs
+
+    Because we can't use dynamic sized arrays, we will instead store an upper
+   bound (in config.h) and a size for each member that represents one
+*/
+struct GPQPOutput {
+    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> iterations;
+    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambdas;
+    unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
+    unsigned int rs[MAX_COLLISION_CONSTRAINTS];
+
+    int iterations_ct;
+    int lambdas_ct;
+    int cgiterations_ct;
+    int rs_ct;
+};
+
 /**
  * A simulation model, contains all information necessary to run a single
  * simulation. Designed to be copied to each thread and modified with any
@@ -49,8 +70,7 @@ class Model {
     __host__ __device__ void solveConGS(Collider *collider, float hs);
     __host__ __device__ void solveConTGS(Collider *collider, float hs);
     __host__ __device__ void solveConGPQP(Collider *collider);
-    // TODO: Add return type
-    __host__ __device__ void GPQP(Collider *collider, int n);
+    __host__ __device__ GPQPOutput GPQP(Collider *collider, int n);
 
     /**
      * Constructs default data structures
