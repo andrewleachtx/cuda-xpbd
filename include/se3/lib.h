@@ -2,6 +2,8 @@
 #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
 #include <Eigen/Dense>
 
+// TODO: Fix method order to match se3.m
+
 namespace se3 {
 const float THRESH = 1e-9;
 
@@ -22,6 +24,8 @@ __host__ __device__ Eigen::Matrix<float, 6, 1> inertiaCuboid(
     Eigen::Vector3f whd, float density);
 
 __host__ __device__ Eigen::Matrix4f inv(Eigen::Matrix4f E);
+
+__host__ __device__ Eigen::Matrix<float, 6, 6> Ad(Eigen::Matrix4f E);
 
 /*
     Returns inverted transform matrix of E
@@ -159,6 +163,16 @@ inline Eigen::Matrix<float, 6, 1> inertiaCuboid(Eigen::Vector3f whd,
     m(4) = mass;
     m(5) = mass;
     return m;
+}
+
+inline Eigen::Matrix<float, 6, 6> Ad(Eigen::Matrix4f E) {
+    Eigen::Matrix<float, 6, 6> A = Eigen::Matrix<float, 6, 6>::Zero();
+    Eigen::Matrix3f R = E.block<3, 3>(0, 0);
+    Eigen::Vector3f p = E.block<3, 1>(0, 3);
+    A.block<3, 3>(0, 0) = R;
+    A.block<3, 3>(3, 3) = R;
+    A.block<3, 3>(3, 0) = brac(p) * R;
+    return A;
 }
 
 }  // namespace se3

@@ -36,12 +36,12 @@ class ShapeMeshObj {
                                            Eigen::Vector4f xl) const;
     __host__ bool broadphaseGround(const Eigen::Matrix4f E,
                                    const Eigen::Matrix4f Eg) const;
-    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ cdata_t
     narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
     __host__ bool broadphaseShapeMesh(const Eigen::Matrix4f E1,
                                       const ShapeMeshObj &other,
                                       const Eigen::Matrix4f E2) const;
-    __host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ cdata_t
     narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other,
                          const Eigen::Matrix4f E2) const;
 

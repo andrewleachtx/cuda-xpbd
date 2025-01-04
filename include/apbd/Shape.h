@@ -7,30 +7,16 @@
 #include "Contact.h"
 #include "ShapeMeshObj.h"
 #include "ShapeTwoCuboid.h"
+#include "ShapeCuboid.h"
 
 namespace apbd {
-
-struct ShapeCuboid {
-    Eigen::Vector3f sides;
-
-    ShapeCuboid() : sides(Eigen::Vector3f::Zero()) {}
-    ShapeCuboid(Eigen::Vector3f sides) : sides(sides) {}
-
-    __host__ __device__ bool broadphaseShapeCuboid(
-        const Eigen::Matrix4f E1, const ShapeCuboid &other,
-        const Eigen::Matrix4f E2) const;
-    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
-    narrowphaseShapeCuboid(const Eigen::Matrix4f E1, const ShapeCuboid &other,
-                           const Eigen::Matrix4f E2) const;
-    __host__ __device__ float raycast(Eigen::Vector3f x,
-                                      Eigen::Vector3f n) const;
-};
 
 enum SHAPE_TYPE { SHAPE_CUBOID, SHAPE_MESHOBJ, SHAPE_TWOCUBOID };
 
 union _ShapeInner {
     ShapeCuboid cuboid;
     ShapeMeshObj *meshObj;
+    ShapeTwoCuboid twoCuboid;
 
     _ShapeInner() : cuboid(Eigen::Vector3f(1, 1, 1)) {}
     _ShapeInner(ShapeCuboid cuboid) : cuboid(cuboid) {}
@@ -48,6 +34,7 @@ class alignas(16) Shape {
     }
     __host__ __device__ Shape(ShapeCuboid cuboid);
     __host__ __device__ Shape(ShapeMeshObj meshObj);
+    __host__ __device__ Shape(ShapeTwoCuboid twoCuboid);
     __host__ __device__ Shape(const Shape &other);
     __host__ __device__ Shape &operator=(const Shape &);
     __host__ __device__ ~Shape() {
@@ -58,12 +45,12 @@ class alignas(16) Shape {
 
     __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E,
                                               const Eigen::Matrix4f Eg) const;
-    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ __device__ cdata_t
     narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
     __host__ __device__ bool broadphaseShape(const Eigen::Matrix4f E1,
                                              const Shape &other,
                                              const Eigen::Matrix4f E2) const;
-    __host__ __device__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ __device__ cdata_t
     narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other,
                      const Eigen::Matrix4f E2) const;
     __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(

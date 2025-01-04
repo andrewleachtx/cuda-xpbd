@@ -7,7 +7,7 @@ namespace apbd {
 
 inline void Collision::setContacts(
     CollisionReference clr,
-    const cuda::std::pair<cuda::std::array<Contact, 8>, size_t> cdata) {
+    const cdata_t cdata) {
     this->contacts = cdata.first;
     clr.contactNum(cdata.second);
 

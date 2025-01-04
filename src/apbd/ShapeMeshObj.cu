@@ -143,7 +143,7 @@ __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
     return xg(2) < 1.2f * r;
 }
 
-__host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+__host__ cdata_t
 ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E,
                                 const Eigen::Matrix4f Eg) const {
     cuda::std::array<Contact, 8> cdata{};
@@ -263,7 +263,7 @@ __host__ bool ShapeMeshObj::broadphaseShapeMesh(
     return d <= 1.2f * (r1 + r2);
 }
 
-__host__ cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+__host__ cdata_t
 ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1,
                                    const ShapeMeshObj &other,
                                    const Eigen::Matrix4f E2) const {

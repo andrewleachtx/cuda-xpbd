@@ -2,6 +2,8 @@
 #include <Eigen/Dense>
 #include <iostream>
 
+#include <apbd/Contact.h>
+
 #include "config.h"
 
 /// if M_PI not defined (Windows) define it
@@ -100,6 +102,7 @@ using mat24x6f = Eigen::Matrix<float, 24, 6>;
 using vec24f = Eigen::Matrix<float, 24, 1>;
 // Should be bool but interpret as int instead
 using vec24b = Eigen::Matrix<int, 24, 1>;
+using cdata_t = cuda::std::pair<cuda::std::array<apbd::Contact, 8>, size_t>;
 
 /**
  * Allocates a buffer with the given size in bytes from the appropriate device

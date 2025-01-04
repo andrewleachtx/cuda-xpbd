@@ -7,9 +7,6 @@
 
 namespace apbd {
 
-// Aliases used to prevent errors when expanding macros using types with commas
-using NarrowphaseReturn = cuda::std::pair<cuda::std::array<Contact, 8>, size_t>;
-
 /**
  * Defines a function for the BodyReference that calls the implementations on
  * the underlying type
@@ -94,11 +91,11 @@ class alignas(8) BodyRigidReference {
         const Eigen::Matrix<float, 6, 1> velocity);
 
     __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f E) const;
-    __host__ __device__ NarrowphaseReturn
+    __host__ __device__ cdata_t
     narrowphaseGround(const Eigen::Matrix4f E) const;
     __host__ __device__ bool broadphaseRigid(
         const BodyRigidReference other) const;
-    __host__ __device__ NarrowphaseReturn
+    __host__ __device__ cdata_t
     narrowphaseRigid(const BodyRigidReference other) const;
 
     __host__ __device__ Eigen::Matrix4f computeTransform() const;
@@ -192,7 +189,7 @@ class alignas(8) BodyReference {
      * Calculates collisions with the ground
      */
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
-        __host__ __device__ NarrowphaseReturn
+        __host__ __device__ cdata_t
             narrowphaseGround(const Eigen::Matrix4f E),
         data.narrowphaseGround(E));
     /**
@@ -206,7 +203,7 @@ class alignas(8) BodyReference {
      * Calculates collisions with the other body
      */
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
-        __host__ __device__ NarrowphaseReturn
+        __host__ __device__ cdata_t
             narrowphaseRigid(const BodyReference other),
         data.narrowphaseRigid(other.get_rigid()));
 

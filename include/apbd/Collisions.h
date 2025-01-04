@@ -18,7 +18,7 @@ struct alignas(16) Collision {
 
     __host__ __device__ void setContacts(
         CollisionReference clr,
-        const cuda::std::pair<cuda::std::array<Contact, 8>, size_t> cdata);
+        const cdata_t cdata);
 
     __host__ __device__ bool is_ground(CollisionReference clr);
 

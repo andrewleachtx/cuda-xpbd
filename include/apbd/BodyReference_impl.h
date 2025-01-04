@@ -126,7 +126,7 @@ inline bool BodyRigidReference::broadphaseGround(
     const Eigen::Matrix4f E = this->computeTransform();
     return this->shape().broadphaseGround(E, Eg);
 }
-inline NarrowphaseReturn BodyRigidReference::narrowphaseGround(
+inline cdata_t BodyRigidReference::narrowphaseGround(
     const Eigen::Matrix4f Eg) const {
     const Eigen::Matrix4f E = this->computeTransform();
     return this->shape().narrowphaseGround(E, Eg);
@@ -137,7 +137,7 @@ inline bool BodyRigidReference::broadphaseRigid(
     const Eigen::Matrix4f E2 = other.computeTransform();
     return this->shape().broadphaseShape(E1, other.shape(), E2);
 }
-inline NarrowphaseReturn BodyRigidReference::narrowphaseRigid(
+inline cdata_t BodyRigidReference::narrowphaseRigid(
     const BodyRigidReference other) const {
     const Eigen::Matrix4f E1 = this->computeTransform();
     const Eigen::Matrix4f E2 = other.computeTransform();

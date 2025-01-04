@@ -7,6 +7,7 @@
 #include <cuda/std/utility>
 
 #include "Contact.h"
+#include "ShapeCuboid.h"
 
 namespace apbd {
 
@@ -24,26 +25,27 @@ public:
 
     virtual ~ShapeTwoCuboid() {}
 
-    Eigen::Matrix<float, 6, 1> computeInertia(float density) const;
+    __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(float density) const;
 
-    bool broadphaseGround(const Eigen::Matrix4f &E,
+    __host__ __device__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f &E,
+                                  const Eigen::Vector3f &xl) const;
+
+    __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f &E,
                           const Eigen::Matrix4f &Eg) const;
 
-    cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ __device__ cdata_t
     narrowphaseGround(const Eigen::Matrix4f &E,
                       const Eigen::Matrix4f &Eg) const;
 
-    bool broadphaseShape(const Eigen::Matrix4f &E1,
+    __host__ __device__ bool broadphaseShape(const Eigen::Matrix4f &E1,
                          const ShapeTwoCuboid &other,
                          const Eigen::Matrix4f &E2) const;
 
-    cuda::std::pair<cuda::std::array<Contact, 8>, size_t>
+    __host__ __device__ cdata_t
     narrowphaseShape(const Eigen::Matrix4f &E1,
                      const ShapeTwoCuboid &other,
                      const Eigen::Matrix4f &E2) const;
 
-    Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f &E,
-                                  const Eigen::Vector3f &xl) const;
 };
 
 } // namespace apbd
