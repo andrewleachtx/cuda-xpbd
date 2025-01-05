@@ -1,13 +1,13 @@
 #pragma once
-#define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
 #include <Eigen/Dense>
 #include <cuda/std/array>
 #include <cuda/std/utility>
 
 #include "Contact.h"
+#include "ShapeCuboid.h"
 #include "ShapeMeshObj.h"
 #include "ShapeTwoCuboid.h"
-#include "ShapeCuboid.h"
+#include "util.h"
 
 namespace apbd {
 
@@ -30,7 +30,7 @@ class alignas(16) Shape {
     SHAPE_TYPE type;
 
     __host__ __device__ Shape() : type(SHAPE_CUBOID) {
-        data.cuboid = ShapeCuboid(Eigen::Vector3f(1, 1, 1));
+        data.cuboid = ShapeCuboid(Eigen::Vector3f(1.0f, 1.0f, 1.0f));
     }
     __host__ __device__ Shape(ShapeCuboid cuboid);
     __host__ __device__ Shape(ShapeMeshObj meshObj);

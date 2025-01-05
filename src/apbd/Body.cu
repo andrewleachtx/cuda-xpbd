@@ -98,7 +98,8 @@ BodyRigid::BodyRigid(Shape shape, float density)
       v(Vector3f::Zero()),
       w(Vector3f::Zero()),
       dxJacobi(vec7::Zero()),
-      dphiJacobi(vec7::Zero()) {}
+      dphiJacobi(vec7::Zero()),
+      LTx(vec6f::Zero()) {}
 BodyRigid::BodyRigid(Shape shape, float density, bool collide, float mu)
     : xInit(vec7::Zero()),
       x(vec7::Zero()),
@@ -113,6 +114,7 @@ BodyRigid::BodyRigid(Shape shape, float density, bool collide, float mu)
       v(Vector3f::Zero()),
       w(Vector3f::Zero()),
       dxJacobi(vec7::Zero()),
-      dphiJacobi(vec7::Zero()) {}
+      dphiJacobi(vec7::Zero()),
+      LTx(vec6f::Zero()) {}
 
 }  // namespace apbd

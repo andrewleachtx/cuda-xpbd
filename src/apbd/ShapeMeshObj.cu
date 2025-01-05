@@ -14,12 +14,15 @@ __host__ ShapeMeshObj::ShapeMeshObj()
 __host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename)
     : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
     readOBJ(filename, this->V, this->F);
+}
 
-    // std::cout << "Number of vertices = " << V.cols() << "\n";
-    // std::cout << "Number of faces = " << F.cols() << "\n";
-
-    // std::cout << V << "\n";
-    // std::cout << F << "\n";
+__host__ ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
+    F = mesh.F;
+    V = mesh.V;
+    E_oi = mesh.E_oi;
+    E_io = mesh.E_io;
+    radius = mesh.radius;
+    filename = mesh.filename;
 }
 
 __host__ ShapeMeshObj::~ShapeMeshObj() {}
@@ -143,9 +146,8 @@ __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
     return xg(2) < 1.2f * r;
 }
 
-__host__ cdata_t
-ShapeMeshObj::narrowphaseGround(const Eigen::Matrix4f E,
-                                const Eigen::Matrix4f Eg) const {
+__host__ cdata_t ShapeMeshObj::narrowphaseGround(
+    const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
     cuda::std::array<Contact, 8> cdata{};
     size_t contactCount = 0;
 
@@ -263,10 +265,9 @@ __host__ bool ShapeMeshObj::broadphaseShapeMesh(
     return d <= 1.2f * (r1 + r2);
 }
 
-__host__ cdata_t
-ShapeMeshObj::narrowphaseShapeMesh(const Eigen::Matrix4f E1,
-                                   const ShapeMeshObj &other,
-                                   const Eigen::Matrix4f E2) const {
+__host__ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
+    const Eigen::Matrix4f E1, const ShapeMeshObj &other,
+    const Eigen::Matrix4f E2) const {
     cuda::std::array<Contact, 8> cdata{};
     size_t contactCount = 0;
 

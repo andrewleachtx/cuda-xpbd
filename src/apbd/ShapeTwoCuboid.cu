@@ -13,7 +13,7 @@ ShapeTwoCuboid::ShapeTwoCuboid(const Eigen::Vector3f &sides1,
     E1 = Eigen::Matrix4f::Identity();
     E2 = Eigen::Matrix4f::Identity();
 
-    Eigen::Vector3f R = se3::aaToMat(Eigen::Vector3f(0, 1, 0), halfAngle);
+    Eigen::Matrix3f R = se3::aaToMat(Eigen::Vector3f(0, 1, 0), halfAngle);
 
     E1.block<3, 3>(0, 0) = R;
     E1(0, 3) = -halfDis;
@@ -113,9 +113,7 @@ TODO: Because of how this is designed, I cannot do inter-shape collisions,
 */
 bool ShapeTwoCuboid::broadphaseShape(const Eigen::Matrix4f &E1,
                                      const ShapeTwoCuboid &other,
-                                     const Eigen::Matrix4f &E2) const {
-    
-}
+                                     const Eigen::Matrix4f &E2) const {}
 
 /*
 function cdata = narrowphaseShape(this,E1,that,E2)
@@ -165,7 +163,7 @@ TODO: Because of how this is designed, I cannot do inter-shape collisions,
       cdata_t ShapeTwoCuboid::narrowphaseShape(const Eigen::Matrix4f &E1,
                                               const ShapeTwoCuboid &other,
                                               const Eigen::Matrix4f &E2) const {
-          
+
       }
 */
 

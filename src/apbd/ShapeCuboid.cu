@@ -17,10 +17,9 @@ bool ShapeCuboid::broadphaseGround(const Eigen::Matrix4f &E,
 }
 
 // narrowphaseGround
-cdata_t
-ShapeCuboid::narrowphaseGround(const Eigen::Matrix4f &E,
-                               const Eigen::Matrix4f &Eg) const {
-    cuda::std::array<Contact, 8> cdata{};
+cdata_t ShapeCuboid::narrowphaseGround(const Eigen::Matrix4f &E,
+                                       const Eigen::Matrix4f &Eg) const {
+    auto cdata = cuda::std::array<Contact, 8>();
     const Eigen::Vector3f s = this->sides / 2;
     // local space
     Eigen::Matrix<float, 4, 8> xl = Eigen::Matrix<float, 4, 8>::Ones();
@@ -54,8 +53,7 @@ ShapeCuboid::narrowphaseGround(const Eigen::Matrix4f &E,
         }
     }
 
-    return cdata_t(cdata,
-                                                                 cdata_count);
+    return cdata_t(cdata, cdata_count);
 }
 
 // broadphaseShapeCuboid
@@ -71,10 +69,9 @@ bool ShapeCuboid::broadphaseShapeCuboid(const Eigen::Matrix4f E1,
     return d <= 1.5 * (r1 + r2);
 }
 
-cdata_t
-ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
-                                    const ShapeCuboid &other,
-                                    const Eigen::Matrix4f E2) const {
+cdata_t ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
+                                            const ShapeCuboid &other,
+                                            const Eigen::Matrix4f E2) const {
     cuda::std::array<Contact, 8> cdata{};
     const Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
     const Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
@@ -103,8 +100,7 @@ ShapeCuboid::narrowphaseShapeCuboid(const Eigen::Matrix4f E1,
                             // rays starting inside the box
         cdata[i] = Contact{.nw = nw, .x1 = x1, .x2 = x2};
     }
-    return cdata_t(
-        cdata, collisions.count);
+    return cdata_t(cdata, collisions.count);
 }
 
 float ShapeCuboid::raycast(Eigen::Vector3f x, Eigen::Vector3f n) const {

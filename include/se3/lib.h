@@ -2,35 +2,44 @@
 #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
 #include <Eigen/Dense>
 
+#include "util.h"
+
 // TODO: Fix method order to match se3.m
 
 namespace se3 {
 const float THRESH = 1e-9;
 
-__host__ __device__ Eigen::Vector3f qdotToW(Eigen::Vector4f q,
-                                            Eigen::Vector4f qdot);
+__host__ __device__ Eigen::Vector3f qdotToW(const Eigen::Vector4f& q,
+                                            const Eigen::Vector4f& qdot);
 
-__host__ __device__ Eigen::Vector4f wToQdot(Eigen::Vector4f q,
-                                            Eigen::Vector3f w);
+__host__ __device__ Eigen::Vector4f wToQdot(const Eigen::Vector4f& q,
+                                            const Eigen::Vector3f& w);
 
-__host__ __device__ Eigen::Matrix3f aaToMat(Eigen::Vector3f axis, float angle);
+__host__ __device__ Eigen::Matrix3f aaToMat(const Eigen::Vector3f& axis,
+                                            float angle);
 
-__host__ __device__ Eigen::Matrix4f brac(Eigen::Matrix<float, 6, 1> x);
+/*
+    The original matlab code takes in either a vec3 or vec6 and handles with if
+   else, this is effectively an overloaded version of that
+*/
+__host__ __device__ Eigen::Matrix3f brac(const Eigen::Vector3f& x);
+
+__host__ __device__ Eigen::Matrix4f brac(const vec6f& x);
 
 /**
  * Gets the diagonal inertia of a cuboid with (width, height, depth)
  */
 __host__ __device__ Eigen::Matrix<float, 6, 1> inertiaCuboid(
-    Eigen::Vector3f whd, float density);
+    const Eigen::Vector3f& whd, float density);
 
-__host__ __device__ Eigen::Matrix4f inv(Eigen::Matrix4f E);
+__host__ __device__ Eigen::Matrix4f inv(const Eigen::Matrix4f& E);
 
-__host__ __device__ Eigen::Matrix<float, 6, 6> Ad(Eigen::Matrix4f E);
+__host__ __device__ Eigen::Matrix<float, 6, 6> Ad(const Eigen::Matrix4f& E);
 
 /*
     Returns inverted transform matrix of E
 */
-inline Eigen::Matrix4f inv(Eigen::Matrix4f E) {
+inline Eigen::Matrix4f inv(const Eigen::Matrix4f& E) {
     Eigen::Matrix3f R = E.block<3, 3>(0, 0);
     Eigen::Vector3f p = E.block<3, 1>(0, 3);
 
@@ -41,7 +50,8 @@ inline Eigen::Matrix4f inv(Eigen::Matrix4f E) {
     return Ei;
 }
 
-inline Eigen::Vector3f qdotToW(Eigen::Vector4f q, Eigen::Vector4f qdot) {
+inline Eigen::Vector3f qdotToW(const Eigen::Vector4f& q,
+                               const Eigen::Vector4f& qdot) {
     // https://ahrs.readthedocs.io/en/latest/filters/angular.html#quaternion-derivative
     // Q = [
     // 	 q(3)  q(2) -q(1) -q(0)
@@ -57,7 +67,8 @@ inline Eigen::Vector3f qdotToW(Eigen::Vector4f q, Eigen::Vector4f qdot) {
                                    q(3) * qdot(2) - q(2) * qdot(3));
 }
 
-inline Eigen::Vector4f wToQdot(Eigen::Vector4f q, Eigen::Vector3f w) {
+inline Eigen::Vector4f wToQdot(const Eigen::Vector4f& q,
+                               const Eigen::Vector3f& w) {
     // https://ahrs.readthedocs.io/en/latest/filters/angular.html#quaternion-derivative
     // W = [
     // 	    0  w(2) -w(1)  w(0)
@@ -72,7 +83,7 @@ inline Eigen::Vector4f wToQdot(Eigen::Vector4f q, Eigen::Vector3f w) {
                                  -w(0) * q(0) - w(1) * q(1) - w(2) * q(2));
 }
 
-inline Eigen::Matrix3f aaToMat(Eigen::Vector3f axis, float angle) {
+inline Eigen::Matrix3f aaToMat(const Eigen::Vector3f& axis, float angle) {
     // Create a rotation matrix from an (axis,angle) pair
     // From vecmath
     Eigen::Matrix3f R = Eigen::Matrix3f::Identity();
@@ -140,16 +151,22 @@ inline Eigen::Matrix3f aaToMat(Eigen::Vector3f axis, float angle) {
     return R;
 }
 
-inline Eigen::Matrix4f brac(Eigen::Matrix<float, 6, 1> x) {
-    Eigen::Matrix4f S = Eigen::Matrix4f::Zero();
-    Eigen::Matrix3f tmp;
-    tmp << 0, -x(2), x(1), x(2), 0, -x(0), -x(1), x(0), 0;
-    S.block<3, 3>(0, 0) = tmp;
-    S.block<3, 1>(0, 3) = Eigen::Vector3f(x(3), x(4), x(5));
+inline Eigen::Matrix3f brac(const Eigen::Vector3f& x) {
+    Eigen::Matrix3f S = Eigen::Matrix3f::Zero();
+    S << 0.0f, -x(2), x(1), x(2), 0.0f, -x(0), -x(1), x(0), 0.0f;
     return S;
 }
 
-inline Eigen::Matrix<float, 6, 1> inertiaCuboid(Eigen::Vector3f whd,
+inline Eigen::Matrix4f brac(const vec6f& x) {
+    Eigen::Matrix4f S = Eigen::Matrix4f::Zero();
+    S.block<3, 3>(0, 0) << 0.0f, -x(2), x(1), x(2), 0.0f, -x(0), -x(1), x(0),
+        0.0f;
+    S.block<3, 1>(0, 3) = x.block<3, 1>(3, 0);
+
+    return S;
+}
+
+inline Eigen::Matrix<float, 6, 1> inertiaCuboid(const Eigen::Vector3f& whd,
                                                 float density) {
     Eigen::Matrix<float, 6, 1> m = Eigen::Matrix<float, 6, 1>::Zero();
     float mass = density * whd.prod();
@@ -165,13 +182,14 @@ inline Eigen::Matrix<float, 6, 1> inertiaCuboid(Eigen::Vector3f whd,
     return m;
 }
 
-inline Eigen::Matrix<float, 6, 6> Ad(Eigen::Matrix4f E) {
+inline Eigen::Matrix<float, 6, 6> Ad(const Eigen::Matrix4f& E) {
     Eigen::Matrix<float, 6, 6> A = Eigen::Matrix<float, 6, 6>::Zero();
     Eigen::Matrix3f R = E.block<3, 3>(0, 0);
     Eigen::Vector3f p = E.block<3, 1>(0, 3);
     A.block<3, 3>(0, 0) = R;
     A.block<3, 3>(3, 3) = R;
     A.block<3, 3>(3, 0) = brac(p) * R;
+
     return A;
 }
 

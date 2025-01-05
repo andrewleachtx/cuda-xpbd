@@ -12,40 +12,36 @@
 namespace apbd {
 
 class ShapeTwoCuboid {
-public:
+   public:
     ShapeCuboid cuboid1;
     ShapeCuboid cuboid2;
     Eigen::Matrix4f E1;
     Eigen::Matrix4f E2;
 
-    ShapeTwoCuboid(const Eigen::Vector3f &sides1,
-                   const Eigen::Vector3f &sides2,
-                   float halfDis,
-                   float halfAngle);
+    ShapeTwoCuboid(const Eigen::Vector3f &sides1, const Eigen::Vector3f &sides2,
+                   float halfDis, float halfAngle);
 
     virtual ~ShapeTwoCuboid() {}
 
-    __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(float density) const;
+    __host__ __device__ Eigen::Matrix<float, 6, 1> computeInertia(
+        float density) const;
 
-    __host__ __device__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f &E,
-                                  const Eigen::Vector3f &xl) const;
+    __host__ __device__ Eigen::Vector3f toCenterLocal(
+        const Eigen::Matrix4f &E, const Eigen::Vector3f &xl) const;
 
     __host__ __device__ bool broadphaseGround(const Eigen::Matrix4f &E,
-                          const Eigen::Matrix4f &Eg) const;
+                                              const Eigen::Matrix4f &Eg) const;
 
-    __host__ __device__ cdata_t
-    narrowphaseGround(const Eigen::Matrix4f &E,
-                      const Eigen::Matrix4f &Eg) const;
+    __host__ __device__ cdata_t narrowphaseGround(
+        const Eigen::Matrix4f &E, const Eigen::Matrix4f &Eg) const;
 
     __host__ __device__ bool broadphaseShape(const Eigen::Matrix4f &E1,
-                         const ShapeTwoCuboid &other,
-                         const Eigen::Matrix4f &E2) const;
+                                             const ShapeTwoCuboid &other,
+                                             const Eigen::Matrix4f &E2) const;
 
     __host__ __device__ cdata_t
-    narrowphaseShape(const Eigen::Matrix4f &E1,
-                     const ShapeTwoCuboid &other,
+    narrowphaseShape(const Eigen::Matrix4f &E1, const ShapeTwoCuboid &other,
                      const Eigen::Matrix4f &E2) const;
-
 };
 
-} // namespace apbd
+}  // namespace apbd

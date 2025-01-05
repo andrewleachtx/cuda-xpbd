@@ -189,8 +189,7 @@ class alignas(8) BodyReference {
      * Calculates collisions with the ground
      */
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
-        __host__ __device__ cdata_t
-            narrowphaseGround(const Eigen::Matrix4f E),
+        __host__ __device__ cdata_t narrowphaseGround(const Eigen::Matrix4f E),
         data.narrowphaseGround(E));
     /**
      * Returns whether this body might be intersecting the other body.
@@ -203,8 +202,7 @@ class alignas(8) BodyReference {
      * Calculates collisions with the other body
      */
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
-        __host__ __device__ cdata_t
-            narrowphaseRigid(const BodyReference other),
+        __host__ __device__ cdata_t narrowphaseRigid(const BodyReference other),
         data.narrowphaseRigid(other.get_rigid()));
 
     IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__

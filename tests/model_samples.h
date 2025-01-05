@@ -14,6 +14,8 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                               apbd::Body *&bodies, size_t scene_count) {
     auto model = apbd::Model();
 
+    printf("Created model\n");
+
     switch (modelID) {
         // DEBUGGING TEST CASE
         case -1: {
@@ -611,6 +613,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
             apbd::ShapeMeshObj mesh =
                 apbd::ShapeMeshObj("./resources/bunny.obj");
+
             // This function call is pointless on first intuition, however it
             // actually populates many member variables
             mesh.computeInertia(density);

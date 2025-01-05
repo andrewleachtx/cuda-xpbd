@@ -7,6 +7,7 @@
 #include <cuda/std/utility>
 
 #include "Contact.h"
+#include "util.h"
 
 /*
     Inherits from Shape superclass, most notably is an unknown size at compile
@@ -28,6 +29,7 @@ class ShapeMeshObj {
 
     __host__ ShapeMeshObj();
     __host__ ShapeMeshObj(const std::string &filename);
+    __host__ ShapeMeshObj(const ShapeMeshObj &mesh);
     __host__ ~ShapeMeshObj();
 
     __host__ Eigen::Matrix<float, 6, 1> computeInertia(const float density);
@@ -36,14 +38,14 @@ class ShapeMeshObj {
                                            Eigen::Vector4f xl) const;
     __host__ bool broadphaseGround(const Eigen::Matrix4f E,
                                    const Eigen::Matrix4f Eg) const;
-    __host__ cdata_t
-    narrowphaseGround(const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const;
+    __host__ cdata_t narrowphaseGround(const Eigen::Matrix4f E,
+                                       const Eigen::Matrix4f Eg) const;
     __host__ bool broadphaseShapeMesh(const Eigen::Matrix4f E1,
                                       const ShapeMeshObj &other,
                                       const Eigen::Matrix4f E2) const;
-    __host__ cdata_t
-    narrowphaseShapeMesh(const Eigen::Matrix4f E1, const ShapeMeshObj &other,
-                         const Eigen::Matrix4f E2) const;
+    __host__ cdata_t narrowphaseShapeMesh(const Eigen::Matrix4f E1,
+                                          const ShapeMeshObj &other,
+                                          const Eigen::Matrix4f E2) const;
 
     // Static methods
     static void readOBJ(const std::string &filename,

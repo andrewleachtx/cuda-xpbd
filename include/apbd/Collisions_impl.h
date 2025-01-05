@@ -5,9 +5,8 @@
 
 namespace apbd {
 
-inline void Collision::setContacts(
-    CollisionReference clr,
-    const cdata_t cdata) {
+inline void Collision::setContacts(CollisionReference clr,
+                                   const cdata_t cdata) {
     this->contacts = cdata.first;
     clr.contactNum(cdata.second);
 

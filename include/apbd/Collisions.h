@@ -16,9 +16,8 @@ struct alignas(16) Collision {
     /// References to the constraints created from each contact
     cuda::std::array<ConstraintReference, 8> constraints;
 
-    __host__ __device__ void setContacts(
-        CollisionReference clr,
-        const cdata_t cdata);
+    __host__ __device__ void setContacts(CollisionReference clr,
+                                         const cdata_t cdata);
 
     __host__ __device__ bool is_ground(CollisionReference clr);
 

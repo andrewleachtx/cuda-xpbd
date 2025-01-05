@@ -1,8 +1,10 @@
 #pragma once
-#include <Eigen/Dense>
-#include <iostream>
-
 #include <apbd/Contact.h>
+
+#include <Eigen/Dense>
+#include <cuda/std/array>
+#include <cuda/std/utility>
+#include <iostream>
 
 #include "config.h"
 

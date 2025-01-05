@@ -99,7 +99,6 @@ cdata_t Shape::narrowphaseGround(const Eigen::Matrix4f E,
    back, but for simplicity I am removing it - only supporting same-type
    collisions.
 */
-
 /*
 function flag = broadphaseShape(this,E1,that,E2)
     if isa(that,'apbd.ShapeCuboid')
@@ -128,31 +127,36 @@ bool Shape::broadphaseShape(const Eigen::Matrix4f E1, const Shape &other,
         case SHAPE_TWOCUBOID: {
             switch (other.type) {
                 case SHAPE_CUBOID: {
-                    const auto& c1 = this->data.twoCuboid.cuboid1;
-                    const auto& c2 = this->data.twoCuboid.cuboid2;
+                    const auto &c1 = this->data.twoCuboid.cuboid1;
+                    const auto &c2 = this->data.twoCuboid.cuboid2;
 
-                    bool flag1 = c1.broadphaseShapeCuboid(E1 * this->data.twoCuboid.E1, other.data.cuboid, E2);
-                    bool flag2 = c2.broadphaseShapeCuboid(E1 * this->data.twoCuboid.E2, other.data.cuboid, E2);
+                    bool flag1 = c1.broadphaseShapeCuboid(
+                        E1 * this->data.twoCuboid.E1, other.data.cuboid, E2);
+                    bool flag2 = c2.broadphaseShapeCuboid(
+                        E1 * this->data.twoCuboid.E2, other.data.cuboid, E2);
 
                     return flag1 | flag2;
                 }
                 case SHAPE_TWOCUBOID: {
-                    const auto& c1 = this->data.twoCuboid.cuboid1;
-                    const auto& c2 = this->data.twoCuboid.cuboid2;
+                    const auto &c1 = this->data.twoCuboid.cuboid1;
+                    const auto &c2 = this->data.twoCuboid.cuboid2;
 
                     const auto E1_thisE1 = E1 * this->data.twoCuboid.E1;
                     const auto E1_thisE2 = E1 * this->data.twoCuboid.E2;
                     const auto E2_thatE1 = E2 * other.data.twoCuboid.E1;
                     const auto E2_thatE2 = E2 * other.data.twoCuboid.E2;
 
-                    bool flag1 = c1.broadphaseShapeCuboid(E1_thisE1, other.data.twoCuboid.cuboid1, E2_thatE1);
-                    bool flag2 = c1.broadphaseShapeCuboid(E1_thisE1, other.data.twoCuboid.cuboid2, E2_thatE2);
-                    bool flag3 = c2.broadphaseShapeCuboid(E1_thisE2, other.data.twoCuboid.cuboid1, E2_thatE1);
-                    bool flag4 = c2.broadphaseShapeCuboid(E1_thisE2, other.data.twoCuboid.cuboid2, E2_thatE2);
+                    bool flag1 = c1.broadphaseShapeCuboid(
+                        E1_thisE1, other.data.twoCuboid.cuboid1, E2_thatE1);
+                    bool flag2 = c1.broadphaseShapeCuboid(
+                        E1_thisE1, other.data.twoCuboid.cuboid2, E2_thatE2);
+                    bool flag3 = c2.broadphaseShapeCuboid(
+                        E1_thisE2, other.data.twoCuboid.cuboid1, E2_thatE1);
+                    bool flag4 = c2.broadphaseShapeCuboid(
+                        E1_thisE2, other.data.twoCuboid.cuboid2, E2_thatE2);
 
                     return flag1 | flag2 | flag3 | flag4;
                 }
-
                 default: {
                     return false;
                 }
@@ -215,75 +219,108 @@ cdata_t Shape::narrowphaseShape(const Eigen::Matrix4f E1, const Shape &other,
             return this->data.meshObj->narrowphaseShapeMesh(
                 E1, *other.data.meshObj, E2);
         }
-        case SHAPE_TWOCUBOID : {
+        case SHAPE_TWOCUBOID: {
             switch (other.type) {
-                case SHAPE_CUBOID : {
-                    auto cdata1 = this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(E1 * this->data.twoCuboid.E1, other.data.cuboid, E2);
-                    auto cdata2 = this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(E1 * this->data.twoCuboid.E2, other.data.cuboid, E2);
-                    
+                case SHAPE_CUBOID: {
+                    auto cdata1 =
+                        this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(
+                            E1 * this->data.twoCuboid.E1, other.data.cuboid,
+                            E2);
+                    auto cdata2 =
+                        this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(
+                            E1 * this->data.twoCuboid.E2, other.data.cuboid,
+                            E2);
+
                     for (size_t i = 0; i < cdata1.second; i++) {
-                        cdata1.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E1, cdata1.first[i].x1);
+                        cdata1.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E1, cdata1.first[i].x1);
                     }
                     for (size_t i = 0; i < cdata2.second; i++) {
-                        cdata2.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E2, cdata2.first[i].x1);
+                        cdata2.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E2, cdata2.first[i].x1);
                     }
 
-                    // FIXME: Same combine logic as in ShapeTwoCuboid.h, might need to check this
+                    // FIXME: Same combine logic as in ShapeTwoCuboid.h, might
+                    // need to check this
                     cuda::std::array<Contact, 8> combined;
                     size_t combined_ct = 0;
 
-                    for (size_t i = 0; i < cdata1.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata1.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata1.first[i];
                     }
-                    for (size_t i = 0; i < cdata2.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata2.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata2.first[i];
                     }
 
                     return cdata_t(combined, combined_ct);
                 }
-                case SHAPE_TWOCUBOID : {
+                case SHAPE_TWOCUBOID: {
                     const auto E1_thisE1 = E1 * this->data.twoCuboid.E1;
                     const auto E1_thisE2 = E1 * this->data.twoCuboid.E2;
                     const auto E2_thatE1 = E2 * other.data.twoCuboid.E1;
                     const auto E2_thatE2 = E2 * other.data.twoCuboid.E2;
 
-                    auto cdata1 = this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(E1_thisE1, other.data.twoCuboid.cuboid1, E2_thatE1);
-                    auto cdata2 = this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(E1_thisE1, other.data.twoCuboid.cuboid2, E2_thatE2);
-                    auto cdata3 = this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(E1_thisE2, other.data.twoCuboid.cuboid1, E2_thatE1);
-                    auto cdata4 = this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(E1_thisE2, other.data.twoCuboid.cuboid2, E2_thatE2);
+                    auto cdata1 =
+                        this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(
+                            E1_thisE1, other.data.twoCuboid.cuboid1, E2_thatE1);
+                    auto cdata2 =
+                        this->data.twoCuboid.cuboid1.narrowphaseShapeCuboid(
+                            E1_thisE1, other.data.twoCuboid.cuboid2, E2_thatE2);
+                    auto cdata3 =
+                        this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(
+                            E1_thisE2, other.data.twoCuboid.cuboid1, E2_thatE1);
+                    auto cdata4 =
+                        this->data.twoCuboid.cuboid2.narrowphaseShapeCuboid(
+                            E1_thisE2, other.data.twoCuboid.cuboid2, E2_thatE2);
 
                     for (size_t i = 0; i < cdata1.second; i++) {
-                        cdata1.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E1, cdata1.first[i].x1);
-                        cdata1.first[i].x2 = other.data.twoCuboid.toCenterLocal(other.data.twoCuboid.E1, cdata1.first[i].x2);
+                        cdata1.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E1, cdata1.first[i].x1);
+                        cdata1.first[i].x2 = other.data.twoCuboid.toCenterLocal(
+                            other.data.twoCuboid.E1, cdata1.first[i].x2);
                     }
                     for (size_t i = 0; i < cdata2.second; i++) {
-                        cdata2.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E1, cdata2.first[i].x1);
-                        cdata2.first[i].x2 = other.data.twoCuboid.toCenterLocal(other.data.twoCuboid.E2, cdata2.first[i].x2);
+                        cdata2.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E1, cdata2.first[i].x1);
+                        cdata2.first[i].x2 = other.data.twoCuboid.toCenterLocal(
+                            other.data.twoCuboid.E2, cdata2.first[i].x2);
                     }
                     for (size_t i = 0; i < cdata3.second; i++) {
-                        cdata3.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E2, cdata3.first[i].x1);
-                        cdata3.first[i].x2 = other.data.twoCuboid.toCenterLocal(other.data.twoCuboid.E1, cdata3.first[i].x2);
+                        cdata3.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E2, cdata3.first[i].x1);
+                        cdata3.first[i].x2 = other.data.twoCuboid.toCenterLocal(
+                            other.data.twoCuboid.E1, cdata3.first[i].x2);
                     }
                     for (size_t i = 0; i < cdata4.second; i++) {
-                        cdata4.first[i].x1 = this->data.twoCuboid.toCenterLocal(this->data.twoCuboid.E2, cdata4.first[i].x1);
-                        cdata4.first[i].x2 = other.data.twoCuboid.toCenterLocal(other.data.twoCuboid.E2, cdata4.first[i].x2);
+                        cdata4.first[i].x1 = this->data.twoCuboid.toCenterLocal(
+                            this->data.twoCuboid.E2, cdata4.first[i].x1);
+                        cdata4.first[i].x2 = other.data.twoCuboid.toCenterLocal(
+                            other.data.twoCuboid.E2, cdata4.first[i].x2);
                     }
 
-                    // FIXME: Again, "cdata = [cdata1 cdata2 cdata3 cdata4];" suggests combination logic, so I will do that
-                    // that said, there is a max of 8 contacts, so this may need refactoring
+                    // FIXME: Again, "cdata = [cdata1 cdata2 cdata3 cdata4];"
+                    // suggests combination logic, so I will do that that said,
+                    // there is a max of 8 contacts, so this may need
+                    // refactoring
                     cuda::std::array<Contact, 8> combined;
                     size_t combined_ct = 0;
 
-                    for (size_t i = 0; i < cdata1.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata1.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata1.first[i];
                     }
-                    for (size_t i = 0; i < cdata2.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata2.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata2.first[i];
                     }
-                    for (size_t i = 0; i < cdata3.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata3.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata3.first[i];
                     }
-                    for (size_t i = 0; i < cdata4.second && combined_ct < 8; i++) {
+                    for (size_t i = 0; i < cdata4.second && combined_ct < 8;
+                         i++) {
                         combined[combined_ct++] = cdata4.first[i];
                     }
 
