@@ -112,8 +112,8 @@ inline void Collision::computeJ_b(CollisionReference clr, float h) {
             unsigned int rows = 3 * i;
             auto grd = this->constraints[i].get_ground();
 
-            Eigen::Matrix3f raXnI = grd.raXnI1();
-            Eigen::Matrix3f c_frame = grd.contactFrame();
+            const Eigen::Matrix3f& raXnI = grd.raXnI1();
+            const Eigen::Matrix3f& c_frame = grd.contactFrame();
             // TODO: Is it clr.body1() or grd.body() ?
             float b1_Mp = clr.body1().get_rigid().Mp();
 
@@ -133,12 +133,12 @@ inline void Collision::computeJ_b(CollisionReference clr, float h) {
 
             auto rig = this->constraints[i].get_rigid();
 
-            Eigen::Matrix3f raXnI1 = rig.raXnI1();
-            Eigen::Matrix3f c_frame1 = rig.contactFrame();
+            const Eigen::Matrix3f& raXnI1 = rig.raXnI1();
+            const Eigen::Matrix3f& c_frame1 = rig.contactFrame();
             float b1_Mp = rig.body1().Mp();
 
-            Eigen::Matrix3f raXnI2 = rig.raXnI2();
-            Eigen::Matrix3f c_frame2 = rig.contactFrame();
+            const Eigen::Matrix3f& raXnI2 = rig.raXnI2();
+            const Eigen::Matrix3f& c_frame2 = rig.contactFrame();
             float b2_Mp = rig.body2().Mp();
 
             auto J1I_cpy = clr.J1I();
@@ -262,10 +262,10 @@ this.lambda(this.freeIndex); this.body2.LTx = this.body2.LTx +
 this.J2I_cg(this.freeIndex,:)' * this.lambda(this.freeIndex); end
 */
 inline void Collision::compute_degenerate_LTlambda(CollisionReference clr) {
-    auto J2I_cgCpy = clr.J2I_cg();
-    auto J1I_cgCpy = clr.J1I_cg();
-    auto lm_cpy = clr.lambda();
-    auto fidx_cpy = clr.freeIndex();
+    const auto& J2I_cgCpy = clr.J2I_cg();
+    const auto& J1I_cgCpy = clr.J1I_cg();
+    const auto& lm_cpy = clr.lambda();
+    const auto& fidx_cpy = clr.freeIndex();
 
     auto b1 = clr.body1().get_rigid();
     auto b2 = clr.body2().get_rigid();
@@ -322,10 +322,10 @@ this.d_cg(this.freeIndex); this.body2.LTx = this.body2.LTx +
 this.J2I_cg(this.freeIndex,:)' * this.d_cg(this.freeIndex); end
 */
 inline void Collision::compute_LTd_cg(CollisionReference clr) {
-    auto J1I_cgCpy = clr.J1I_cg();
-    auto J2I_cgCpy = clr.J2I_cg();
-    auto d_cgCpy = clr.d_cg();
-    auto fidx_cpy = clr.freeIndex();
+    const auto& J1I_cgCpy = clr.J1I_cg();
+    const auto& J2I_cgCpy = clr.J2I_cg();
+    const auto& d_cgCpy = clr.d_cg();
+    const auto& fidx_cpy = clr.freeIndex();
 
     auto b1 = clr.body1().get_rigid();
     auto b2 = clr.body2().get_rigid();
@@ -372,9 +372,9 @@ function compute_LTp(this)
 end
 */
 inline void Collision::compute_LTp(CollisionReference clr) {
-    auto J1I_cpy = clr.J1I();
-    auto J2I_cpy = clr.J2I();
-    auto p_cpy = clr.p();
+    const auto& J1I_cpy = clr.J1I();
+    const auto& J2I_cpy = clr.J2I();
+    const auto& p_cpy = clr.p();
 
     auto b1 = clr.body1().get_rigid();
     auto b2 = clr.body2().get_rigid();
@@ -394,12 +394,12 @@ function compute_LLTx(this)
 end
 */
 inline void Collision::compute_LLTx(CollisionReference clr) {
-    auto J1I_cpy = clr.J1I();
-    auto J2I_cpy = clr.J2I();
-    auto b1 = clr.body1().get_rigid();
-    auto b2 = clr.body2().get_rigid();
-    Eigen::Matrix<float, 6, 1> LTx1 = b1.LTx();
-    Eigen::Matrix<float, 6, 1> LTx2 = b2.LTx();
+    const auto& J1I_cpy = clr.J1I();
+    const auto& J2I_cpy = clr.J2I();
+    const auto b1 = clr.body1().get_rigid();
+    const auto& b2 = clr.body2().get_rigid();
+    const Eigen::Matrix<float, 6, 1>& LTx1 = b1.LTx();
+    const Eigen::Matrix<float, 6, 1>& LTx2 = b2.LTx();
 
     clr.Ax(J1I_cpy * LTx1 + J2I_cpy * LTx2);
 }
@@ -410,12 +410,12 @@ function compute_degenerate_LLTx(this)
 end
 */
 inline void Collision::compute_degenerate_LLTx(CollisionReference clr) {
-    auto J1I_cgCpy = clr.J1I_cg();
-    auto J2I_cgCpy = clr.J2I_cg();
+    const auto& J1I_cgCpy = clr.J1I_cg();
+    const auto& J2I_cgCpy = clr.J2I_cg();
     auto b1 = clr.body1().get_rigid();
     auto b2 = clr.body2().get_rigid();
-    Eigen::Matrix<float, 6, 1> LTx1 = b1.LTx();
-    Eigen::Matrix<float, 6, 1> LTx2 = b2.LTx();
+    const Eigen::Matrix<float, 6, 1>& LTx1 = b1.LTx();
+    const Eigen::Matrix<float, 6, 1>& LTx2 = b2.LTx();
 
     clr.Ax(J1I_cgCpy * LTx1 + J2I_cgCpy * LTx2);
 }
@@ -446,8 +446,8 @@ TODO: If numeric limits doesn't GPU compile use the same INF as in other file
 (1e20 iirc)
 */
 inline vec24f Collision::compute_tbar(CollisionReference clr) {
-    auto lm_cpy = clr.lambda();
-    auto g_cpy = clr.g();
+    const auto& lm_cpy = clr.lambda();
+    const auto& g_cpy = clr.g();
     auto tbar_cpy = clr.t_bar();
     float mu_cpy = clr.mu();
     unsigned int n = 3 * clr.contactNum();
@@ -572,10 +572,10 @@ function compute_lambdad(this, t)
 norm(this.lambdac(i:i+2)); end end end
 */
 inline void Collision::compute_lambdad(CollisionReference clr, float t) {
-    auto lmc_cpy = clr.lambdac();
+    const auto& lmc_cpy = clr.lambdac();
     auto lmd_cpy = clr.lambdad();
     auto fidx_cpy = clr.freeIndex();
-    auto tb_cpy = clr.t_bar();
+    const auto& tb_cpy = clr.t_bar();
 
     unsigned int n = 3 * clr.contactNum();
     for (unsigned int i = 0; i < n; i += 3) {
@@ -625,9 +625,9 @@ end
 inline void Collision::compute_p(CollisionReference clr, float t) {
     auto lm_cpy = clr.lambda();
     auto lmd_cpy = clr.lambdad();
-    auto g_cpy = clr.g();
+    const auto& g_cpy = clr.g();
     auto p_cpy = clr.p();
-    auto tb_cpy = clr.t_bar();
+    const auto& tb_cpy = clr.t_bar();
 
     unsigned int n = 3 * clr.contactNum();
     for (unsigned int i = 0; i < n; i += 3) {
@@ -678,8 +678,8 @@ end
 */
 inline void Collision::project(CollisionReference clr) {
     auto lm_cpy = clr.lambda();
-    auto lmd_cpy = clr.lambdad();
-    auto fidx_cpy = clr.freeIndex();
+    const auto& lmd_cpy = clr.lambdad();
+    const auto& fidx_cpy = clr.freeIndex();
     float mu_cpy = clr.mu();
 
     unsigned int n = 3 * clr.contactNum();
@@ -716,8 +716,8 @@ this.lambda(i)) feasible = false; end end end
 inline bool Collision::update_cg(CollisionReference clr, float alpha) {
     bool feasible = true;
     auto lam_cpy = clr.lambda();
-    auto d_cgCpy = clr.d_cg();
-    auto fidx_cpy = clr.freeIndex();
+    const auto& d_cgCpy = clr.d_cg();
+    const auto& fidx_cpy = clr.freeIndex();
     float mu = clr.mu();
     unsigned int n = 3 * clr.contactNum();
 

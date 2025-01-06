@@ -114,6 +114,7 @@ class alignas(8) BodyRigidReference {
     __host__ __device__ Eigen::Vector3f transformPoint(Eigen::Vector3f xl);
 
     __host__ __device__ void clearJacobi();
+    __host__ __device__ void updateStatesDirect(float h);
 };
 
 class alignas(8) BodyAffineReference { /* TODO */
@@ -221,6 +222,8 @@ class alignas(8) BodyReference {
         __host__ __device__ void updateStates(float hs), data.updateStates(hs));
     IMPLEMENT_DELEGATED_BODY_FUNCTION(
         __host__ __device__ void integrateStates(), data.integrateStates());
+    IMPLEMENT_DELEGATED_BODY_FUNCTION(
+        __host__ __device__ void updateStatesDirect(float t), data.updateStatesDirect(t));
 
     IMPLEMENT_DELEGATED_BODY_FUNCTION(__host__ __device__ void clearJacobi(),
                                       data.clearJacobi());

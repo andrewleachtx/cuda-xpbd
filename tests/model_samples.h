@@ -743,12 +743,11 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             // FIXME: Raw transfer probably messes up some arithmetic bc 1-based
             // indexing, look into this
             for (size_t i = 0; i < n; i++) {
-                /* TODO: Add ShapeTwoCuboid */
                 apbd::ShapeTwoCuboid shape(sides, sides, halfDistance,
                                            halfAngle);
                 bodies[i] =
                     apbd::Body(apbd::BodyRigid(shape, density, true, mu));
-                float theta = (i * 2 - 1) * halfAngle;
+                float theta = ((i + 1) * 2 - 1) * halfAngle;
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 float r =
                     (0.5f * w + cos(halfAngle) * halfDistance) / sin(halfAngle);

@@ -268,6 +268,30 @@ inline void BodyRigidReference::integrateStates() {
     // TODO: clear this neighbors?
 }
 
+inline void BodyRigidReference::updateStatesDirect(float h) {
+    const Eigen::Quaternionf q =
+        Eigen::Quaternionf(this->x0().block<4, 1>(0, 0));
+    auto angularMotionVel = this->w();
+    float wNorm = angularMotionVel.norm();
+    this->deltaBody2Worldq(Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0));
+    if (wNorm > 1e-9f) {
+        float halfWDt = 0.5 * wNorm * h;
+        Eigen::Vector3f dqvec = angularMotionVel * sin(halfWDt) / wNorm;
+        Eigen::Quaternionf dq(0.0, dqvec(0), dqvec(1), dqvec(2));
+        Eigen::Quaternionf _deltaBody2Worldq = this->deltaBody2Worldq();
+        Eigen::Vector4f result = (dq * _deltaBody2Worldq).coeffs();
+        result += _deltaBody2Worldq.coeffs() * cos(halfWDt);
+        this->deltaBody2Worldq(Eigen::Quaternionf(result).normalized());
+    }
+    this->deltaBody2Worldp(this->v() * h);
+
+    this->deltaAngDt(this->w() * h);
+    this->deltaLinDt(this->v() * h);
+
+    this->rotation(this->deltaBody2Worldq() * q);
+    this->position(this->x0().block<3, 1>(4, 0) + this->deltaBody2Worldp());
+}
+
 inline Eigen::Vector3f BodyRigidReference::transformPoint(Eigen::Vector3f xl) {
     return this->rotation() * xl + this->position();
 }

@@ -9,6 +9,12 @@
 #include "apbd/Model.h"
 #include "util.h"
 
+// thrust for duplicate removal and sorting ()
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/sort.h>
+#include <thrust/unique.h>
+
 namespace apbd {
 
 Model::Model()
@@ -114,6 +120,8 @@ Model Model::clone_with_buffers(const ModelBuffers &buffers, size_t offset) {
 }
 
 void Model::init() {
+    this->t = 0.0f;
+
     // bodies are initialized when data is copied to store
     for (size_t i = 0; i < this->constraint_count; i++) {
         this->constraints[i].init();
@@ -133,8 +141,8 @@ void Model::simulate(Collider *collider) {
     // printf("Simulating a total of %u steps.\n", this->steps);
     for (unsigned int step = 0; step < this->steps; step++) {
         // printf("==== Step %u starting ====\n", step);
-        this->solveConTGS(collider, hs);
-        // this->solveConGPQP(collider, hs);
+        // this->solveConTGS(collider, hs);
+        this->solveConGPQP(collider);
 
         // for (size_t i = 0; i < this->body_count; i++) {
         //     auto pos = this->bodies[i].get_rigid().position();
@@ -357,13 +365,28 @@ void Model::solveConGPQP(Collider *collider) {
     n--;
 
     GPQPOutput output = this->GPQP(collider, n);
-    /* TODO: Finish this and continue solveConGPQ */
+    auto lambdas = output.lambdas;
 
     for (unsigned int i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
 
         unsigned int l = 3 * clr.contactNum() - 1;
         unsigned int start = clr.mIndices();
+        // FIXME: Doubt this device compiles
+        Eigen::VectorXf lambdai = lambdas.segment(start, l);
+
+        for (unsigned int k = 0; k < clr.contactNum(); k++) {
+            collider->collisions[collider->activeCollisions[i]].constraints[k].get_rigid().applyLambda(lambdai.segment(3 * k, 3));
+        }
+    }
+
+    for (size_t i = 0; i < this->body_count; i++) {
+        this->bodies[i].updateStatesDirect(this->h);
+    }
+
+    this->t += this->h;
+    for (size_t i = 0; i < this->body_count; i++) {
+        this->bodies[i].integrateStates();
     }
 }
 
@@ -484,108 +507,133 @@ this.collider.collisions{i}.lambdac; end
 this.collider.collisions{i}.b_cg; this.collider.collisions{i}.g_cg =
 this.collider.collisions{i}.Minv_cg .* this.collider.collisions{i}.r_cg;
             this.collider.collisions{i}.d_cg = -
-this.collider.collisions{i}.g_cg; end % CG iterations for CGiter = 1: CGiterMax
-            r = 0;
-            for i = collisions
-                M = 1 ./ this.collider.collisions{i}.Minv_cg;
-                r = r +
+this.collider.collisions{i}.g_cg; end
+
+% CG iterations
+for CGiter = 1: CGiterMax
+    r = 0;
+    for i = collisions
+        M = 1 ./ this.collider.collisions{i}.Minv_cg;
+        r = r +
 this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' *
 diag(M(this.collider.collisions{i}.freeIndex)) ...
-                    * this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex);
-            end
-            if(r < tol)
-                break;
-            end
-
-            numerator = 0;
-            denominator = 0;
-
-            for i = 1:length(this.bodies)
-                this.bodies{i}.LTx = zeros(6,1);
-            end
-            for i = collisions
-                this.collider.collisions{i}.compute_LTd_cg();
-            end
-            for i = collisions
-                this.collider.collisions{i}.compute_degenerate_LLTx();
-                numerator = numerator +
-this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
-                            * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
-                denominator = denominator +
-this.collider.collisions{i}.d_cg(this.collider.collisions{i}.freeIndex)' ...
-                                * this.collider.collisions{i}.Ax(this.collider.collisions{i}.freeIndex);
-            end
-            alpha = numerator / denominator;
-
-            feasible = true;
-            for i = collisions
-                feasible = feasible &
-this.collider.collisions{i}.update_cg(alpha); end if(~feasible) break; end
-
-            numerator = 0;
-            denominator = 0;
-            for i = collisions
-                denominator = denominator +
-this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
-                                * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
-                this.collider.collisions{i}.r_cg =
-this.collider.collisions{i}.r_cg + alpha * this.collider.collisions{i}.Ax;
-                this.collider.collisions{i}.g_cg =
-this.collider.collisions{i}.Minv_cg .* this.collider.collisions{i}.r_cg;
-                numerator = numerator +
-this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
-                            * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
-            end
-            beta = numerator / denominator;
-            for i = collisions
-                this.collider.collisions{i}.d_cg =
--this.collider.collisions{i}.g_cg + beta * this.collider.collisions{i}.d_cg; end
-        end
-
-        CGiterVec = [CGiterVec, CGiter];
-
-        % Project to feasible region
-        for i = collisions
-            this.collider.collisions{i}.project();
-        end
-
-        % Test if results satisfy the KKT conditions
-        f = 0;
-        for i = 1:length(this.bodies)
-            this.bodies{i}.LTx = zeros(6,1);
-        end
-        for i = collisions
-            this.collider.collisions{i}.compute_LTlambda();
-        end
-        for i = collisions
-            this.collider.collisions{i}.compute_LLTx();
-            this.collider.collisions{i}.g = this.collider.collisions{i}.Ax -
-this.collider.collisions{i}.b; f = f + this.collider.collisions{i}.lambda' * (
-0.5 * this.collider.collisions{i}.Ax -  this.collider.collisions{i}.b);
-            g(this.collider.collisions{i}.mIndces) =
-this.collider.collisions{i}.g; lambda(this.collider.collisions{i}.mIndces) =
-this.collider.collisions{i}.lambda; end
-
-        if norm(g) < eps
-            break;
-        end
-        if norm(g - gPrev) < eps
-            break;
-        end
-        if norm(f-fPrev) < eps
-            break;
-        end
-        fPrev = f;
-        gPrev = g;
-        rs(iter) = norm(g);
+            * this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex);
+    end
+    if(r < tol)
+        break;
     end
 
-    output.iterations = iter;
-    output.lambdas = lambda;
-    output.cgiterations = CGiterVec;
-    output.rs = rs;
+    numerator = 0;
+    denominator = 0;
+
+    for i = 1:length(this.bodies)
+        this.bodies{i}.LTx = zeros(6,1);
+    end
+    for i = collisions
+        this.collider.collisions{i}.compute_LTd_cg();
+    end
+    for i = collisions
+        this.collider.collisions{i}.compute_degenerate_LLTx();
+        numerator = numerator +
+this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
+                    * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
+        denominator = denominator +
+this.collider.collisions{i}.d_cg(this.collider.collisions{i}.freeIndex)' ...
+                        * this.collider.collisions{i}.Ax(this.collider.collisions{i}.freeIndex);
+    end
+    alpha = numerator / denominator;
+
+    feasible = true;
+    for i = collisions
+        feasible = feasible & this.collider.collisions{i}.update_cg(alpha);
+    end
+    if(~feasible)
+        break;
+    end
+
+    numerator = 0;
+    denominator = 0;
+    for i = collisions
+        denominator = denominator +
+this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
+                        * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
+        this.collider.collisions{i}.r_cg = this.collider.collisions{i}.r_cg +
+alpha * this.collider.collisions{i}.Ax; this.collider.collisions{i}.g_cg =
+this.collider.collisions{i}.Minv_cg .* this.collider.collisions{i}.r_cg;
+        numerator = numerator +
+this.collider.collisions{i}.r_cg(this.collider.collisions{i}.freeIndex)' ...
+                    * this.collider.collisions{i}.g_cg(this.collider.collisions{i}.freeIndex);
+    end
+    beta = numerator / denominator;
+    for i = collisions
+        this.collider.collisions{i}.d_cg = -this.collider.collisions{i}.g_cg +
+beta * this.collider.collisions{i}.d_cg; end end
+
+CGiterVec = [CGiterVec, CGiter];
+
+% Project to feasible region
+for i = collisions
+    this.collider.collisions{i}.project();
+end
+
+% Test if results satisfy the KKT conditions
+f = 0;
+for i = 1:length(this.bodies)
+    this.bodies{i}.LTx = zeros(6,1);
+end
+for i = collisions
+    this.collider.collisions{i}.compute_LTlambda();
+end
+for i = collisions
+    this.collider.collisions{i}.compute_LLTx();
+    this.collider.collisions{i}.g = this.collider.collisions{i}.Ax -
+this.collider.collisions{i}.b; f = f + this.collider.collisions{i}.lambda' * (
+0.5 * this.collider.collisions{i}.Ax -  this.collider.collisions{i}.b);
+    g(this.collider.collisions{i}.mIndces) = this.collider.collisions{i}.g;
+    lambda(this.collider.collisions{i}.mIndces) =
+this.collider.collisions{i}.lambda; end
+
+if norm(g) < eps
+    break;
+end
+if norm(g - gPrev) < eps
+    break;
+end
+if norm(f-fPrev) < eps
+    break;
+end
+fPrev = f;
+gPrev = g;
+rs(iter) = norm(g);
+end
+
+
+output.iterations = iter;
+output.lambdas = lambda;
+output.cgiterations = CGiterVec;
+output.rs = rs;
 end
 */
+__host__ __device__ inline vecGPQPf uniqueTList(vecGPQPf &tList,
+                                                size_t used_count,
+                                                bool do_sort) {
+    thrust::device_ptr<float> tPtr(tList.data());
+
+    if (do_sort) {
+        thrust::sort(tPtr, tPtr + used_count);
+    }
+
+    auto new_end = thrust::unique(tPtr, tPtr + used_count);
+
+    size_t unique_count = static_cast<size_t>(new_end - tPtr);
+
+    if (unique_count < used_count) {
+        thrust::fill(new_end, tPtr + used_count, 1e20f);
+    }
+
+    return tList;
+}
+
 GPQPOutput Model::GPQP(Collider *collider, int n) {
     GPQPOutput output;
 
@@ -605,12 +653,9 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
     }
 
     float fPrev = 0.0f;
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> gPrev =
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>::Zero();
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> g =
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>::Zero();
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambda =
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>::Zero();
+    vecGPQPf gPrev = vecGPQPf::Zero();
+    vecGPQPf g = vecGPQPf::Zero();
+    vecGPQPf lambda = vecGPQPf::Zero();
 
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].get_rigid().LTx(vec6f::Zero());
@@ -634,17 +679,18 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
         unsigned int rs[MAX_COLLISION_CONSTRAINTS];
     */
 
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> iterations;
-    output.iterations_ct = 0;
+    output.cgiterations_ct = 0;
     const float Inf = 1e20f;
 
-    for (size_t iter = 0; iter < iterMax; iter++) {
-        if (iter == 3) {
-            printf("iter: %zu\n", iter);
+    size_t iter;
+    for (iter = 0; iter < iterMax; iter++) {
+        vecGPQPf tList = vecGPQPf::Constant(Inf);
+        size_t used_ct = 0;
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            used_ct += 3 * clr.contactNum();
         }
 
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> tList =
-            Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>::Constant(Inf);
         for (size_t i = 0; i < this->body_count; i++) {
             this->bodies[i].get_rigid().LTx(vec6f::Zero());
         }
@@ -656,16 +702,240 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]].compute_LLTx(clr);
             clr.g(clr.Ax() - clr.b());
-
-            // TODO: Not sure about this one, but given the context in
-            // solveConGPQP
             tList.segment(clr.mIndices(), 3 * clr.contactNum()) =
-                collider->collisions[collider->activeCollisions[i]]
-                    .compute_tbar(clr);
+                collider->collisions[collision_indices[i]].compute_tbar(clr);
         }
 
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> tUniqueList;
+        // using thrust to abstract sort and duplicate detection
+        vecGPQPf tUniqueList = uniqueTList(tList, used_ct, true);
+        float end = tUniqueList(used_ct - 1);
+        if (end != Inf && used_ct < MAX_COLLISION_CONSTRAINTS) {
+            tUniqueList(used_ct) = Inf;
+        }
+
+        float tc = 0.0f;
+        for (size_t tIndex = 0; tIndex < used_ct; tIndex++) {
+            float t_cur = tUniqueList(tIndex);
+            if (t_cur >= Inf) {
+                break;
+            }
+
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                collider->collisions[collision_indices[i]].compute_p(clr, tc);
+                collider->collisions[collision_indices[i]].compute_lambdac(clr,
+                                                                           tc);
+            }
+
+            float fPrime = 0.0f;
+            float fPrimePrime = 0.0f;
+
+            for (size_t i = 0; i < this->body_count; i++) {
+                this->bodies[i].get_rigid().LTx(vec6f::Zero());
+            }
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                collider->collisions[collision_indices[i]].compute_LTp(clr);
+            }
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                collider->collisions[collision_indices[i]].compute_LLTx(clr);
+
+                const auto &b_cpy = clr.b();
+                const auto &p_cpy = clr.p();
+                const auto &Ax_cpy = clr.Ax();
+                const auto &lambac_cpy = clr.lambdac();
+
+                fPrime -= b_cpy.dot(p_cpy) + lambac_cpy.dot(Ax_cpy);
+                fPrimePrime += p_cpy.dot(Ax_cpy);
+            }
+
+            float deltaTStar = -fPrime / fPrimePrime;
+            if (fPrime > 0) {
+                break;
+            } else if (deltaTStar >= 0 && deltaTStar < t_cur - tc) {
+                tc += deltaTStar;
+                break;
+            }
+
+            tc = t_cur;
+        }
+
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]].compute_lambdac(clr, tc);
+            collider->collisions[collision_indices[i]].compute_lambdad(clr, tc);
+
+            clr.lambda(clr.lambdac());
+        }
+
+        // PCG, compute b_cg
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]]
+                .compute_degenerate_J1I_J2I_b(clr);
+        }
+
+        // Init CG
+        for (size_t i = 0; i < this->body_count; i++) {
+            this->bodies[i].get_rigid().LTx(vec6f::Zero());
+        }
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]]
+                .compute_degenerate_LTlambda(clr);
+        }
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]].compute_degenerate_LLTx(
+                clr);
+            clr.r_cg(clr.Ax() - clr.b_cg());
+            // this.collider.collisions{i}.g_cg =
+            // this.collider.collisions{i}.Minv_cg .*
+            // this.collider.collisions{i}.r_cg;
+            // FIXME: Minv_cg .* r_cg means element-wise multiplication, not
+            // sure if this works
+            clr.g_cg(clr.Minv_cg().cwiseProduct(clr.r_cg()));
+            clr.d_cg(-clr.g_cg());
+        }
+
+        // CG iterations
+        unsigned int CGiter;
+        for (CGiter = 0; CGiter < CGiterMax; CGiter++) {
+            float r = 0.0f;
+            for (size_t i = 0; i < coll_ct; i++) {
+                // The A ./ B divides all elements in A by B, so this is the
+                // inverse
+                CollisionReference clr(collider->activeCollisions[i]);
+                auto M = clr.Minv_cg().cwiseInverse();
+                auto r_cg = clr.r_cg();
+
+                // Indexing into a vec24f (r_cg) with a vec24b (freeIndex) in
+                // MATLAB will only select the true values, so we need to do
+                // this manually
+                // FIXME: r_cg(j)' * M(j) * r_cg might be more like r_cg.dot(M)
+                // * r_cg, although these should be equivalent
+                const vec24b &freeIndex = clr.freeIndex();
+                for (size_t j = 0; j < 24; j++) {
+                    if (freeIndex(j)) {
+                        r += r_cg(j) * M(j) * r_cg(j);
+                    }
+                }
+            }
+
+            if (r < tol) {
+                break;
+            }
+
+            for (size_t i = 0; i < this->body_count; i++) {
+                this->bodies[i].get_rigid().LTx(vec6f::Zero());
+            }
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                collider->collisions[collision_indices[i]].compute_LTd_cg(clr);
+            }
+
+            float numerator = 0.0f;
+            float denominator = 0.0f;
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                collider->collisions[collision_indices[i]]
+                    .compute_degenerate_LLTx(clr);
+
+                // FIXME: same as last
+                const auto &freeIndex = clr.freeIndex();
+                for (size_t j = 0; j < 24; j++) {
+                    if (freeIndex(j)) {
+                        numerator += clr.r_cg()(j) * clr.g_cg()(j);
+                        denominator += clr.d_cg()(j) * clr.Ax()(j);
+                    }
+                }
+            }
+
+            float alpha = numerator / denominator;
+
+            bool feasible = true;
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                feasible &=
+                    collider->collisions[collision_indices[i]].update_cg(clr,
+                                                                         alpha);
+            }
+            if (!feasible) {
+                break;
+            }
+
+            numerator = 0.0f;
+            denominator = 0.0f;
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                const auto &freeIndex = clr.freeIndex();
+
+                for (size_t j = 0; j < 24; j++) {
+                    if (freeIndex(j)) {
+                        denominator += clr.r_cg()(j) * clr.g_cg()(j);
+                        clr.r_cg(clr.r_cg() + alpha * clr.Ax());
+                        clr.g_cg(clr.Minv_cg().cwiseProduct(clr.r_cg()));
+                        numerator += clr.r_cg()(j) * clr.g_cg()(j);
+                    }
+                }
+            }
+
+            float beta = numerator / denominator;
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                clr.d_cg(-clr.g_cg() + beta * clr.d_cg());
+            }
+        }
+
+        // FIXME: eh
+        output.cgiterations[output.cgiterations_ct++] = CGiter;
+
+        // Project to feasible region
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]].project(clr);
+        }
+
+        // Test if results satisfy the KKT conditions
+        float f = 0.0f;
+        for (size_t i = 0; i < this->body_count; i++) {
+            this->bodies[i].get_rigid().LTx(vec6f::Zero());
+        }
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]].compute_LTlambda(clr);
+        }
+        for (size_t i = 0; i < coll_ct; i++) {
+            CollisionReference clr(collider->activeCollisions[i]);
+            collider->collisions[collision_indices[i]].compute_LLTx(clr);
+            clr.g(clr.Ax() - clr.b());
+            f += clr.lambda().dot(0.5f * clr.Ax() - clr.b());
+            g.segment(clr.mIndices(), 3 * clr.contactNum()) = clr.g();
+            lambda.segment(clr.mIndices(), 3 * clr.contactNum()) = clr.lambda();
+        }
+
+        if (g.norm() < eps) {
+            break;
+        }
+        if ((g - gPrev).norm() < eps) {
+            break;
+        }
+        if ((f - fPrev) > -eps && (f - fPrev) < eps) {
+            break;
+        }
+
+        fPrev = f;
+        gPrev = g;
+        output.rs[iter] = g.norm();
     }
+
+    // FIXME: All that we really need back is output.lambdas for now, but all
+    // will be updated
+    output.iterations = iter;
+    output.lambdas = lambda;
+
+    return output;
 }
 
 void Model::write_state(unsigned int step) {

@@ -8,15 +8,15 @@
 
 namespace apbd {
 
-__host__ ShapeMeshObj::ShapeMeshObj()
+ShapeMeshObj::ShapeMeshObj()
     : F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
-__host__ ShapeMeshObj::ShapeMeshObj(const std::string &filename)
+ShapeMeshObj::ShapeMeshObj(const std::string &filename)
     : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
     readOBJ(filename, this->V, this->F);
 }
 
-__host__ ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
+ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
     F = mesh.F;
     V = mesh.V;
     E_oi = mesh.E_oi;
@@ -25,9 +25,22 @@ __host__ ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
     filename = mesh.filename;
 }
 
-__host__ ShapeMeshObj::~ShapeMeshObj() {}
+ShapeMeshObj::~ShapeMeshObj() {}
 
-__host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
+ShapeMeshObj& ShapeMeshObj::operator=(const ShapeMeshObj& other) {
+    if (this != &other) {
+        F = other.F;
+        V = other.V;
+        E_oi = other.E_oi;
+        E_io = other.E_io;
+        radius = other.radius;
+        filename = other.filename;
+    }
+    
+    return *this;
+}
+
+Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
     const float density) {
     // Instead of calling readOBJ here I will do it in constructor to initialize
     // V, F edit, lets do it anyways readOBJ(filename, V, F);
@@ -124,15 +137,15 @@ __host__ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
     return I;
 }
 
-__host__ float ShapeMeshObj::getAxisSize() const { return 1.0f; }
+float ShapeMeshObj::getAxisSize() const { return 1.0f; }
 
-__host__ Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E,
+Eigen::Vector3f ShapeMeshObj::toCenterLocal(Eigen::Matrix4f E,
                                                      Eigen::Vector4f xl) const {
     Eigen::Vector4f xlc = E * Eigen::Vector4f(xl(0), xl(1), xl(2), 1.0f);
     return xlc.head<3>();
 }
 
-__host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
+bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
                                              const Eigen::Matrix4f Eg) const {
     Eigen::Vector4f xl(0.0f, 0.0f, 0.0f, 1.0f);
     Eigen::Vector4f xw = E * xl;
@@ -146,7 +159,7 @@ __host__ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
     return xg(2) < 1.2f * r;
 }
 
-__host__ cdata_t ShapeMeshObj::narrowphaseGround(
+cdata_t ShapeMeshObj::narrowphaseGround(
     const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
     cuda::std::array<Contact, 8> cdata{};
     size_t contactCount = 0;
@@ -251,7 +264,7 @@ __host__ cdata_t ShapeMeshObj::narrowphaseGround(
     return cuda::std::make_pair(cdata, contactCount);
 }
 
-__host__ bool ShapeMeshObj::broadphaseShapeMesh(
+bool ShapeMeshObj::broadphaseShapeMesh(
     const Eigen::Matrix4f E1, const ShapeMeshObj &other,
     const Eigen::Matrix4f E2) const {
     Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
@@ -265,7 +278,7 @@ __host__ bool ShapeMeshObj::broadphaseShapeMesh(
     return d <= 1.2f * (r1 + r2);
 }
 
-__host__ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
+cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     const Eigen::Matrix4f E1, const ShapeMeshObj &other,
     const Eigen::Matrix4f E2) const {
     cuda::std::array<Contact, 8> cdata{};

@@ -214,6 +214,12 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
 }
 
 inline void ConstraintGroundReference::applyLambdaSP() {}
+inline void ConstraintGroundReference::applyLambda(Eigen::VectorXf dlambdas) {
+    this->lambda(this->lambda() + dlambdas);
+    this->body().v(this->body().v() + this->delLinVel1() * dlambdas);
+    this->body().w(this->body().w() + this->angDelta1() * dlambdas);
+}
+
 
 /*
     FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong
@@ -236,6 +242,14 @@ inline Eigen::Vector3f ConstraintGroundReference::evalCs(float h) {
 inline void ConstraintRigidReference::applyLambdaSP() {
     this->body2().v(this->body2().v() - this->delLinVel2() * this->dlambdaSP());
     this->body2().w(this->body2().w() - this->raXnI2() * this->dlambdaSP());
+}
+
+inline void ConstraintRigidReference::applyLambda(Eigen::VectorXf dlambdas) {
+    this->lambda(this->lambda() + dlambdas);
+    this->body1().v(this->body1().v() + this->delLinVel1() * dlambdas);
+    this->body1().w(this->body1().w() + this->angDelta1() * dlambdas);
+    this->body2().v(this->body2().v() - this->delLinVel2() * dlambdas);
+    this->body2().w(this->body2().w() - this->angDelta2() * dlambdas);
 }
 
 inline void ConstraintRigidReference::init() {

@@ -86,8 +86,8 @@ void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
 void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
                    bool do_variations) {
     _global_scene_count = (size_t)sims;
-    const auto processor_count = std::thread::hardware_concurrency();
-    // const auto processor_count = 1;
+    // const auto processor_count = std::thread::hardware_concurrency();
+    const auto processor_count = 1;
     if (processor_count == 0) {
         throw runtime_error("Failed to detect concurrency.");
     }

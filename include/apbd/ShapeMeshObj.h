@@ -32,6 +32,8 @@ class ShapeMeshObj {
     __host__ ShapeMeshObj(const ShapeMeshObj &mesh);
     __host__ ~ShapeMeshObj();
 
+    __host__ ShapeMeshObj& operator=(const ShapeMeshObj& other);
+
     __host__ Eigen::Matrix<float, 6, 1> computeInertia(const float density);
     __host__ float getAxisSize() const;
     __host__ Eigen::Vector3f toCenterLocal(const Eigen::Matrix4f E,

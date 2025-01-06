@@ -22,16 +22,15 @@ struct ModelBuffers {
     Because we can't use dynamic sized arrays, we will instead store an upper
    bound (in config.h) and a size for each member that represents one
 */
+using vecGPQPf = Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>;
 struct GPQPOutput {
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> iterations;
-    Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambdas;
-    unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
-    unsigned int rs[MAX_COLLISION_CONSTRAINTS];
+    public:
+        vecGPQPf lambdas;
+        vecGPQPf rs;
+        unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
 
-    int iterations_ct;
-    int lambdas_ct;
-    int cgiterations_ct;
-    int rs_ct;
+        size_t iterations;
+        size_t cgiterations_ct;
 };
 
 /**
@@ -41,6 +40,7 @@ struct GPQPOutput {
  */
 class Model {
    public:
+    float t;
     /// Duration of one simulation step
     float h;
     /// Duration of the entire simulation

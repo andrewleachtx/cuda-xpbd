@@ -47,6 +47,7 @@ class ConstraintGroundReference {
 
     // functions on the constraint type
     __host__ __device__ void applyLambdaSP();
+    __host__ __device__ void applyLambda(Eigen::VectorXf dlambdas);
     __host__ __device__ void init();
     __host__ __device__ void solveNorPos(float hs, float biasCoef,
                                          float minpenetration);
@@ -99,6 +100,7 @@ class ConstraintRigidReference {
 
     // functions on the constraint type
     __host__ __device__ void applyLambdaSP();
+    __host__ __device__ void applyLambda(Eigen::VectorXf dlambdas);
     __host__ __device__ void init();
     __host__ __device__ void solveNorPos(float hs, float biasCoef,
                                          float minpenetration,
