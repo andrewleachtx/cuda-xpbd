@@ -142,7 +142,7 @@ void Model::simulate(Collider *collider) {
     for (unsigned int step = 0; step < this->steps; step++) {
         // printf("==== Step %u starting ====\n", step);
         // this->solveConTGS(collider, hs);
-        this->solveConGPQP(collider);
+        this->solveConGPQP(collider, hs);
 
         // for (size_t i = 0; i < this->body_count; i++) {
         //     auto pos = this->bodies[i].get_rigid().position();
@@ -324,69 +324,225 @@ this.collider.collisions{j}.contactNum * 3;
     end
 end
 */
-void Model::solveConGPQP(Collider *collider) {
+// void Model::solveConGPQP(Collider *collider) {
+//     collider->run(this);
+
+//     printf("line: %d\n", __LINE__);
+
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         collider->collisions[collider->activeCollisions[i]].initConstraints(
+//             clr);
+//     }
+
+//     printf("line: %d\n", __LINE__);
+
+//     this->stepBDF1(this->h);
+
+//     printf("line: %d\n", __LINE__);
+
+//     for (size_t i = 0; i < this->constraint_count; i++) {
+//         this->constraints[i].clear();
+//     }
+
+//     // Clear Jacobi updates
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].clearJacobi();
+//     }
+
+//     // Gauss-Seidel solve for non-collision constraints
+//     for (size_t i = 0; i < this->constraint_count; i++) {
+//         this->constraints[i].solve();
+//     }
+
+//     printf("line: %d\n", __LINE__);
+
+//     unsigned int n = 0;
+//     unsigned int ci = 0;
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         clr.index = ci;
+//         clr.mIndices(n);
+//         collider->collisions[collider->activeCollisions[i]].computeJ_b(clr,
+//                                                                        this->h);
+//         ci++;
+//         n += 3 * clr.contactNum();
+//     }
+
+//     printf("line: %d\n", __LINE__);
+
+//     GPQPOutput output = this->GPQP(collider, n);
+//     auto lambdas = output.lambdas;
+
+//     printf("line: %d\n", __LINE__);
+
+//     for (unsigned int i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+
+//         unsigned int len = 3 * clr.contactNum();
+//         unsigned int start = clr.mIndices();
+//         // FIXME: Doubt this device compiles
+//         Eigen::VectorXf lambdai = lambdas.segment(start, len);
+
+//         for (unsigned int k = 0; k < clr.contactNum(); k++) {
+//             collider->collisions[collider->activeCollisions[i]].constraints[k].get_rigid().applyLambda(lambdai.segment(3
+//             * k, 3));
+//         }
+//     }
+
+//     printf("line: %d\n", __LINE__);
+
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].updateStatesDirect(this->h);
+//     }
+
+//     this->t += this->h;
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].integrateStates();
+//     }
+// }
+void Model::solveConGPQP(Collider *collider, float hs) {
+    const float POSINF(1e20), biasCoefficient(2 * sqrt(hs / this->h));
+    // 1) Run the collider
     collider->run(this);
 
+    printf("line: %d\n", __LINE__);
+
+    // 2) Initialize constraints for each collision
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collider->activeCollisions[i]].initConstraints(
             clr);
     }
-
+    
+    // 3) Step BDF1
     this->stepBDF1(this->h);
 
+    // Check if stepping caused NaNs in any body velocity/position
+    for (size_t b = 0; b < this->body_count; b++) {
+        Eigen::Vector3f pos = this->bodies[b].get_rigid().position();
+        if (pos.hasNaN()) {
+            printf("NaN found in body %zu position after stepBDF1.\n", b);
+            exit(1);
+        }
+        // Similarly check velocity, angular velocity, etc. if desired
+    }
+
+    // 4) Clear constraints
     for (size_t i = 0; i < this->constraint_count; i++) {
         this->constraints[i].clear();
     }
 
-    // Clear Jacobi updates
+    // 5) Clear Jacobi updates
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].clearJacobi();
     }
 
-    // Gauss-Seidel solve for non-collision constraints
-    for (size_t i = 0; i < this->constraint_count; i++) {
-        this->constraints[i].solve();
-    }
+    // 6) Gauss-Seidel solve for non-collision constraints - for now use solvecollision nor and tan
+    // for (size_t i = 0; i < this->constraint_count; i++) {
+    //     this->constraints[i].solve();
+    // }
+    for (size_t i = 0; i < collider->active_collision_count; i++) {
+    CollisionReference clr(collider->activeCollisions[i]);
+    collider->collisions[collider->activeCollisions[i]]
+        .solveCollisionNor(clr, hs, biasCoefficient, -POSINF, false);
+    collider->collisions[collider->activeCollisions[i]]
+        .solveCollisionTan(clr, hs, biasCoefficient, false);
+}
 
-    unsigned int n = 1;
-    unsigned int ci = 1;
+    // 7) Assign indexing for collisions and call computeJ_b
+    unsigned int n = 0;
+    unsigned int ci = 0;
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
-        clr.index = ci;
+        // clr.index = ci;
         clr.mIndices(n);
+        
+        // computeJ_b
         collider->collisions[collider->activeCollisions[i]].computeJ_b(clr,
                                                                        this->h);
+
+        // Check collision for NaNs in e.g., clr.b(), clr.J1I(), etc.
+        {
+            // e.g. if clr.b() is an Eigen::VectorXf
+            if (hasNaN(clr.b())) {
+                printf("NaN detected in collision b() at collision i=%zu.\n",
+                       i);
+                exit(1);
+            }
+        }
 
         ci++;
         n += 3 * clr.contactNum();
     }
 
-    n--;
-
+    // 8) Call GPQP
     GPQPOutput output = this->GPQP(collider, n);
-    auto lambdas = output.lambdas;
+    auto lambdas = output.lambdas;  // an Eigen::VectorXf or similar?
 
+    // Check for NaN in the returned lambdas if it's an Eigen vector
+    if (hasNaN(lambdas)) {
+        printf("NaN detected in GPQP output lambdas.\n");
+        exit(1);
+    }
+
+    // 9) Apply lambdas to constraints
     for (unsigned int i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
 
-        unsigned int l = 3 * clr.contactNum() - 1;
-        unsigned int start = clr.mIndices();
-        // FIXME: Doubt this device compiles
-        Eigen::VectorXf lambdai = lambdas.segment(start, l);
+        unsigned int dim = 3 * clr.contactNum();
+        // unsigned int start = clr.mIndices();
+        unsigned int start = i * dim;
+
+        // Copy out the sub-vector from lambdas
+        Eigen::VectorXf lambdai = lambdas.segment(start, dim);
+
+        // Check lambdai for NaNs
+        if (hasNaN(lambdai)) {
+            printf("NaN found in lambdai for collision i=%u.\n", i);
+            exit(1);
+        }
 
         for (unsigned int k = 0; k < clr.contactNum(); k++) {
-            collider->collisions[collider->activeCollisions[i]].constraints[k].get_rigid().applyLambda(lambdai.segment(3 * k, 3));
+            // Each contact's 3-dim sub-lambda
+            Eigen::VectorXf contactLambda = lambdai.segment(3 * k, 3);
+
+            // Check contactLambda
+            if (hasNaN(contactLambda)) {
+                printf(
+                    "NaN found in contactLambda at collision i=%u, contact "
+                    "k=%u\n",
+                    i, k);
+                exit(1);
+            }
+
+            collider->collisions[collider->activeCollisions[i]]
+                .constraints[k]
+                .get_rigid()
+                .applyLambda(contactLambda);
         }
     }
 
+    // 10) Update states
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].updateStatesDirect(this->h);
+        // Optionally check states for NaNs
+        Eigen::Vector3f pos = this->bodies[i].get_rigid().position();
+        if (pos.hasNaN()) {
+            printf("NaN in body %zu position after updateStatesDirect.\n", i);
+            exit(1);
+        }
     }
 
     this->t += this->h;
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].integrateStates();
+        // Optionally check again
+        Eigen::Vector3f pos = this->bodies[i].get_rigid().position();
+        if (pos.hasNaN()) {
+            printf("NaN in body %zu position after integrateStates.\n", i);
+            exit(1);
+        }
     }
 }
 
@@ -614,52 +770,60 @@ output.cgiterations = CGiterVec;
 output.rs = rs;
 end
 */
-__host__ __device__ inline vecGPQPf uniqueTList(vecGPQPf &tList,
-                                                size_t used_count,
-                                                bool do_sort) {
-    thrust::device_ptr<float> tPtr(tList.data());
 
-    if (do_sort) {
-        thrust::sort(tPtr, tPtr + used_count);
+/*
+uniqueDeviceVector should take in a device_vector, a count of how many are used (by reference so we can update)
+and it should get all unique values then sort.
+
+Models MATLAB "uniqueTList = unique(tList,'sorted');" line
+*/
+__host__ __device__ void uniqueDeviceVector(thrust::device_vector<float> &vec, size_t &used_ct) {
+    if (used_ct > vec.size()) {
+        used_ct = vec.size();
+    }
+    auto begin = vec.begin();
+    auto end = begin + used_ct;
+
+    thrust::sort(begin, end);
+
+    auto new_end = thrust::unique(begin, end);
+    size_t unique_count = new_end - begin;
+
+    if (unique_count < used_ct) {
+        thrust::fill(new_end, end, 1e20f);
     }
 
-    auto new_end = thrust::unique(tPtr, tPtr + used_count);
-
-    size_t unique_count = static_cast<size_t>(new_end - tPtr);
-
-    if (unique_count < used_count) {
-        thrust::fill(new_end, tPtr + used_count, 1e20f);
-    }
-
-    return tList;
+    used_ct = unique_count;
 }
 
 GPQPOutput Model::GPQP(Collider *collider, int n) {
+    DEBUG_ASSERT(n <= MAX_COLLISION_CONSTRAINTS,
+                 "GPQP n exceeds constraint limit; overflow");
+
     GPQPOutput output;
-
-    if (n > MAX_COLLISION_CONSTRAINTS) {
-        DEBUG_ASSERT(n < MAX_COLLISION_CONSTRAINTS, "GPQP overflow!");
-    }
-
-    float tol(1e-8f), eps(1e-8f);
-    unsigned int iterMax = this->substeps;
-    unsigned int CGiterMax = 200;
+    output.iterations = 0;
+    output.cgiterations_ct = 0;
 
     unsigned int collision_indices[MAX_COLLISION_CONSTRAINTS];
     size_t coll_ct = 0;
-
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         collision_indices[coll_ct++] = collider->activeCollisions[i];
     }
 
-    float fPrev = 0.0f;
     vecGPQPf gPrev = vecGPQPf::Zero();
     vecGPQPf g = vecGPQPf::Zero();
     vecGPQPf lambda = vecGPQPf::Zero();
+    if (gPrev.hasNaN()) {
+        printf("NaN in gPrev (initial) at line %d\n", __LINE__);
+        exit(1);
+    }
+
+    float fPrev = 0.0f;
 
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].get_rigid().LTx(vec6f::Zero());
     }
+    // FIXME: A bit weird that collison_indices[i] and activeCollisions[i] are interchanged, my fault
     for (size_t i = 0; i < coll_ct; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collision_indices[i]].compute_LTlambda(clr);
@@ -667,30 +831,71 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
     for (size_t i = 0; i < coll_ct; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collision_indices[i]].compute_LLTx(clr);
-        clr.g(clr.Ax() - clr.b());
-        fPrev += clr.lambda().dot(0.5f * clr.Ax() - clr.b());
-        gPrev.segment(clr.mIndices(), 3 * clr.contactNum()) = clr.g();
-    }
 
-    /*
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> iterations;
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambdas;
-        unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
-        unsigned int rs[MAX_COLLISION_CONSTRAINTS];
-    */
-
-    output.cgiterations_ct = 0;
-    const float Inf = 1e20f;
-
-    size_t iter;
-    for (iter = 0; iter < iterMax; iter++) {
-        vecGPQPf tList = vecGPQPf::Constant(Inf);
-        size_t used_ct = 0;
-        for (size_t i = 0; i < coll_ct; i++) {
-            CollisionReference clr(collider->activeCollisions[i]);
-            used_ct += 3 * clr.contactNum();
+        const auto &Ax_cpy = clr.Ax();
+        const auto &b_cpy = clr.b();
+        if (Ax_cpy.hasNaN()) {
+            printf("NaN detected in Ax_local at coll i=%zu, line=%d\n", i,
+                   __LINE__);
+            exit(1);
+        }
+        if (b_cpy.hasNaN()) {
+            printf("NaN detected in b_local at coll i=%zu, line=%d\n", i,
+                   __LINE__);
+            exit(1);
         }
 
+        clr.g(Ax_cpy - b_cpy);
+
+        vec24f g_local = Ax_cpy - b_cpy;
+        if (g_local.hasNaN()) {
+            printf("NaN in g_local=Ax-b at coll i=%zu, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+
+        unsigned int dim = 3 * clr.contactNum();
+        // unsigned int start = clr.mIndices();
+        unsigned int start = i * dim;
+
+        gPrev.segment(start, dim) = g_local.head(dim);
+        if (gPrev.hasNaN()) {
+            printf("NaN introduced in gPrev segment at coll i=%zu, line=%d\n",
+                   i, __LINE__);
+            exit(1);
+        }
+
+        float fPart = clr.lambda().head(dim).dot(0.5f * Ax_cpy.head(dim) -
+                                                 b_cpy.head(dim));
+        if (std::isnan(fPart)) {
+            printf("NaN in fPart at coll i=%zu, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        fPrev += fPart;
+    }
+    const float Inf = 1e20f;
+    float tol(1e-8f), eps(1e-8f);
+    unsigned int iterMax = this->substeps;
+    unsigned int CGiterMax = 200;
+
+    size_t iter = 0;
+    for (iter = 0; iter < iterMax; iter++) {
+        vecGPQPf tList = vecGPQPf::Constant(Inf);
+        if (tList.hasNaN()) {
+            printf("NaN in tList (initialized) at iteration %zu, line=%d\n",
+                   iter, __LINE__);
+            exit(1);
+        }
+
+        // used_ct = sum(3 * contactNum)
+        size_t used_ct = 0;
+        for (size_t c = 0; c < coll_ct; c++) {
+            CollisionReference clr(collider->activeCollisions[c]);
+            used_ct += 3 * clr.contactNum();
+        }
+        // if (used_ct > n) {
+        //     printf("line: %d - used_ct(%zu) > n(%d), clamping\n", __LINE__,
+        //     used_ct, n); used_ct = n;
+        // }
         for (size_t i = 0; i < this->body_count; i++) {
             this->bodies[i].get_rigid().LTx(vec6f::Zero());
         }
@@ -701,18 +906,76 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
         for (size_t i = 0; i < coll_ct; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]].compute_LLTx(clr);
-            clr.g(clr.Ax() - clr.b());
-            tList.segment(clr.mIndices(), 3 * clr.contactNum()) =
+
+            vec24f Ax_local = clr.Ax();
+            vec24f b_local = clr.b();
+            clr.g(Ax_local - b_local);
+
+            if (Ax_local.hasNaN()) {
+                printf("NaN in Ax_local (LLTx) at coll c=%zu, line=%d\n", i,
+                       __LINE__);
+                exit(1);
+            }
+            if (b_local.hasNaN()) {
+                printf("NaN in b_local (LLTx) at coll c=%zu, line=%d\n", i,
+                       __LINE__);
+                exit(1);
+            }
+
+            /*
+                FIXME:
+
+                At this point, for some reason clr.b() is getting set to only zeroes, unlike the first
+                round of this when calculating clr.g(...).
+
+                Because of that, Ax_local - b_local == vec24(0.0f), and the norm of that is of course zero.
+
+                Then a divide by zero occurs in compute_tbar->rayConeIntersection->g_norm = g / g.norm()
+                which produces a NaN.
+            */
+            const auto &tbar_local =
                 collider->collisions[collision_indices[i]].compute_tbar(clr);
+            if (tbar_local.hasNaN()) {
+                printf("NaN in tbar_local at coll c=%zu, line=%d\n", i,
+                       __LINE__);
+                exit(1);
+            }
+
+            unsigned int dim = 3 * clr.contactNum();
+            // unsigned int start = clr.mIndices();
+            unsigned int start = i * dim;
+            if (start + dim <= tList.size()) {
+                tList.segment(start, dim) = tbar_local.head(dim);
+                if (tList.hasNaN()) {
+                    printf(
+                        "NaN introduced in tList after segment at coll c=%zu, "
+                        "line=%d\n",
+                        i, __LINE__);
+                    exit(1);
+                }
+            }
         }
 
-        // using thrust to abstract sort and duplicate detection
-        vecGPQPf tUniqueList = uniqueTList(tList, used_ct, true);
-        float end = tUniqueList(used_ct - 1);
-        if (end != Inf && used_ct < MAX_COLLISION_CONSTRAINTS) {
+        /*
+            FIXME: The line tUniqueList = unique(tList, 'sorted') returns a list
+           of all unique values found in tList, in sorted order. This means the
+           size is refactored as well, and it guarantees that Inf is the last
+           value.
+
+            This needs to be changed, without library abstraction (thrust) it is
+           complex to add efficient sorts, and dynamic resize.
+        */
+        thrust::device_vector<float> tUniqueListVec(tList.data(),
+                                                    tList.data() + used_ct);
+        uniqueDeviceVector(tUniqueListVec, used_ct);
+        vecGPQPf tUniqueList;
+        for (size_t i = 0; i < used_ct; i++) {
+            tUniqueList(i) = tUniqueListVec[i];
+        }
+        if (used_ct > 0 && tUniqueList(used_ct - 1) != Inf &&
+            used_ct < MAX_COLLISION_CONSTRAINTS) {
             tUniqueList(used_ct) = Inf;
         }
-
         float tc = 0.0f;
         for (size_t tIndex = 0; tIndex < used_ct; tIndex++) {
             float t_cur = tUniqueList(tIndex);
@@ -730,8 +993,8 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
             float fPrime = 0.0f;
             float fPrimePrime = 0.0f;
 
-            for (size_t i = 0; i < this->body_count; i++) {
-                this->bodies[i].get_rigid().LTx(vec6f::Zero());
+            for (size_t b = 0; b < this->body_count; b++) {
+                this->bodies[b].get_rigid().LTx(vec6f::Zero());
             }
             for (size_t i = 0; i < coll_ct; i++) {
                 CollisionReference clr(collider->activeCollisions[i]);
@@ -741,42 +1004,55 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
                 CollisionReference clr(collider->activeCollisions[i]);
                 collider->collisions[collision_indices[i]].compute_LLTx(clr);
 
-                const auto &b_cpy = clr.b();
-                const auto &p_cpy = clr.p();
-                const auto &Ax_cpy = clr.Ax();
-                const auto &lambac_cpy = clr.lambdac();
+                auto b_local = clr.b();
+                auto p_local = clr.p();
+                auto Ax_local = clr.Ax();
+                auto lambdac_local = clr.lambdac();
 
-                fPrime -= b_cpy.dot(p_cpy) + lambac_cpy.dot(Ax_cpy);
-                fPrimePrime += p_cpy.dot(Ax_cpy);
+                unsigned int dim = 3 * clr.contactNum();
+                float tmp1 = 0.0f, tmp2 = 0.0f;
+                for (unsigned int dd = 0; dd < dim; dd++) {
+                    tmp1 -= b_local(dd) * p_local(dd);
+                    tmp1 += lambdac_local(dd) * Ax_local(dd);
+                    tmp2 += p_local(dd) * Ax_local(dd);
+                }
+                fPrime += tmp1;
+                fPrimePrime += tmp2;
             }
 
             float deltaTStar = -fPrime / fPrimePrime;
-            if (fPrime > 0) {
+            if (std::isnan(deltaTStar)) {
+                printf("NaN in deltaTStar at line %d\n", __LINE__);
+                exit(1);
+            }
+            if (fPrime > 0.0f) {
                 break;
-            } else if (deltaTStar >= 0 && deltaTStar < t_cur - tc) {
+            } else if (deltaTStar >= 0.0f && deltaTStar < (t_cur - tc)) {
                 tc += deltaTStar;
                 break;
             }
 
             tc = t_cur;
         }
-
         for (size_t i = 0; i < coll_ct; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]].compute_lambdac(clr, tc);
             collider->collisions[collision_indices[i]].compute_lambdad(clr, tc);
-
             clr.lambda(clr.lambdac());
+            // check lambda for NaN
+            auto lam_local = clr.lambda();
+            if (lam_local.hasNaN()) {
+                printf("NaN in clr.lambda() after finalize, i=%zu, line=%d\n",
+                       i, __LINE__);
+                exit(1);
+            }
         }
-
-        // PCG, compute b_cg
+        // PCG
         for (size_t i = 0; i < coll_ct; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]]
                 .compute_degenerate_J1I_J2I_b(clr);
         }
-
-        // Init CG
         for (size_t i = 0; i < this->body_count; i++) {
             this->bodies[i].get_rigid().LTx(vec6f::Zero());
         }
@@ -785,50 +1061,56 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
             collider->collisions[collision_indices[i]]
                 .compute_degenerate_LTlambda(clr);
         }
-        for (size_t i = 0; i < coll_ct; i++) {
-            CollisionReference clr(collider->activeCollisions[i]);
-            collider->collisions[collision_indices[i]].compute_degenerate_LLTx(
+        for (size_t c = 0; c < coll_ct; c++) {
+            CollisionReference clr(collider->activeCollisions[c]);
+            collider->collisions[collision_indices[c]].compute_degenerate_LLTx(
                 clr);
+
             clr.r_cg(clr.Ax() - clr.b_cg());
-            // this.collider.collisions{i}.g_cg =
-            // this.collider.collisions{i}.Minv_cg .*
-            // this.collider.collisions{i}.r_cg;
-            // FIXME: Minv_cg .* r_cg means element-wise multiplication, not
-            // sure if this works
             clr.g_cg(clr.Minv_cg().cwiseProduct(clr.r_cg()));
             clr.d_cg(-clr.g_cg());
+
+            if (clr.r_cg().hasNaN()) {
+                printf("NaN in r_cg at coll c=%zu, line=%d\n", c, __LINE__);
+                exit(1);
+            }
+            if (clr.g_cg().hasNaN()) {
+                printf("NaN in g_cg at coll c=%zu, line=%d\n", c, __LINE__);
+                exit(1);
+            }
+            if (clr.d_cg().hasNaN()) {
+                printf("NaN in d_cg at coll c=%zu, line=%d\n", c, __LINE__);
+                exit(1);
+            }
         }
-
         // CG iterations
-        unsigned int CGiter;
-        for (CGiter = 0; CGiter < CGiterMax; CGiter++) {
-            float r = 0.0f;
-            for (size_t i = 0; i < coll_ct; i++) {
-                // The A ./ B divides all elements in A by B, so this is the
-                // inverse
-                CollisionReference clr(collider->activeCollisions[i]);
-                auto M = clr.Minv_cg().cwiseInverse();
-                auto r_cg = clr.r_cg();
+        unsigned int CGiter = 0;
+        for (; CGiter < CGiterMax; CGiter++) {
+            float r_val = 0.0f;
 
-                // Indexing into a vec24f (r_cg) with a vec24b (freeIndex) in
-                // MATLAB will only select the true values, so we need to do
-                // this manually
-                // FIXME: r_cg(j)' * M(j) * r_cg might be more like r_cg.dot(M)
-                // * r_cg, although these should be equivalent
-                const vec24b &freeIndex = clr.freeIndex();
-                for (size_t j = 0; j < 24; j++) {
+            for (size_t i = 0; i < coll_ct; i++) {
+                CollisionReference clr(collider->activeCollisions[i]);
+                vec24f M = clr.Minv_cg().cwiseInverse();
+                auto r_cg_local = clr.r_cg();
+                auto freeIndex = clr.freeIndex();
+
+                for (int j = 0; j < 24; j++) {
                     if (freeIndex(j)) {
-                        r += r_cg(j) * M(j) * r_cg(j);
+                        r_val += r_cg_local(j) * M(j) * r_cg_local(j);
                     }
                 }
             }
-
-            if (r < tol) {
+            if (std::isnan(r_val)) {
+                printf("NaN in r_val during PCG at line=%d, CGiter=%u\n",
+                       __LINE__, CGiter);
+                exit(1);
+            }
+            if (r_val < tol) {
                 break;
             }
 
-            for (size_t i = 0; i < this->body_count; i++) {
-                this->bodies[i].get_rigid().LTx(vec6f::Zero());
+            for (size_t b = 0; b < this->body_count; b++) {
+                this->bodies[b].get_rigid().LTx(vec6f::Zero());
             }
             for (size_t i = 0; i < coll_ct; i++) {
                 CollisionReference clr(collider->activeCollisions[i]);
@@ -842,24 +1124,42 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
                 collider->collisions[collision_indices[i]]
                     .compute_degenerate_LLTx(clr);
 
-                // FIXME: same as last
+                const auto &r_cg_local = clr.r_cg();
+                const auto &g_cg_local = clr.g_cg();
+                const auto &d_cg_local = clr.d_cg();
+                const auto &Ax_local = clr.Ax();
                 const auto &freeIndex = clr.freeIndex();
-                for (size_t j = 0; j < 24; j++) {
+
+                for (int j = 0; j < 24; j++) {
                     if (freeIndex(j)) {
-                        numerator += clr.r_cg()(j) * clr.g_cg()(j);
-                        denominator += clr.d_cg()(j) * clr.Ax()(j);
+                        numerator += r_cg_local(j) * g_cg_local(j);
+                        denominator += d_cg_local(j) * Ax_local(j);
                     }
                 }
             }
+            if (std::isnan(numerator) || std::isnan(denominator)) {
+                printf(
+                    "NaN in numerator/denominator in PCG at line=%d, "
+                    "CGiter=%u\n",
+                    __LINE__, CGiter);
+                exit(1);
+            }
 
             float alpha = numerator / denominator;
+            if (std::isnan(alpha)) {
+                printf("NaN in alpha in PCG at line=%d, CGiter=%u\n", __LINE__,
+                       CGiter);
+                exit(1);
+            }
 
             bool feasible = true;
             for (size_t i = 0; i < coll_ct; i++) {
                 CollisionReference clr(collider->activeCollisions[i]);
-                feasible &=
-                    collider->collisions[collision_indices[i]].update_cg(clr,
-                                                                         alpha);
+                bool ok = collider->collisions[collision_indices[i]].update_cg(
+                    clr, alpha);
+                if (!ok) {
+                    feasible = false;
+                }
             }
             if (!feasible) {
                 break;
@@ -867,37 +1167,86 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
 
             numerator = 0.0f;
             denominator = 0.0f;
+
             for (size_t i = 0; i < coll_ct; i++) {
                 CollisionReference clr(collider->activeCollisions[i]);
-                const auto &freeIndex = clr.freeIndex();
+                auto freeIndex = clr.freeIndex();
 
-                for (size_t j = 0; j < 24; j++) {
+                if (std::isnan(alpha)) {
+                    printf("NaN in alpha at line=%d, CGiter=%u, i=%zu\n",
+                           __LINE__, CGiter, i);
+                    exit(1);
+                }
+
+                vec24f Ax_local = clr.Ax();
+                if (Ax_local.hasNaN()) {
+                    printf("NaN in Ax_local at line=%d, CGiter=%u, i=%zu\n",
+                           __LINE__, CGiter, i);
+                    exit(1);
+                }
+
+                vec24f new_r = clr.r_cg() + alpha * Ax_local;
+                if (new_r.hasNaN()) {
+                    printf(
+                        "NaN in new_r (r_cg + alpha * Ax) at line=%d, "
+                        "CGiter=%u, i=%zu\n",
+                        __LINE__, CGiter, i);
+                    printf("alpha = %.6f\n", alpha);
+                    exit(1);
+                }
+                clr.r_cg(new_r);
+
+                vec24f Minv_cg_local = clr.Minv_cg();
+                if (Minv_cg_local.hasNaN()) {
+                    printf("NaN in Minv_cg at line=%d, CGiter=%u, i=%zu\n",
+                           __LINE__, CGiter, i);
+                    exit(1);
+                }
+
+                vec24f g_cg_local = Minv_cg_local.cwiseProduct(new_r);
+                if (g_cg_local.hasNaN()) {
+                    printf(
+                        "NaN in g_cg (Minv_cg * new_r) at line=%d, CGiter=%u, "
+                        "i=%zu\n",
+                        __LINE__, CGiter, i);
+                    exit(1);
+                }
+                clr.g_cg(g_cg_local);
+
+                for (int j = 0; j < 24; j++) {
                     if (freeIndex(j)) {
-                        denominator += clr.r_cg()(j) * clr.g_cg()(j);
-                        clr.r_cg(clr.r_cg() + alpha * clr.Ax());
-                        clr.g_cg(clr.Minv_cg().cwiseProduct(clr.r_cg()));
-                        numerator += clr.r_cg()(j) * clr.g_cg()(j);
+                        denominator += new_r(j) * g_cg_local(j);
                     }
                 }
             }
+            if (std::isnan(denominator)) {
+                printf(
+                    "NaN in denominator after update at line=%d, CGiter=%u\n",
+                    __LINE__, CGiter);
+                exit(1);
+            }
+
+            numerator = denominator;
 
             float beta = numerator / denominator;
+            if (std::isnan(beta)) {
+                printf("NaN in beta in PCG at line=%d, CGiter=%u\n", __LINE__,
+                       CGiter);
+                exit(1);
+            }
             for (size_t i = 0; i < coll_ct; i++) {
                 CollisionReference clr(collider->activeCollisions[i]);
                 clr.d_cg(-clr.g_cg() + beta * clr.d_cg());
             }
         }
+        if (output.cgiterations_ct < MAX_COLLISION_CONSTRAINTS) {
+            output.cgiterations[output.cgiterations_ct++] = CGiter;
+        }
 
-        // FIXME: eh
-        output.cgiterations[output.cgiterations_ct++] = CGiter;
-
-        // Project to feasible region
         for (size_t i = 0; i < coll_ct; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]].project(clr);
         }
-
-        // Test if results satisfy the KKT conditions
         float f = 0.0f;
         for (size_t i = 0; i < this->body_count; i++) {
             this->bodies[i].get_rigid().LTx(vec6f::Zero());
@@ -909,19 +1258,58 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
         for (size_t i = 0; i < coll_ct; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collision_indices[i]].compute_LLTx(clr);
-            clr.g(clr.Ax() - clr.b());
-            f += clr.lambda().dot(0.5f * clr.Ax() - clr.b());
-            g.segment(clr.mIndices(), 3 * clr.contactNum()) = clr.g();
-            lambda.segment(clr.mIndices(), 3 * clr.contactNum()) = clr.lambda();
+
+            vec24f Ax_local = clr.Ax();
+            vec24f b_local = clr.b();
+            vec24f lam_local = clr.lambda();
+
+            vec24f g_local = Ax_local - b_local;
+            clr.g(g_local);
+
+            unsigned int dim = 3 * clr.contactNum();
+            float fPart = 0.0f;
+            for (unsigned int dd = 0; dd < dim; dd++) {
+                fPart += lam_local(dd) * (0.5f * Ax_local(dd) - b_local(dd));
+            }
+            if (std::isnan(fPart)) {
+                printf("NaN in fPart for collision i=%zu, line=%d\n", i,
+                       __LINE__);
+                exit(1);
+            }
+            f += fPart;
+
+            // unsigned int start = clr.mIndices();
+            unsigned int start = i * dim;
+            if (start + dim <= n) {
+                g.segment(start, dim) = g_local.head(dim);
+                lambda.segment(start, dim) = lam_local.head(dim);
+
+                if (g.hasNaN()) {
+                    printf("NaN introduced in g during KKT check, line=%d\n",
+                           __LINE__);
+                    exit(1);
+                }
+                if (lambda.hasNaN()) {
+                    printf(
+                        "NaN introduced in lambda during KKT check, line=%d\n",
+                        __LINE__);
+                    exit(1);
+                }
+            }
         }
 
+        // Compare g with eps
         if (g.norm() < eps) {
+            printf("line: %d - g.norm() < eps, break.\n", __LINE__);
             break;
         }
         if ((g - gPrev).norm() < eps) {
+            printf("line: %d - (g - gPrev).norm() < eps, break.\n", __LINE__);
             break;
         }
-        if ((f - fPrev) > -eps && (f - fPrev) < eps) {
+        float df = f - fPrev;
+        if (df > -eps && df < eps) {
+            printf("line: %d - df in [-eps, eps], break.\n", __LINE__);
             break;
         }
 
@@ -930,13 +1318,370 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
         output.rs[iter] = g.norm();
     }
 
-    // FIXME: All that we really need back is output.lambdas for now, but all
-    // will be updated
-    output.iterations = iter;
+    output.iterations = static_cast<unsigned int>(iter);
     output.lambdas = lambda;
 
     return output;
 }
+
+// GPQPOutput Model::GPQP(Collider *collider, int n) {
+//     DEBUG_ASSERT(n <= MAX_COLLISION_CONSTRAINTS, "GPQP n exceeds constraint
+//     limit; overflow");
+
+//     GPQPOutput output;
+//     output.iterations = 0;
+//     output.cgiterations_ct = 0;
+
+//     unsigned int collision_indices[MAX_COLLISION_CONSTRAINTS];
+//     size_t coll_ct = 0;
+
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         collision_indices[coll_ct++] = collider->activeCollisions[i];
+//     }
+
+//     vecGPQPf gPrev = vecGPQPf::Zero();
+//     vecGPQPf g = vecGPQPf::Zero();
+//     vecGPQPf lambda = vecGPQPf::Zero();
+
+//     float fPrev = 0.0f;
+
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].get_rigid().LTx(vec6f::Zero());
+//     }
+//     for (size_t i = 0; i < coll_ct; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         collider->collisions[collision_indices[i]].compute_LTlambda(clr);
+//     }
+//     for (size_t i = 0; i < coll_ct; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         collider->collisions[collision_indices[i]].compute_LLTx(clr);
+
+//         const auto& Ax_local = clr.Ax();
+//         const auto& b_local  = clr.b();
+//         vec24f g_local = Ax_local - b_local;
+
+//         // store g into the big gPrev vector
+//         unsigned int start = clr.mIndices();
+//         unsigned int dim = 3 * clr.contactNum();
+//         gPrev.segment(start, dim) = g_local.head(dim);
+
+//         // fPrev += lambda' * (0.5f*Ax - b)
+//         float fPart = clr.lambda().head(dim).dot( 0.5f * Ax_local.head(dim) -
+//         b_local.head(dim) ); fPrev += fPart;
+//     }
+
+//     const float Inf = 1e20f;
+//     float tol(1e-8f), eps(1e-8f);
+//     unsigned int iterMax = this->substeps;
+//     unsigned int CGiterMax = 200;
+
+//     size_t iter = 0;
+//     for (iter = 0; iter < iterMax; iter++) {
+//         vecGPQPf tList = vecGPQPf::Constant(Inf);
+
+//         size_t used_ct = 0;
+//         for (size_t c = 0; c < coll_ct; c++) {
+//             CollisionReference clr(collider->activeCollisions[c]);
+//             used_ct += 3 * clr.contactNum();
+//         }
+//         if (used_ct > n) {
+//             printf("used_ct > n, %zu > %d clamping\n", used_ct, n);
+//             used_ct = n;
+//         }
+
+//         for (size_t i = 0; i < this->body_count; i++) {
+//             this->bodies[i].get_rigid().LTx(vec6f::Zero());
+//         }
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_LTlambda(clr);
+//         }
+//         for (size_t c = 0; c < coll_ct; c++) {
+//             CollisionReference clr(collider->activeCollisions[c]);
+//             collider->collisions[collision_indices[c]].compute_LLTx(clr);
+
+//             vec24f Ax_local = clr.Ax();
+//             vec24f b_local  = clr.b();
+//             vec24f g_local  = Ax_local - b_local;
+//             clr.g(g_local);
+
+//             const auto& tbar_local =
+//             collider->collisions[collision_indices[c]].compute_tbar(clr);
+//             unsigned int dim = 3 * clr.contactNum();
+//             unsigned int start = clr.mIndices();
+//             tList.segment(start, dim) = tbar_local.head(dim);
+//         }
+
+//         // auto tUniqueList = uniqueTList(tList, used_ct, true);
+//         vecGPQPf tUniqueList;
+//         thrust::device_vector<float> tUniqueListVec(tList.data(),
+//         tList.data() + used_ct); uniqueDeviceVector(tUniqueListVec, used_ct,
+//         true);
+
+//         // cpy back
+//         for (size_t i = 0; i < used_ct; i++) {
+//             tUniqueList(i) = tUniqueListVec[i];
+//         }
+
+//         // tUniqueList = vecGPQPf(tUniqueListVec.data().get());
+
+//         if (used_ct > 0 && tUniqueList(used_ct - 1) != Inf && used_ct <
+//         MAX_COLLISION_CONSTRAINTS) {
+//             tUniqueList(used_ct) = Inf;
+//         }
+
+//         printf("line %d\n", __LINE__);
+
+//         float tc = 0.0f;
+//         for (size_t tIndex = 0; tIndex < used_ct; tIndex++) {
+//             float t_cur = tUniqueList(tIndex);
+//             if (t_cur >= Inf) {
+//                 break;
+//             }
+
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 collider->collisions[collision_indices[i]].compute_p(clr,
+//                 tc);
+//                 collider->collisions[collision_indices[i]].compute_lambdac(clr,
+//                 tc);
+//             }
+
+//             float fPrime = 0.0f;
+//             float fPrimePrime = 0.0f;
+
+//             for (size_t b = 0; b < this->body_count; b++) {
+//                 this->bodies[b].get_rigid().LTx(vec6f::Zero());
+//             }
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 collider->collisions[collision_indices[i]].compute_LTp(clr);
+//             }
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 collider->collisions[collision_indices[i]].compute_LLTx(clr);
+
+//                 auto b_local = clr.b();
+//                 auto p_local = clr.p();
+//                 auto Ax_local= clr.Ax();
+//                 auto lambdac_local = clr.lambdac();
+
+//                 unsigned int dim = 3 * clr.contactNum();
+//                 float tmp1 = 0.0f, tmp2 = 0.0f;
+//                 for (unsigned int dd = 0; dd < dim; dd++) {
+//                     tmp1 -= b_local(dd) * p_local(dd);
+//                     tmp1 += lambdac_local(dd) * Ax_local(dd);
+//                     tmp2 += p_local(dd) * Ax_local(dd);
+//                 }
+//                 fPrime += tmp1;
+//                 fPrimePrime += tmp2;
+//             }
+
+//             float deltaTStar = -fPrime / fPrimePrime;
+//             if (fPrime > 0.0f) {
+//                 break;
+//             } else if (deltaTStar >= 0.0f && deltaTStar < (t_cur - tc)) {
+//                 tc += deltaTStar;
+//                 break;
+//             }
+
+//             tc = t_cur;
+//         }
+
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_lambdac(clr,
+//             tc);
+//             collider->collisions[collision_indices[i]].compute_lambdad(clr,
+//             tc);
+
+//             clr.lambda(clr.lambdac());
+//         }
+
+//         // PCG
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_degenerate_J1I_J2I_b(clr);
+//         }
+
+//         // Init CG
+//         for (size_t i = 0; i < this->body_count; i++) {
+//             this->bodies[i].get_rigid().LTx(vec6f::Zero());
+//         }
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_degenerate_LTlambda(clr);
+//         }
+//         for (size_t c = 0; c < coll_ct; c++) {
+//             CollisionReference clr(collider->activeCollisions[c]);
+//             collider->collisions[collision_indices[c]].compute_degenerate_LLTx(clr);
+
+//             clr.r_cg(clr.Ax() - clr.b_cg());
+//             clr.g_cg(clr.Minv_cg().cwiseProduct(clr.r_cg()));
+//             clr.d_cg(-clr.g_cg());
+//         }
+
+//         // CG iterations
+//         unsigned int CGiter = 0;
+//         for (CGiter = 0; CGiter < CGiterMax; CGiter++) {
+//             float r_val = 0.0f;
+
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+
+//                 // The A ./ B divides all elements in A by B, so this is the
+//                 // inverse
+//                 vec24f M = clr.Minv_cg().cwiseInverse();
+//                 auto r_cg_local = clr.r_cg();
+//                 auto freeIndex  = clr.freeIndex();
+
+//                 // Indexing into a vec24f (r_cg) with a vec24b (freeIndex) in
+//                 // MATLAB will only select the true values, so we need to do
+//                 // this manually
+//                 for (int j = 0; j < 24; j++) {
+//                     if (freeIndex(j)) {
+//                         r_val += r_cg_local(j) * M(j) * r_cg_local(j);
+//                     }
+//                 }
+//             }
+
+//             if (r_val < tol) {
+//                 break;
+//             }
+
+//             for (size_t i = 0; i < this->body_count; i++) {
+//                 this->bodies[i].get_rigid().LTx(vec6f::Zero());
+//             }
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 collider->collisions[collision_indices[i]].compute_LTd_cg(clr);
+//             }
+
+//             float numerator = 0.0f;
+//             float denominator = 0.0f;
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 collider->collisions[collision_indices[i]].compute_degenerate_LLTx(clr);
+
+//                 const auto& r_cg_local = clr.r_cg();
+//                 const auto& g_cg_local = clr.g_cg();
+//                 const auto& d_cg_local = clr.d_cg();
+//                 const auto& Ax_local   = clr.Ax();
+//                 const auto& freeIndex  = clr.freeIndex();
+
+//                 for (int j = 0; j < 24; j++) {
+//                     if (freeIndex(j)) {
+//                         numerator   += r_cg_local(j) * g_cg_local(j);
+//                         denominator += d_cg_local(j) * Ax_local(j);
+//                     }
+//                 }
+//             }
+
+//             float alpha = numerator / denominator;
+
+//             // feasible = update_cg(alpha)
+//             bool feasible = true;
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 bool ok =
+//                 collider->collisions[collision_indices[i]].update_cg(clr,
+//                 alpha); if (!ok) {
+//                     feasible = false;
+//                 }
+//             }
+//             if (!feasible) {
+//                 break;
+//             }
+
+//             numerator   = 0.0f;
+//             denominator = 0.0f;
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 auto freeIndex = clr.freeIndex();
+
+//                 vec24f new_r = clr.r_cg() + alpha * clr.Ax();
+//                 clr.r_cg(new_r);
+//                 clr.g_cg(clr.Minv_cg().cwiseProduct(new_r));
+
+//                 for (int j = 0; j < 24; j++) {
+//                     if (freeIndex(j)) {
+//                         denominator += clr.r_cg()(j) * clr.g_cg()(j);
+//                     }
+//                 }
+//             }
+//             numerator = denominator;
+
+//             float beta = numerator / denominator;
+//             for (size_t i = 0; i < coll_ct; i++) {
+//                 CollisionReference clr(collider->activeCollisions[i]);
+//                 clr.d_cg(-clr.g_cg() + beta * clr.d_cg());
+//             }
+//         }
+
+//         if (output.cgiterations_ct < MAX_COLLISION_CONSTRAINTS) {
+//             output.cgiterations[output.cgiterations_ct++] = CGiter;
+//         }
+
+//         // Project to feasible region
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].project(clr);
+//         }
+
+//         float f = 0.0f;
+//         for (size_t i = 0; i < this->body_count; i++) {
+//             this->bodies[i].get_rigid().LTx(vec6f::Zero());
+//         }
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_LTlambda(clr);
+//         }
+//         for (size_t i = 0; i < coll_ct; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collision_indices[i]].compute_LLTx(clr);
+
+//             vec24f Ax_local = clr.Ax();
+//             vec24f b_local  = clr.b();
+//             vec24f lam_local= clr.lambda();
+
+//             vec24f g_local = Ax_local - b_local;
+//             clr.g(g_local);
+
+//             unsigned int dim = 3 * clr.contactNum();
+//             float fPart = 0.0f;
+//             for (unsigned int dd = 0; dd < dim; dd++) {
+//                 fPart += lam_local(dd) * (0.5f * Ax_local(dd) - b_local(dd));
+//             }
+//             f += fPart;
+
+//             unsigned int start = clr.mIndices();
+//             if (start + dim <= n) {
+//                 g.segment(start, dim) = g_local.head(dim);
+//                 lambda.segment(start, dim)  = lam_local.head(dim);
+//             }
+//         }
+
+//         if (g.norm() < eps) {
+//             break;
+//         }
+//         if ((g - gPrev).norm() < eps) {
+//             break;
+//         }
+//         float df = f - fPrev;
+//         if (df > -eps && df < eps) {
+//             break;
+//         }
+
+//         fPrev = f;
+//         gPrev = g;
+//         output.rs[iter] = g.norm();
+//     }
+
+//     output.iterations = static_cast<unsigned int>(iter);
+//     output.lambdas = lambda;
+
+//     return output;
+// }
 
 void Model::write_state(unsigned int step) {
 #ifdef WRITE

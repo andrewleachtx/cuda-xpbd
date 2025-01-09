@@ -29,6 +29,9 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintGroundReference,
                            ConstraintGround, angDelta1)
 IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintGroundReference,
                            ConstraintGround, raXnI1)
+IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintGroundReference,
+                           ConstraintGround, raXn)
+
 
 IMPLEMENT_ACCESS_FUNCTIONS(CollisionReference, ConstraintGroundReference,
                            ConstraintGround, collision)
@@ -74,6 +77,42 @@ IMPLEMENT_ACCESS_FUNCTIONS(Eigen::Matrix3f, ConstraintRigidReference,
 IMPLEMENT_ACCESS_FUNCTIONS(CollisionReference, ConstraintRigidReference,
                            ConstraintRigid, collision)
 
+/*
+FIXME: Update
+function init(this, h, hs)
+    this.d = this.body.transformPoint(this.xl) - this.xw;
+    this.dt = this.d / h;
+    scale = min([0.8 2 * sqrt(hs / h)]);
+    if this.nw' * this.d <= 0
+        this.biasCoefficient = -scale / hs;
+    else
+        this.biasCoefficient = -1 / hs;
+    end
+    this.lambda = zeros(3,1);
+    [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
+    this.contactFrame = [this.nw, tanx, tany];
+    this.mu = this.body.mu;
+
+    m1 = this.body.Mp;
+    I1 = this.body.Mr;
+    q1 = this.body.x0(1:4);
+    rl1 = this.xl;
+
+    for i = 1:3
+        nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
+        rnl1 = se3.cross(rl1,nl1);
+        this.raXnI(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
+        this.w1(i) = (1/m1) + this.raXnI(:,i)' * this.raXnI(:,i);
+        this.raXn(:,i) = se3.qRot(q1,rnl1);
+        
+        this.delLinVel1(:,i) = this.contactFrame(:,i) / m1;
+        this.angDelta1(:,i) = se3.qRot(q1,(I1.\rnl1));
+    end
+    if isinf(m1)
+        this.w1 = ones(3,1);
+    end
+    end
+*/
 inline void ConstraintGroundReference::init() {
     // cached values
     Eigen::Vector3f nw = this->nw();
@@ -98,6 +137,7 @@ inline void ConstraintGroundReference::init() {
     Eigen::Vector3f w1;
     Eigen::Matrix3f delLinVel1;
     Eigen::Matrix3f angDelta1;
+    Eigen::Matrix3f raXn;
 
     for (unsigned int i = 0; i < 3; i++) {
         Eigen::Vector3f contactFrame_row =
@@ -109,6 +149,8 @@ inline void ConstraintGroundReference::init() {
 
         w1(i) = (1 / m1) +
                 raXnI1.block<3, 1>(0, i).transpose() * raXnI1.block<3, 1>(0, i);
+
+        raXn.block<3, 1>(0, i) = q1 * rnl1;
         delLinVel1.block<3, 1>(0, i) = contactFrame_row / m1;
         angDelta1.block<3, 1>(0, i) = q1 * (rnl1.array() / I1.array());
     }
@@ -117,6 +159,7 @@ inline void ConstraintGroundReference::init() {
     this->w1(w1);
     this->delLinVel1(delLinVel1);
     this->angDelta1(angDelta1);
+    this->raXn(raXn);
 }
 
 inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
@@ -130,7 +173,7 @@ inline void ConstraintGroundReference::solveNorPos(float hs, float biasCoef,
     Eigen::Vector3f bodyw = body.w();
     Eigen::Vector3f d = this->d();
     float w1_0 = this->w1()(0);
-    Eigen::Vector3f raXnI1_0 = this->raXnI1().block<3, 1>(0, 0);
+    Eigen::Vector3f raXnI1_0 = this->raXn().block<3, 1>(0, 0);
     Eigen::Vector3f delLinVel1_0 = this->delLinVel1().block<3, 1>(0, 0);
     Eigen::Vector3f bodydeltaLinDt = body.deltaLinDt();
     Eigen::Vector3f bodydeltaAngDt = body.deltaAngDt();
@@ -172,7 +215,7 @@ inline void ConstraintGroundReference::solveTanVel(float hs, float biasCoef) {
     Eigen::Vector3f bodyw = body.w();
     Eigen::Vector3f d = this->d();
     Eigen::Vector3f w1 = this->w1();
-    Eigen::Matrix3f raXnI1 = this->raXnI1();
+    Eigen::Matrix3f raXnI1 = this->raXn();
     Eigen::Matrix3f delLinVel1 = this->delLinVel1();
     Eigen::Vector3f bodydeltaLinDt = body.deltaLinDt();
     Eigen::Vector3f bodydeltaAngDt = body.deltaAngDt();
@@ -222,13 +265,12 @@ inline void ConstraintGroundReference::applyLambda(Eigen::VectorXf dlambdas) {
 
 
 /*
-    FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong
     TODO: Performing a division here each time for d() / h, pass in 1/h or just
    store
 */
 inline Eigen::Vector3f ConstraintGroundReference::evalCs(float h) {
     auto c_frame = this->contactFrame();
-    auto raXn = this->raXnI1();
+    auto raXn = this->raXn();
     auto v = this->body().v();
     auto w = this->body().w();
 
@@ -524,7 +566,6 @@ inline void ConstraintRigidReference::solveTanVel(float hs, float biasCoef,
 }
 
 /*
-    FIXME: I am using raXnI1 instead of adding a new raXn, this could be wrong
     TODO: Performing a division here each time for d() / h, pass in 1/h or just
    store
 */

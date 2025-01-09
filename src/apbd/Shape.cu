@@ -347,6 +347,9 @@ Eigen::Matrix<float, 6, 1> Shape::computeInertia(const float density) const {
         case SHAPE_MESHOBJ: {
             return data.meshObj->computeInertia(density);
         }
+        case SHAPE_TWOCUBOID: {
+            return data.twoCuboid.computeInertia(density);
+        }
         default:
             return Eigen::Matrix<float, 6, 1>();
     }

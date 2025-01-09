@@ -23,6 +23,14 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   include(CTest)
 endif()
 
+# Optionally use ccache
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+else()
+    message(STATUS "Feel free to sudo apt install ccache if you want faster compilation times.")
+endif()
+
 # Uncomment on first build to fetch Eigen
 # FetchContent_Declare(
 #   Eigen-git
@@ -37,7 +45,7 @@ file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h 
 add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
-# SET TO YOUR COAL LOCATION
+# Set to your coal path
 set(COAL_PATH "/home/andyleach/pkgs/coal/install")
 if (NOT EXISTS ${COAL_PATH})
     message(FATAL_ERROR "${COAL_PATH} not found, did you forget to change COAL_PATH in CMakeLists.txt?")

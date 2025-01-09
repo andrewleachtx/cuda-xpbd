@@ -42,6 +42,7 @@ class ConstraintGroundReference {
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, delLinVel1)
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, angDelta1)
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, raXnI1)
+    DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(Eigen::Matrix3f, raXn)
 
     DECLARE_CONSTRAINT_ACCESS_FUNCTIONS(CollisionReference, collision)
 

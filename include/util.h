@@ -31,6 +31,21 @@
 #define DEBUG_PRINTS
 
 #ifdef DEBUG_PRINTS
+
+// Could just use Eigen.hasNaN() method but eh
+static inline bool hasNaN(const Eigen::VectorXf &v) {
+    for (int i = 0; i < v.size(); i++) {
+        if (std::isnan(v[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static inline bool isNanFloat(float val) {
+    return std::isnan(val);
+}
+
 /// Prints an Eigen::VectorNf where N is given
 #define DEBUG_VEC(vec, n)             \
     {                                 \

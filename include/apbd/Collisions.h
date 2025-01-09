@@ -22,8 +22,8 @@ struct alignas(16) Collision {
     __host__ __device__ bool is_ground(CollisionReference clr);
 
     __host__ __device__ void getConstraints(CollisionReference clr,
-                                            size_t &ground_count,
-                                            size_t &rigid_count);
+                                            size_t& ground_count,
+                                            size_t& rigid_count);
 
     __host__ __device__ void solveCollisionNor(CollisionReference clr, float hs,
                                                float biasCoeff,
@@ -49,7 +49,6 @@ struct alignas(16) Collision {
     __host__ __device__ void compute_LLTx(CollisionReference clr);
     __host__ __device__ void compute_degenerate_LLTx(CollisionReference clr);
 
-    // FIXME: compute_tbar returns a "tbar_i"
     __host__ __device__ vec24f compute_tbar(CollisionReference clr);
     __host__ __device__ void compute_lambdac(CollisionReference clr, float t);
     __host__ __device__ void compute_lambdad(CollisionReference clr, float t);
@@ -57,6 +56,9 @@ struct alignas(16) Collision {
 
     __host__ __device__ void project(CollisionReference clr);
     __host__ __device__ bool update_cg(CollisionReference clr, float alpha);
+    __host__ __device__ float rayConeIntersection(const Eigen::Vector3f& x,
+                                                  const Eigen::Vector3f& g,
+                                                  float mu);
 };
 
 }  // namespace apbd

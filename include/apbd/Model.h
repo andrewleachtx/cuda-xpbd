@@ -25,12 +25,14 @@ struct ModelBuffers {
 using vecGPQPf = Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>;
 struct GPQPOutput {
     public:
-        vecGPQPf lambdas;
-        vecGPQPf rs;
-        unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
+        unsigned int iterations;
 
-        size_t iterations;
-        size_t cgiterations_ct;
+        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambdas;
+
+        unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
+        unsigned int cgiterations_ct;
+
+        float rs[MAX_COLLISION_CONSTRAINTS];
 };
 
 /**
@@ -69,7 +71,7 @@ class Model {
     __host__ __device__ void solveConSP(float hs);
     __host__ __device__ void solveConGS(Collider *collider, float hs);
     __host__ __device__ void solveConTGS(Collider *collider, float hs);
-    __host__ __device__ void solveConGPQP(Collider *collider);
+    __host__ __device__ void solveConGPQP(Collider *collider, float hs);
     __host__ __device__ GPQPOutput GPQP(Collider *collider, int n);
 
     /**

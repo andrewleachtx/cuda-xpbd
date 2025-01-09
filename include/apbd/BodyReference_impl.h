@@ -63,9 +63,6 @@ inline void BodyRigidReference::init(vec7 xInit) {
     this->position(xInit.block<3, 1>(4, 0));
     this->rotation(Eigen::Quaternionf(xInit.block<4, 1>(0, 0)));
 
-    // printf("Initializing rot with xInit.block<4, 1>(0, 0) aka %f %f %f %f\n",
-    //        xInit(0), xInit(1), xInit(2), xInit(3));
-
     this->x0(xInit);
 }
 
@@ -103,16 +100,6 @@ inline void BodyRigidReference::stepBDF1(const float h,
     diag(2, 2) = sqrtMr(2);
 
     auto sqrtIntertia = R * diag * R.transpose();
-
-    // printf("m = %f\n", m);
-    // printf("f = %f %f %f\n", f(0), f(1), f(2));
-    // printf("v = %f %f %f\n", v(0), v(1), v(2));
-    // printf("this->w = %f %f %f\n", this->w()(0), this->w()(1), this->w()(2));
-    // printf("sqrtInertia = %f %f %f\n", sqrtIntertia(0, 0), sqrtIntertia(1,
-    // 1),
-    //        sqrtIntertia(2, 2));
-    // printf("R = %f %f %f\n", R(0, 0), R(1, 1), R(2, 2));
-    // printf("diag = %f %f %f\n", diag(0, 0), diag(1, 1), diag(2, 2));
 
     this->w(sqrtIntertia * w);
     this->v(v);
@@ -175,9 +162,9 @@ inline void BodyRigidReference::computeInertiaConst() {
     const auto I = s.computeInertia(d);
     this->Mr(I.block<3, 1>(0, 0));
 
-    if (I.x() < 0 || I.y() < 0 || I.z() < 0 || I.hasNaN()) {
+    if (I.x() <= 0 || I.y() <= 0 || I.z() <= 0 || I.hasNaN()) {
         printf(
-            "WARNING - NEGATIVE MOMENT OF INERTIA: [%f %f %f] - using "
+            "WARNING - ZERO OR NEGATIVE MOMENT OF INERTIA: [%f %f %f] - using "
             "identity, "
             "check your computeInertia!\n",
             I.x(), I.y(), I.z());
@@ -298,7 +285,6 @@ inline Eigen::Vector3f BodyRigidReference::transformPoint(Eigen::Vector3f xl) {
 
 inline void BodyRigidReference::clearJacobi() {
     this->dxJacobi(vec7::Zero());
-    this->dphiJacobi(vec7::Zero());
 }
 
 }  // namespace apbd

@@ -31,6 +31,7 @@ struct ConstraintGround {
     Eigen::Vector3f w1;
     Eigen::Matrix3f delLinVel1;
     Eigen::Matrix3f angDelta1;
+    Eigen::Matrix3f raXn;
     Eigen::Matrix3f raXnI1;
 
     Collision *collision;

@@ -28,6 +28,7 @@ struct _SOAStoreConstraintGround {
     _SOAStoreMat3 delLinVel1;
     _SOAStoreMat3 angDelta1;
     _SOAStoreMat3 raXnI1;
+    _SOAStoreMat3 raXn;
 
     _SOAStoreGeneric<apbd::CollisionReference> collision;
 
@@ -36,7 +37,7 @@ struct _SOAStoreConstraintGround {
     /// Calculates the size necessary to store the data in this buffer with
     /// count elements.
     static constexpr size_t size(size_t count) {
-        return _SOAStoreMat3::size(count) * 4 + _SOAStoreVec3::size(count) * 6 +
+        return _SOAStoreMat3::size(count) * 5 + _SOAStoreVec3::size(count) * 6 +
                _SOAStoreGeneric<apbd::CollisionReference>::size(count) +
                _SOAStoreGeneric<apbd::BodyRigidReference>::size(count);
     }
@@ -260,6 +261,7 @@ inline _SOAStoreConstraintGround::_SOAStoreConstraintGround(byte *data_store,
       delLinVel1(data_store, offset, count),
       angDelta1(data_store, offset, count),
       raXnI1(data_store, offset, count),
+      raXn(data_store, offset, count),
       collision(data_store, offset, count) {}
 
 inline _SOAStoreConstraintRigid::_SOAStoreConstraintRigid(byte *data_store,
@@ -301,7 +303,11 @@ inline _SOAStoreBodyRigid::_SOAStoreBodyRigid(byte *data_store, size_t &offset,
       deltaBody2Worldp(data_store, offset, count),
       deltaBody2Worldq(data_store, offset, count),
       deltaAngDt(data_store, offset, count),
-      deltaLinDt(data_store, offset, count) {}
+      deltaLinDt(data_store, offset, count),
+      dxJacobi(data_store, offset, count),
+      dphiJacobi(data_store, offset, count),
+      LTx(data_store, offset, count) {}
+
 
 inline _SOAStoreCollision::_SOAStoreCollision(byte *data_store, size_t &offset,
                                               size_t count)
@@ -349,6 +355,9 @@ inline void _SOAStoreBodyRigid::set(unsigned int index,
     deltaBody2Worldq.set(index, Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0));
     deltaAngDt.set(index, Eigen::Vector3f::Zero());
     deltaLinDt.set(index, Eigen::Vector3f::Zero());
+    dxJacobi.set(index, vec7::Zero());
+    dphiJacobi.set(index, vec7::Zero());
+    LTx.set(index, vec6f::Zero());
 }
 
 #ifdef __CUDA_ARCH__

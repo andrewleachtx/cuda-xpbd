@@ -111,9 +111,9 @@ TODO: Because of how this is designed, I cannot do inter-shape collisions,
       statement to check for that in Shape.cu when a ShapeTwoCuboid collision
       is detected.
 */
-bool ShapeTwoCuboid::broadphaseShape(const Eigen::Matrix4f &E1,
-                                     const ShapeTwoCuboid &other,
-                                     const Eigen::Matrix4f &E2) const {}
+// bool ShapeTwoCuboid::broadphaseShape(const Eigen::Matrix4f &E1,
+//                                      const ShapeTwoCuboid &other,
+//                                      const Eigen::Matrix4f &E2) const {}
 
 /*
 function cdata = narrowphaseShape(this,E1,that,E2)
