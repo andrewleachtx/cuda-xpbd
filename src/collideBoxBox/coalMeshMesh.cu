@@ -12,12 +12,8 @@
 #include <iostream>
 #include <memory>
 
-#include "coal/BVH/BVH_model.h"
-#include "coal/collision.h"
-#include "coal/collision_data.h"
-#include "coal/contact_patch.h"
-#include "coal/math/transform.h"
-#include "coal/mesh_loader/loader.h"
+#define ENABLE_VHACD_IMPLEMENTATION 1
+#include "VHACD.h"
 #include "collideBoxBox/coalMeshMesh.h"
 
 // #define DEBUG_MAIN
@@ -54,6 +50,33 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name) {
     coal::BVHModelPtr_t bvh = loader.load(file_name);
     bvh->buildConvexHull(true, "Qt");
     return bvh->convex;
+}
+
+/*
+    Because coal does not currently support CVHD
+   (https://github.com/coal-library/coal/issues/448) we can do it ourselves.
+
+
+    Generates a vector of Coal convex bases which represent our convex hull
+   decomposition, and stores them in a vector.
+*/
+std::vector<std::shared_ptr<Coal::ConvexBase> > loadConvexDecompositions(
+    const std::string &file_name) {
+    coal::NODE_TYPE bv_type = coal::BV_AABB;
+    coal::MeshLoader loader(bv_type);
+    coal::BVHModelPtr_t bvh = loader.load(file_name);
+
+    /*
+        At this point the initial convex hull has been built, and we can use the
+       VHACD interface to work with it
+
+    https://kmamou.blogspot.com/2014/12/v-hacd-20-in-your-project.html
+    */
+
+    VHACD::IVHACD::Parameters params;
+    VHACD::IVHACD *interfaceVHACD = VHACD::CreateVHACD();
+
+    bool res = interfaceVHACD->c
 }
 
 #ifdef DEBUG_MAIN

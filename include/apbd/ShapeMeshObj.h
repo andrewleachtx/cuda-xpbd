@@ -8,6 +8,7 @@
 
 #include "Contact.h"
 #include "util.h"
+#include "coal/BVH/BVH_model.h"
 
 /*
     Inherits from Shape superclass, most notably is an unknown size at compile
@@ -26,6 +27,9 @@ class ShapeMeshObj {
     Eigen::Matrix4f E_io;
     float radius;
     std::string filename;
+
+    // Convex hull decomposition - also cache optimization
+    std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls;
 
     __host__ ShapeMeshObj();
     __host__ ShapeMeshObj(const std::string &filename);

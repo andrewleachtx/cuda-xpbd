@@ -8,7 +8,7 @@ project(cuda-xpbd VERSION 0.1
 option(USE_CUDA "Use CUDA implementation instead of CPU" OFF)
 option(WRITE "Write the state of the simulation to stdout" OFF)
 
-# Relative to GPU, compute 8.6
+# Relative to GPU architecture: https://developer.nvidia.com/cuda-gpus - for me compute 75, 86, 89 are good
 set(CMAKE_CUDA_ARCHITECTURES 89)
 
 # Make sure to --expt-relaxed-constexpr, otherwise bad things will happen
@@ -40,6 +40,8 @@ endif()
 # FetchContent_MakeAvailable(Eigen-git)
 add_subdirectory(include/eigen)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
+
+# Get VHACD
 
 file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h ${CMAKE_CURRENT_BINARY_DIR}/svd3_cuda.h)
 add_library(svd3_cuda INTERFACE)
