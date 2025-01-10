@@ -9,7 +9,7 @@ option(USE_CUDA "Use CUDA implementation instead of CPU" OFF)
 option(WRITE "Write the state of the simulation to stdout" OFF)
 
 # Relative to GPU, compute 8.6
-set(CMAKE_CUDA_ARCHITECTURES 75 86)
+set(CMAKE_CUDA_ARCHITECTURES 89)
 
 # Make sure to --expt-relaxed-constexpr, otherwise bad things will happen
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info --expt-relaxed-constexpr")
@@ -46,9 +46,9 @@ add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Set to your coal path
-set(COAL_PATH "/home/andyleach/pkgs/coal/install")
+set(COAL_PATH "/home/ugrads/a/andrewleachtx/packages/coal/install")
 if (NOT EXISTS ${COAL_PATH})
-    message(FATAL_ERROR "${COAL_PATH} not found, did you forget to change COAL_PATH in CMakeLists.txt?")
+    message(FATAL_ERROR "${COAL_PATH} not found, did you update COAL_PATH in CMakeLists.txt?")
 endif()
 
 list(APPEND CMAKE_PREFIX_PATH ${COAL_PATH})
@@ -56,10 +56,18 @@ find_package(coal CONFIG REQUIRED)
 include_directories(${COAL_PATH}/include)
 link_directories(${COAL_PATH}/lib)
 
+# CMake gets upset when nvcc doesnt get explicitly passed to nvcc - this will take some management on your end if it happens
+set(BOOST_INCLUDE_PATH "/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/")
+if (NOT EXISTS ${BOOST_INCLUDE_PATH})
+    message(FATAL_ERROR "${BOOST_INCLUDE_PATH} not found, did you update BOOST_INCLUDE_PATH in CMakeLists.txt?")
+endif()
+
+include_directories("${BOOST_INCLUDE_PATH}/include")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -I/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/include")
+
 add_subdirectory(src)
 
 if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
    AND BUILD_TESTING)
   add_subdirectory(tests)
 endif()
-

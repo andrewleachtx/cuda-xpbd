@@ -16,22 +16,20 @@ A CUDA-accelerated XPBD-based physics simulation framework.
     4. NVCC (as a part of CUDA)
         1. This should come with the CUDA install, if **nvcc --version doesn't work, make sure /usr/local/CUDA/bin is added to your path**
         2. Add `PATH=/usr/local/cuda/bin:$PATH` to your `~/.bashrc` to get CMake to recognize NVCC.
-
-2. Once these are done downloading (it will take some time), install `Eigen` by uncommenting the fetch content lines in `./CMakeLists.txt`. You can comment them again after building cmake for the first time, or after deleting `build/`. This is not a standard procedure, but for now this is where the `Eigen` build is stored.
-
+2. `eigen` has been added as a submodule with `git submodule add https://gitlab.com/libeigen/eigen.git include/eigen`
 3. `CMakeLists.txt` has a `COAL_PATH` variable that you should change. They are hardcoded to my system. You will need to **install [coal](https://github.com/coal-library/coal/blob/devel/development/build.md)** as well as its dependencies. Building can be frustrating, but be patient. You should activate a new environment with `conda`. If you do not have `conda`, install `miniconda3`.
     1. Go to your `coal` directory, and run:
         
     2. 
         ```sh
         pixi shell
-        conda install -c conda-forge coal qhull octomap
+        conda install -c conda-forge coal
         mkdir build && cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON
         make && make install # you can do make -j<nprocs> && make install to speed this up
         ```
     3. At this point, you should be able to see `install/` in your `coal` directory. You should run `ldd install/lib/libcoal.so` and confirm everything has linked correctly.
-    4. Note that after this, you may need to use a base environment to build later on for the actual project itself. The exact environment I built and ran in `cudaxpbd` is in `environment.yml`, and you can retrieve it with `conda env create -f environment.yml`. If that doesn't work, try `pixi shell` and use `conda env list` to ensure you are in the right place.
+    4. After this, when running `cmake` in the project directory, you may need to have this same pixi shell enabled. You can locate it with `conda env list`. If none of that works, my raw `environment.yml` stores one environment I used, you can retrieve it with `conda env create -f environment.yml`.
 
 ## Building Tasks
 Run

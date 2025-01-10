@@ -35,6 +35,11 @@ struct GPQPOutput {
         float rs[MAX_COLLISION_CONSTRAINTS];
 };
 
+enum Solver_Type {
+    S_2PSP = 1,
+    S_GPQP
+};
+
 /**
  * A simulation model, contains all information necessary to run a single
  * simulation. Designed to be copied to each thread and modified with any
@@ -54,6 +59,7 @@ class Model {
     size_t body_count;
     Constraint *constraints;
     size_t constraint_count;
+    Solver_Type solver_type;
 
     Eigen::Vector3f gravity;
     unsigned int forward_iters;

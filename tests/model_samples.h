@@ -14,6 +14,9 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                               apbd::Body *&bodies, size_t scene_count) {
     auto model = apbd::Model();
 
+    // The solver_t should default to solveConTGS or 2PSP, otherwise the modelID can define it as such:
+    // model.solver_type = apbd::Solver_Type::SOLVER_GPQP;
+
     printf("Created model\n");
 
     switch (modelID) {
