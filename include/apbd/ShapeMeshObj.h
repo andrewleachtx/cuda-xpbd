@@ -8,7 +8,8 @@
 
 #include "Contact.h"
 #include "util.h"
-#include "coal/BVH/BVH_model.h"
+// #include "coal/BVH/BVH_model.h"
+#include "collideBoxBox/coalMeshMesh.h"
 
 /*
     Inherits from Shape superclass, most notably is an unknown size at compile

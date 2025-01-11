@@ -42,6 +42,7 @@ add_subdirectory(include/eigen)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 
 # Get VHACD
+include_directories(include/v-hacd/include)
 
 file(DOWNLOAD https://github.com/ericjang/svd3/raw/master/svd3_cuda/svd3_cuda.h ${CMAKE_CURRENT_BINARY_DIR}/svd3_cuda.h)
 add_library(svd3_cuda INTERFACE)

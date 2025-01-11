@@ -1,16 +1,7 @@
-// Command for compiling
-// mex COPTIMFLAGS='-O3 -DNDEBUG'
-// -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include"
-// -I"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\include\eigen3"
-// -L"C:\Users\dsdsx\anaconda3\envs\pyPBD\Library\lib" -lcoal coalMeshMesh.cpp
-// mex COPTIMFLAGS='-O3 -DNDEBUG'
-// -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include"
-// -I"C:\Users\andre\anaconda3\envs\coal_env\Library\include\eigen3"
-// -L"C:\Users\andre\anaconda3\envs\coal_env\Library\lib" -lcoal
-// coalMeshMesh.cpp
 #pragma warning(disable : 4996)
 #include <iostream>
 #include <memory>
+#include "util.h"
 
 #define ENABLE_VHACD_IMPLEMENTATION 1
 #include "VHACD.h"
@@ -60,7 +51,7 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name) {
     Generates a vector of Coal convex bases which represent our convex hull
    decomposition, and stores them in a vector.
 */
-std::vector<std::shared_ptr<Coal::ConvexBase> > loadConvexDecompositions(
+std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
     const std::string &file_name) {
     coal::NODE_TYPE bv_type = coal::BV_AABB;
     coal::MeshLoader loader(bv_type);
@@ -76,7 +67,33 @@ std::vector<std::shared_ptr<Coal::ConvexBase> > loadConvexDecompositions(
     VHACD::IVHACD::Parameters params;
     VHACD::IVHACD *interfaceVHACD = VHACD::CreateVHACD();
 
-    bool res = interfaceVHACD->c
+    bool res = interfaceVHACD->Compute(
+        bvh->vertices.data(), 3, bvh->vertices.size() / 3,
+        bvh->triangles.data(), 3, bvh->triangles.size() / 3, params);
+
+    if (!res) {
+        TRACE("Failed to compute convex decomposition")
+        exit(1);
+    }
+
+    uint32_t hull_ct = interfaceVHACD->GetNConvexHulls();
+    std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls(hull_ct, nullptr);
+    for (uint32_t i = 0; i < hull_ct; i++) {
+        VHACD::IVHACD::ConvexHull cv_hull;
+        interfaceVHACD->GetConvexHull(i, cv_hull);
+
+        // Regenerate a convex base but for this hull
+        std::shared_ptr<coal::ConvexBase> cv_base = std::make_shared<coal::ConvexBase>();
+        // TODO: Find a way to transfer cv information back into convexbase
+
+        cv_hulls[i] = cv_base;
+    }
+
+    // Clean up
+    interfaceVHACD->Clean();
+    interfaceVHACD->Release();
+
+    return cv_hulls;
 }
 
 #ifdef DEBUG_MAIN
