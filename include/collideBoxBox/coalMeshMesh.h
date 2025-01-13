@@ -26,8 +26,8 @@ struct Contacts {
     Eigen::Vector3d normal;
 };
 
-std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(const std::string &file_name);
-std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name);
+std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(const std::string &filename);
+std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &filename);
 
 Contacts coalMeshMesh(const Eigen::Matrix4d &M1, const std::string &meshPath1,
                       const Eigen::Matrix4d &M2, const std::string &meshPath2);

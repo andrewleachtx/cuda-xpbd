@@ -53,6 +53,7 @@ class ShapeMeshObj {
     __host__ cdata_t narrowphaseShapeMesh(const Eigen::Matrix4f E1,
                                           const ShapeMeshObj &other,
                                           const Eigen::Matrix4f E2) const;
+    __host__ void initHulls(const std::string& filename);
 
     // Static methods
     static void readOBJ(const std::string &filename,

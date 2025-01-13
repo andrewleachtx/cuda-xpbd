@@ -14,6 +14,7 @@ ShapeMeshObj::ShapeMeshObj()
 ShapeMeshObj::ShapeMeshObj(const std::string &filename)
     : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
     readOBJ(filename, this->V, this->F);
+    initHulls(filename);
 }
 
 ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
@@ -321,6 +322,12 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     }
 
     return cuda::std::make_pair(cdata, contactCount);
+}
+
+// This loads and caches the hulls. Should be done on construction of the ShapeMeshObj instance.
+// TODO: If multiple instances of ShapeMeshObj exist, we could even cache across instances.
+__host__ void ShapeMeshObj::initHulls(const std::string& filename) {
+    this->cv_hulls = loadConvexDecompositions(filename);
 }
 
 void ShapeMeshObj::readOBJ(const std::string &filename,

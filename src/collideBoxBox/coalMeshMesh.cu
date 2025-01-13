@@ -35,10 +35,10 @@
 
 namespace apbd {
 
-std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name) {
+std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &filename) {
     coal::NODE_TYPE bv_type = coal::BV_AABB;
     coal::MeshLoader loader(bv_type);
-    coal::BVHModelPtr_t bvh = loader.load(file_name);
+    coal::BVHModelPtr_t bvh = loader.load(filename);
     bvh->buildConvexHull(true, "Qt");
     return bvh->convex;
 }
@@ -52,10 +52,29 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &file_name) {
    decomposition, and stores them in a vector.
 */
 std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
-    const std::string &file_name) {
+    const std::string &filename) {
     coal::NODE_TYPE bv_type = coal::BV_AABB;
     coal::MeshLoader loader(bv_type);
-    coal::BVHModelPtr_t bvh = loader.load(file_name);
+    coal::BVHModelPtr_t bvh_original = loader.load(filename);
+
+    // Reserve to use for each more efficiently
+    std::vector<float> v_flat;
+    std::vector<uint32_t> t_flat;
+    v_flat.reserve(bvh_original->num_vertices);
+    t_flat.reserve(bvh_original->num_tris);
+
+    for (const auto& v : *bvh_original->vertices) {
+        v_flat.push_back(v.x());
+        v_flat.push_back(v.y());
+        v_flat.push_back(v.z());
+    }
+
+    // coal::Triangle v0, v1, v2 accessible with []
+    for (const auto& tri : *bvh_original->tri_indices) {
+        t_flat.push_back(tri[0]);
+        t_flat.push_back(tri[1]);
+        t_flat.push_back(tri[2]);
+    }
 
     /*
         At this point the initial convex hull has been built, and we can use the
@@ -66,10 +85,8 @@ std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
 
     VHACD::IVHACD::Parameters params;
     VHACD::IVHACD *interfaceVHACD = VHACD::CreateVHACD();
-
     bool res = interfaceVHACD->Compute(
-        bvh->vertices.data(), 3, bvh->vertices.size() / 3,
-        bvh->triangles.data(), 3, bvh->triangles.size() / 3, params);
+        v_flat.data(), v_flat.size() / 3, t_flat.data(), t_flat.size() / 3, params);
 
     if (!res) {
         TRACE("Failed to compute convex decomposition")
@@ -82,11 +99,32 @@ std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
         VHACD::IVHACD::ConvexHull cv_hull;
         interfaceVHACD->GetConvexHull(i, cv_hull);
 
-        // Regenerate a convex base but for this hull
-        std::shared_ptr<coal::ConvexBase> cv_base = std::make_shared<coal::ConvexBase>();
-        // TODO: Find a way to transfer cv information back into convexbase
+        const auto& verts = cv_hull.m_points;
+        const auto& tris = cv_hull.m_triangles;
 
-        cv_hulls[i] = cv_base;
+        // Regenerate a convex base but for this hull
+        std::shared_ptr<coal::BVHModel<coal::AABB>> cv_base = std::make_shared<coal::BVHModel<coal::AABB>>();
+        cv_base->beginModel(verts.size(), tris.size());
+
+        // For each triangle, we can access mI0, mI1, mI2 in the verts array
+        for (const auto& tri : tris) {
+            VHACD::Vertex v0(verts[tri.mI0]), v1(verts[tri.mI1]), v2(verts[tri.mI2]);
+            coal::Vec3s ev0, ev1, ev2;
+
+            // May be a way to use float but CoalScalar is just a double
+            for (int dim = 0; dim < 3; dim++) {
+                ev0[dim] = static_cast<coal::CoalScalar>(v0[dim]);
+                ev1[dim] = static_cast<coal::CoalScalar>(v1[dim]);
+                ev2[dim] = static_cast<coal::CoalScalar>(v2[dim]);
+            }
+
+            cv_base->addTriangle(ev0, ev1, ev2);
+        }
+
+        cv_base->endModel();
+        cv_base->buildConvexHull(true, "Qt");
+
+        cv_hulls[i] = cv_base->convex;
     }
 
     // Clean up
