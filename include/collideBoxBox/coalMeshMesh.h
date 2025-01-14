@@ -29,7 +29,7 @@ struct Contacts {
 std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(const std::string &filename);
 std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &filename);
 
-Contacts coalMeshMesh(const Eigen::Matrix4d &M1, const std::string &meshPath1,
-                      const Eigen::Matrix4d &M2, const std::string &meshPath2);
+Contacts coalMeshMesh(const Eigen::Matrix4d &M1, const Eigen::Matrix4d &M2,
+                      std::shared_ptr<coal::ConvexBase> shape1, std::shared_ptr<coal::ConvexBase> shape2);
 
 }  // namespace apbd

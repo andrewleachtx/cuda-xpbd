@@ -29,11 +29,19 @@ class ShapeMeshObj {
     float radius;
     std::string filename;
 
-    // Convex hull decomposition - also cache optimization
-    std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls;
+    /*
+        If we have multiple objs that envelope a single E_oi and E_io or object, we can identify the parent
+        with an identifier. Could be improved by making a superclass, a map, or even disjoint set
+    */
+    int id;
+
+    // Cache the underlying coal::ConvexBase loaded in the constructor
+    // std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls;
+    std::shared_ptr<coal::ConvexBase> cv_representation;
+
 
     __host__ ShapeMeshObj();
-    __host__ ShapeMeshObj(const std::string &filename);
+    __host__ ShapeMeshObj(const std::string &filename, int id=-1);
     __host__ ShapeMeshObj(const ShapeMeshObj &mesh);
     __host__ ~ShapeMeshObj();
 

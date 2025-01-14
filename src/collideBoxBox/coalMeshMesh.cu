@@ -1,6 +1,7 @@
 #pragma warning(disable : 4996)
 #include <iostream>
 #include <memory>
+
 #include "util.h"
 
 #define ENABLE_VHACD_IMPLEMENTATION 1
@@ -35,7 +36,7 @@
 
 namespace apbd {
 
-std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &filename) {
+std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& filename) {
     coal::NODE_TYPE bv_type = coal::BV_AABB;
     coal::MeshLoader loader(bv_type);
     coal::BVHModelPtr_t bvh = loader.load(filename);
@@ -51,8 +52,8 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string &filename) {
     Generates a vector of Coal convex bases which represent our convex hull
    decomposition, and stores them in a vector.
 */
-std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
-    const std::string &filename) {
+std::vector<std::shared_ptr<coal::ConvexBase>> loadConvexDecompositions(
+    const std::string& filename) {
     coal::NODE_TYPE bv_type = coal::BV_AABB;
     coal::MeshLoader loader(bv_type);
     coal::BVHModelPtr_t bvh_original = loader.load(filename);
@@ -84,9 +85,10 @@ std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
     */
 
     VHACD::IVHACD::Parameters params;
-    VHACD::IVHACD *interfaceVHACD = VHACD::CreateVHACD();
-    bool res = interfaceVHACD->Compute(
-        v_flat.data(), v_flat.size() / 3, t_flat.data(), t_flat.size() / 3, params);
+    VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
+    bool res =
+        interfaceVHACD->Compute(v_flat.data(), v_flat.size() / 3, t_flat.data(),
+                                t_flat.size() / 3, params);
 
     if (!res) {
         TRACE("Failed to compute convex decomposition")
@@ -94,7 +96,7 @@ std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
     }
 
     uint32_t hull_ct = interfaceVHACD->GetNConvexHulls();
-    std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls(hull_ct, nullptr);
+    std::vector<std::shared_ptr<coal::ConvexBase>> cv_hulls(hull_ct, nullptr);
     for (uint32_t i = 0; i < hull_ct; i++) {
         VHACD::IVHACD::ConvexHull cv_hull;
         interfaceVHACD->GetConvexHull(i, cv_hull);
@@ -103,12 +105,14 @@ std::vector<std::shared_ptr<coal::ConvexBase> > loadConvexDecompositions(
         const auto& tris = cv_hull.m_triangles;
 
         // Regenerate a convex base but for this hull
-        std::shared_ptr<coal::BVHModel<coal::AABB>> cv_base = std::make_shared<coal::BVHModel<coal::AABB>>();
+        std::shared_ptr<coal::BVHModel<coal::AABB>> cv_base =
+            std::make_shared<coal::BVHModel<coal::AABB>>();
         cv_base->beginModel(verts.size(), tris.size());
 
         // For each triangle, we can access mI0, mI1, mI2 in the verts array
         for (const auto& tri : tris) {
-            VHACD::Vertex v0(verts[tri.mI0]), v1(verts[tri.mI1]), v2(verts[tri.mI2]);
+            VHACD::Vertex v0(verts[tri.mI0]), v1(verts[tri.mI1]),
+                v2(verts[tri.mI2]);
             coal::Vec3s ev0, ev1, ev2;
 
             // May be a way to use float but CoalScalar is just a double
@@ -231,10 +235,11 @@ int main() {
 }
 #endif  // DEBUG
 
-Contacts coalMeshMesh(const Eigen::Matrix4d &M1, const std::string &meshPath1,
-                      const Eigen::Matrix4d &M2, const std::string &meshPath2) {
-    std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
-    std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
+// FIXME: Should be pass by reference?
+Contacts coalMeshMesh(const Eigen::Matrix4d& M1, const Eigen::Matrix4d& M2, 
+                      std::shared_ptr<coal::ConvexBase> shape1, std::shared_ptr<coal::ConvexBase> shape2) {
+    // std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
+    // std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
 
     coal::Transform3s T1;
     T1.setRotation(M1.topLeftCorner(3, 3));

@@ -167,6 +167,8 @@ void Model::stepBDF1(float hs) {
 // changed as well.
 void Model::solveConTGS(Collider *collider, float hs) {
     this->stepBDF1(this->h);
+
+    // Run collider; generate contact points
     collider->run(this);
     float biasCoefficient = 2 * sqrt(hs / this->h);
     // 1e20 is used instead of oo for maximum hardware

@@ -11,10 +11,11 @@ namespace apbd {
 ShapeMeshObj::ShapeMeshObj()
     : F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
-ShapeMeshObj::ShapeMeshObj(const std::string &filename)
-    : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename) {
+ShapeMeshObj::ShapeMeshObj(const std::string &filename, int id)
+    : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename), id(id) {
     readOBJ(filename, this->V, this->F);
-    initHulls(filename);
+    // initHulls(filename);
+    this->cv_representation = loadConvexMesh(filename);
 }
 
 ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
@@ -24,6 +25,7 @@ ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
     E_io = mesh.E_io;
     radius = mesh.radius;
     filename = mesh.filename;
+    id = mesh.id;
 }
 
 ShapeMeshObj::~ShapeMeshObj() {}
@@ -288,7 +290,20 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     Eigen::Matrix4d M1 = (E1 * E_io).cast<double>();
     Eigen::Matrix4d M2 = (E2 * other.E_io).cast<double>();
 
-    auto collisions = coalMeshMesh(M1, this->filename, M2, other.filename);
+    // TODO:
+    /*
+        To take advantage of the convex hull decomposition we can now
+        loop over each pair of convex hull decompositions from shape1 to all 
+        instances in shape2.
+
+        Accumulate the collisions across each pairwise check.
+
+        TODO: Can we optimize broadphase with this? Or just narrowphase? How
+        TODO: specifically is it optimal for narrowphase.
+    */
+
+
+    auto collisions = coalMeshMesh(M1, M2, this->cv_representation, other.cv_representation);
 
     Eigen::Vector3f nw = collisions.normal.cast<float>();
 
@@ -327,7 +342,9 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
 // This loads and caches the hulls. Should be done on construction of the ShapeMeshObj instance.
 // TODO: If multiple instances of ShapeMeshObj exist, we could even cache across instances.
 __host__ void ShapeMeshObj::initHulls(const std::string& filename) {
-    this->cv_hulls = loadConvexDecompositions(filename);
+//     this->cv_hulls = loadConvexDecompositions(filename);
+// TODO: Remove if not using
+return;
 }
 
 void ShapeMeshObj::readOBJ(const std::string &filename,

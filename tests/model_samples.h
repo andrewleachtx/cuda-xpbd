@@ -14,8 +14,9 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                               apbd::Body *&bodies, size_t scene_count) {
     auto model = apbd::Model();
 
-    // The solver_t should default to solveConTGS or 2PSP, otherwise the modelID can define it as such:
-    // model.solver_type = apbd::Solver_Type::SOLVER_GPQP;
+    // The solver_t should default to solveConTGS or 2PSP, otherwise the modelID
+    // can define it as such: model.solver_type =
+    // apbd::Solver_Type::SOLVER_GPQP;
 
     printf("Created model\n");
 
@@ -768,6 +769,42 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 }
             }
 
+            break;
+        }
+        case 999: {
+            // Stacking for CMA-ES, zero offet
+            model.tEnd = 1;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 1;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5;
+
+            model.ground_size = 20;
+
+            size_t n = 10;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+            for (size_t i = 0; i < n; i++) {
+                bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                float x = 0.0f;
+                float y = 0.0f;
+                float z = (i + 0.5) * w;
+                E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+                bodies[i].setInitTransform(E);
+                if (i == 1) {
+                    bodies[i].setInitVelocity(
+                        Eigen::Matrix<float, 6, 1>(0, 0, 0, 0, 0, 0));
+                }
+            }
             break;
         }
     }
