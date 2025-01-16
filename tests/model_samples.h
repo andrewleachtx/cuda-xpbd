@@ -18,8 +18,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
     // can define it as such: model.solver_type =
     // apbd::Solver_Type::SOLVER_GPQP;
 
-    printf("Created model\n");
-
     switch (modelID) {
         // DEBUGGING TEST CASE
         case -1: {
@@ -674,53 +672,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
             break;
         }
-
-        /*
-            case 21
-            model.name = 'Stacking : Arch';
-            model.plotH = false;
-            model.tEnd = 5;
-            model.h = h;
-            model.substeps = substeps;
-            model.iters = 1;
-            %model.itersSP = 3;
-            density = 1.0;
-            w = 3;
-            sides = [w w w];
-            model.grav = [0 0 -981]';
-            model.ground.E = eye(4);
-            mu = 0.5;
-
-            model.ground.size = 10;
-            model.axis = 30*[-1 1 -1 1 0 1];
-            model.drawHz = 60;
-
-            model.view = [0 0];
-
-            n = 12;
-            halfAngle = 0.5 * pi / n;
-            halfDistance = 0.4 * w;
-            for i = 1 : n
-                model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides,
-            sides, halfDistance, halfAngle),density); %model.bodies{end+1} =
-            apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-                model.bodies{end}.collide = true;
-                model.bodies{end}.mu = mu;
-                theta = (i*2-1)*halfAngle;
-                r = (0.5*w + cos(halfAngle) * halfDistance) / sin(halfAngle);
-                R = se3.aaToMat([0 1 0], pi/2 + theta);
-                E = eye(4);
-                x = -r * cos(theta);
-                y = 0;
-                z = r*sin(theta);
-                E(1:3,1:3) = R;
-                E(1:3,4) = [x y z]';
-                model.bodies{end}.setInitTransform(E);
-                if i == 1
-                    %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
-                end
-            end
-        */
         case 21: {
             // Stacking: Arch
             model.tEnd = 1.0f;
@@ -787,14 +738,16 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
             model.ground_size = 20;
 
-            float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
+            // We have to rotate 
+            // float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
+            float angle = 0.0f;
 
             // Should use the first index
             std::vector<std::string> cv_filenames(10);
             cv_filenames[0] = "./resources/bowl_full.obj";
-            for (size_t i = 0; i < 9; i++) {
-                cv_filenames[i] = "bowl00" + std::to_string(i + 1) + ".obj";
-                printf("Using %s", cv_filenames[i].c_str());
+            for (size_t i = 1; i < 10; i++) {
+                cv_filenames[i] = "./resources/bowl00" + std::to_string(i) + ".obj";
+                printf("# Using %s\n", cv_filenames[i].c_str());
             }
 
             apbd::ShapeMeshObj mesh =
@@ -817,7 +770,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
                 float x = 0.0f;
                 float y = 0.0f;
-                float z = (i + 0.5f) * w;
+                float z = 3.0f;
 
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 E.block<3, 3>(0, 0) = R;

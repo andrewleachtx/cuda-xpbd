@@ -287,70 +287,6 @@ bool ShapeMeshObj::broadphaseShapeMesh(
 }
 
 // TODO: Update to remove doubles here and in coalMeshMesh
-cdata_t ShapeMeshObj::narrowphaseShapeMesh(
-    const Eigen::Matrix4f E1, const ShapeMeshObj &other,
-    const Eigen::Matrix4f E2) const {
-    cuda::std::array<Contact, 8> cdata{};
-    size_t contactCount = 0;
-
-    Eigen::Matrix4d M1 = (E1 * E_io).cast<double>();
-    Eigen::Matrix4d M2 = (E2 * other.E_io).cast<double>();
-
-    /*
-        We should determine if our shape is using convex decomposition. If it is, shape.cv_hulls will be populated
-        with >1 elements.
-    */
-
-    for (const std::shared_ptr<coal::ConvexBase> shape1 : this->cv_hulls) {
-        for (const std::shared_ptr<coal::ConvexBase> shape2 : other.cv_hulls) {
-            // printf("Iteration with shape1 = %p and shape2 = %p\n", shape1.get(), shape2.get());
-            Contacts collisions = coalMeshMesh(M1, M2, shape1, shape2);
-
-            Eigen::Vector3f nw = collisions.normal.cast<float>();
-
-            Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
-            Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
-
-            Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
-            Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
-
-            int n = collisions.count;
-            if (n > 8) {
-                n = 8;
-            }
-
-            for (int i = 0; i < n; i++) {
-                float d = static_cast<float>(collisions.depths[i]);
-                Eigen::Vector3f xw = collisions.positions[i].cast<float>();
-
-                Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
-                Eigen::Vector3f x1 = R1.transpose() * (xw1 - p1);
-
-                Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
-                Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
-
-                Contact contact;
-                contact.nw = nw;
-                contact.x1 = x1;
-                contact.x2 = x2;
-
-                cdata[contactCount++] = contact;
-            }
-
-            // No point in continuing outside of the 8 contact points.
-            if (contactCount >= 8) {
-                break;
-            }
-        }
-        if (contactCount >= 8) {
-            break;
-        }
-    }
-
-    printf("---\n"); 
-
-    return cuda::std::make_pair(cdata, contactCount);
-}
 // cdata_t ShapeMeshObj::narrowphaseShapeMesh(
 //     const Eigen::Matrix4f E1, const ShapeMeshObj &other,
 //     const Eigen::Matrix4f E2) const {
@@ -364,50 +300,114 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
 //         We should determine if our shape is using convex decomposition. If it is, shape.cv_hulls will be populated
 //         with >1 elements.
 //     */
-//     std::shared_ptr<coal::ConvexBase> shape1, shape2;
-//     if (this->filenames.size() == 1) {
-//         shape1 = this->cv_hulls[0];
+
+//     for (const std::shared_ptr<coal::ConvexBase> shape1 : this->cv_hulls) {
+//         for (const std::shared_ptr<coal::ConvexBase> shape2 : other.cv_hulls) {
+//             // printf("Iteration with shape1 = %p and shape2 = %p\n", shape1.get(), shape2.get());
+//             Contacts collisions = coalMeshMesh(M1, M2, shape1, shape2);
+
+//             Eigen::Vector3f nw = collisions.normal.cast<float>();
+
+//             Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
+//             Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
+
+//             Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
+//             Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
+
+//             int n = collisions.count;
+//             if (n > 8) {
+//                 n = 8;
+//             }
+
+//             for (int i = 0; i < n; i++) {
+//                 float d = static_cast<float>(collisions.depths[i]);
+//                 Eigen::Vector3f xw = collisions.positions[i].cast<float>();
+
+//                 Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
+//                 Eigen::Vector3f x1 = R1.transpose() * (xw1 - p1);
+
+//                 Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
+//                 Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
+
+//                 Contact contact;
+//                 contact.nw = nw;
+//                 contact.x1 = x1;
+//                 contact.x2 = x2;
+
+//                 cdata[contactCount++] = contact;
+//             }
+
+//             // No point in continuing outside of the 8 contact points.
+//             if (contactCount >= 8) {
+//                 break;
+//             }
+//         }
+//         if (contactCount >= 8) {
+//             break;
+//         }
 //     }
-//     if (other.filenames.size() == 1) {
-//         shape2 = other.cv_hulls[0];
-//     }
 
-//     // We should run a pairwise check from every decomposed piece in our hulls to the other shape's hulls.
-//     Contacts collisions = coalMeshMesh(M1, M2, shape1, shape2);
-
-//     Eigen::Vector3f nw = collisions.normal.cast<float>();
-
-//     Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
-//     Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
-
-//     Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
-//     Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
-
-//     int n = collisions.count;
-//     if (n > 8) {
-//         n = 8;
-//     }
-
-//     for (int i = 0; i < n; i++) {
-//         float d = static_cast<float>(collisions.depths[i]);
-//         Eigen::Vector3f xw = collisions.positions[i].cast<float>();
-
-//         Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
-//         Eigen::Vector3f x1 = R1.transpose() * (xw1 - p1);
-
-//         Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
-//         Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
-
-//         Contact contact;
-//         contact.nw = nw;
-//         contact.x1 = x1;
-//         contact.x2 = x2;
-
-//         cdata[contactCount++] = contact;
-//     }
+//     printf("---\n"); 
 
 //     return cuda::std::make_pair(cdata, contactCount);
 // }
+cdata_t ShapeMeshObj::narrowphaseShapeMesh(
+    const Eigen::Matrix4f E1, const ShapeMeshObj &other,
+    const Eigen::Matrix4f E2) const {
+    cuda::std::array<Contact, 8> cdata{};
+    size_t contactCount = 0;
+
+    Eigen::Matrix4d M1 = (E1 * E_io).cast<double>();
+    Eigen::Matrix4d M2 = (E2 * other.E_io).cast<double>();
+
+    /*
+        We should determine if our shape is using convex decomposition. If it is, shape.cv_hulls will be populated
+        with >1 elements.
+    */
+    std::shared_ptr<coal::ConvexBase> shape1, shape2;
+    if (this->filenames.size() == 1) {
+        shape1 = this->cv_hulls[0];
+    }
+    if (other.filenames.size() == 1) {
+        shape2 = other.cv_hulls[0];
+    }
+
+    // We should run a pairwise check from every decomposed piece in our hulls to the other shape's hulls.
+    Contacts collisions = coalMeshMesh(M1, M2, shape1, shape2);
+
+    Eigen::Vector3f nw = collisions.normal.cast<float>();
+
+    Eigen::Matrix3f R1 = E1.block<3, 3>(0, 0);
+    Eigen::Vector3f p1 = E1.block<3, 1>(0, 3);
+
+    Eigen::Matrix3f R2 = E2.block<3, 3>(0, 0);
+    Eigen::Vector3f p2 = E2.block<3, 1>(0, 3);
+
+    int n = collisions.count;
+    if (n > 8) {
+        n = 8;
+    }
+
+    for (int i = 0; i < n; i++) {
+        float d = static_cast<float>(collisions.depths[i]);
+        Eigen::Vector3f xw = collisions.positions[i].cast<float>();
+
+        Eigen::Vector3f xw1 = xw - 0.5f * nw * d;
+        Eigen::Vector3f x1 = R1.transpose() * (xw1 - p1);
+
+        Eigen::Vector3f xw2 = xw + 0.5f * nw * d;
+        Eigen::Vector3f x2 = R2.transpose() * (xw2 - p2);
+
+        Contact contact;
+        contact.nw = nw;
+        contact.x1 = x1;
+        contact.x2 = x2;
+
+        cdata[contactCount++] = contact;
+    }
+
+    return cuda::std::make_pair(cdata, contactCount);
+}
 
 // Iterates over all obj files that represent the shape and adds a cached convexBase instance for them.
 // TODO: Depending on extent of file count used, using .reserve before

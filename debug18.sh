@@ -15,5 +15,8 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# ./build/$version/tests/performance -m $m -s $s
-gdb --args ./build/$version/tests/performance -m $m -s $s -t $t
+if [[ $version == *"release"* ]]; then
+    ./build/$version/tests/performance -m $m -s $s
+else
+    gdb --args ./build/$version/tests/performance -m $m -s $s -t $t
+fi
