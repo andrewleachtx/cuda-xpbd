@@ -53,22 +53,22 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& filename) {
    decomposition, and stores them in a vector.
 */
 // std::vector<std::shared_ptr<coal::ConvexBase>> loadConvexDecompositions(
-//     const std::string& filename) {
-//     coal::NODE_TYPE bv_type = coal::BV_AABB;
-//     coal::MeshLoader loader(bv_type);
-//     coal::BVHModelPtr_t bvh_original = loader.load(filename);
+    // const std::string& filename) {
+    // coal::NODE_TYPE bv_type = coal::BV_AABB;
+    // coal::MeshLoader loader(bv_type);
+    // coal::BVHModelPtr_t bvh_original = loader.load(filename);
 
-//     // Reserve to use for each more efficiently
-//     std::vector<float> v_flat;
-//     std::vector<uint32_t> t_flat;
-//     v_flat.reserve(bvh_original->num_vertices);
-//     t_flat.reserve(bvh_original->num_tris);
+    // // Reserve to use for each more efficiently
+    // std::vector<float> v_flat;
+    // std::vector<uint32_t> t_flat;
+    // v_flat.reserve(bvh_original->num_vertices);
+    // t_flat.reserve(bvh_original->num_tris);
 
-//     for (const auto& v : *bvh_original->vertices) {
-//         v_flat.push_back(v.x());
-//         v_flat.push_back(v.y());
-//         v_flat.push_back(v.z());
-//     }
+    // for (const auto& v : *bvh_original->vertices) {
+    //     v_flat.push_back(v.x());
+    //     v_flat.push_back(v.y());
+    //     v_flat.push_back(v.z());
+    // }
 
 //     // coal::Triangle v0, v1, v2 accessible with []
 //     for (const auto& tri : *bvh_original->tri_indices) {
