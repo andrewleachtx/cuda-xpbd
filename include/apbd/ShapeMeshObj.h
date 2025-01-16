@@ -27,7 +27,9 @@ class ShapeMeshObj {
     Eigen::Matrix4f E_oi;
     Eigen::Matrix4f E_io;
     float radius;
-    std::string filename;
+    
+    // If multiple files are pushed back, we assume cv decomposition.
+    std::vector<std::string> filenames;
 
     /*
         If we have multiple objs that envelope a single E_oi and E_io or object, we can identify the parent
@@ -36,12 +38,12 @@ class ShapeMeshObj {
     int id;
 
     // Cache the underlying coal::ConvexBase loaded in the constructor
-    // std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls;
-    std::shared_ptr<coal::ConvexBase> cv_representation;
+    std::vector<std::shared_ptr<coal::ConvexBase> > cv_hulls;
 
 
     __host__ ShapeMeshObj();
-    __host__ ShapeMeshObj(const std::string &filename, int id=-1);
+    // TODO: Add move constructor if user wants to std::move
+    __host__ ShapeMeshObj(const std::vector<std::string> &filenames, int id=-1);
     __host__ ShapeMeshObj(const ShapeMeshObj &mesh);
     __host__ ~ShapeMeshObj();
 
@@ -61,7 +63,7 @@ class ShapeMeshObj {
     __host__ cdata_t narrowphaseShapeMesh(const Eigen::Matrix4f E1,
                                           const ShapeMeshObj &other,
                                           const Eigen::Matrix4f E2) const;
-    __host__ void initHulls(const std::string& filename);
+    __host__ void initHulls();
 
     // Static methods
     static void readOBJ(const std::string &filename,

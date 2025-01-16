@@ -189,20 +189,20 @@ void Collider::broadphase(Model *model) {
         BodyReference body = bodies[i];
         if (body.collide()) {
             for (size_t j = i + 1; j < model->body_count; j++) {
-                // If we have a mesh-mesh collision and they are between the
-                // same IDs ignore said collision
-                // TODO: Maybe rewrite another loop entirely instead of repeat
-                // checking within the loop
-                if (body.get_rigid().shape().type == SHAPE_TYPE::SHAPE_MESHOBJ &&
-                    bodies[j].get_rigid().shape().type ==
-                        SHAPE_TYPE::SHAPE_MESHOBJ) {
-                    const auto& mesh1_d = body.get_rigid().shape().data;
-                    const auto& mesh2_d = bodies[j].get_rigid().shape().data;
+                // // If we have a mesh-mesh collision and they are between the
+                // // same IDs ignore said collision
+                // // TODO: Maybe rewrite another loop entirely instead of repeat
+                // // checking within the loop
+                // if (body.get_rigid().shape().type == SHAPE_TYPE::SHAPE_MESHOBJ &&
+                //     bodies[j].get_rigid().shape().type ==
+                //         SHAPE_TYPE::SHAPE_MESHOBJ) {
+                //     const auto& mesh1_d = body.get_rigid().shape().data;
+                //     const auto& mesh2_d = bodies[j].get_rigid().shape().data;
 
-                    if (mesh1_d.meshObj->id == mesh2_d.meshObj->id) {
-                        continue;
-                    }
-                }
+                //     if (mesh1_d.meshObj->id == mesh2_d.meshObj->id) {
+                //         continue;
+                //     }
+                // }
 
                 if (bodies[j].collide()) {
                     if (body.broadphaseRigid(bodies[j])) {

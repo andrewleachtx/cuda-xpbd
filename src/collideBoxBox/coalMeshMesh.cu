@@ -5,7 +5,7 @@
 #include "util.h"
 
 #define ENABLE_VHACD_IMPLEMENTATION 1
-#include "VHACD.h"
+// #include "VHACD.h"
 #include "collideBoxBox/coalMeshMesh.h"
 
 // #define DEBUG_MAIN
@@ -52,91 +52,91 @@ std::shared_ptr<coal::ConvexBase> loadConvexMesh(const std::string& filename) {
     Generates a vector of Coal convex bases which represent our convex hull
    decomposition, and stores them in a vector.
 */
-std::vector<std::shared_ptr<coal::ConvexBase>> loadConvexDecompositions(
-    const std::string& filename) {
-    coal::NODE_TYPE bv_type = coal::BV_AABB;
-    coal::MeshLoader loader(bv_type);
-    coal::BVHModelPtr_t bvh_original = loader.load(filename);
+// std::vector<std::shared_ptr<coal::ConvexBase>> loadConvexDecompositions(
+//     const std::string& filename) {
+//     coal::NODE_TYPE bv_type = coal::BV_AABB;
+//     coal::MeshLoader loader(bv_type);
+//     coal::BVHModelPtr_t bvh_original = loader.load(filename);
 
-    // Reserve to use for each more efficiently
-    std::vector<float> v_flat;
-    std::vector<uint32_t> t_flat;
-    v_flat.reserve(bvh_original->num_vertices);
-    t_flat.reserve(bvh_original->num_tris);
+//     // Reserve to use for each more efficiently
+//     std::vector<float> v_flat;
+//     std::vector<uint32_t> t_flat;
+//     v_flat.reserve(bvh_original->num_vertices);
+//     t_flat.reserve(bvh_original->num_tris);
 
-    for (const auto& v : *bvh_original->vertices) {
-        v_flat.push_back(v.x());
-        v_flat.push_back(v.y());
-        v_flat.push_back(v.z());
-    }
+//     for (const auto& v : *bvh_original->vertices) {
+//         v_flat.push_back(v.x());
+//         v_flat.push_back(v.y());
+//         v_flat.push_back(v.z());
+//     }
 
-    // coal::Triangle v0, v1, v2 accessible with []
-    for (const auto& tri : *bvh_original->tri_indices) {
-        t_flat.push_back(tri[0]);
-        t_flat.push_back(tri[1]);
-        t_flat.push_back(tri[2]);
-    }
+//     // coal::Triangle v0, v1, v2 accessible with []
+//     for (const auto& tri : *bvh_original->tri_indices) {
+//         t_flat.push_back(tri[0]);
+//         t_flat.push_back(tri[1]);
+//         t_flat.push_back(tri[2]);
+//     }
 
-    /*
-        At this point the initial convex hull has been built, and we can use the
-       VHACD interface to work with it
+//     /*
+//         At this point the initial convex hull has been built, and we can use the
+//        VHACD interface to work with it
 
-    https://kmamou.blogspot.com/2014/12/v-hacd-20-in-your-project.html
-    */
+//     https://kmamou.blogspot.com/2014/12/v-hacd-20-in-your-project.html
+//     */
 
-    VHACD::IVHACD::Parameters params;
-    VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
-    bool res =
-        interfaceVHACD->Compute(v_flat.data(), v_flat.size() / 3, t_flat.data(),
-                                t_flat.size() / 3, params);
+//     VHACD::IVHACD::Parameters params;
+//     VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
+//     bool res =
+//         interfaceVHACD->Compute(v_flat.data(), v_flat.size() / 3, t_flat.data(),
+//                                 t_flat.size() / 3, params);
 
-    if (!res) {
-        TRACE("Failed to compute convex decomposition")
-        exit(1);
-    }
+//     if (!res) {
+//         TRACE("Failed to compute convex decomposition")
+//         exit(1);
+//     }
 
-    uint32_t hull_ct = interfaceVHACD->GetNConvexHulls();
-    std::vector<std::shared_ptr<coal::ConvexBase>> cv_hulls(hull_ct, nullptr);
-    for (uint32_t i = 0; i < hull_ct; i++) {
-        VHACD::IVHACD::ConvexHull cv_hull;
-        interfaceVHACD->GetConvexHull(i, cv_hull);
+//     uint32_t hull_ct = interfaceVHACD->GetNConvexHulls();
+//     std::vector<std::shared_ptr<coal::ConvexBase>> cv_hulls(hull_ct, nullptr);
+//     for (uint32_t i = 0; i < hull_ct; i++) {
+//         VHACD::IVHACD::ConvexHull cv_hull;
+//         interfaceVHACD->GetConvexHull(i, cv_hull);
 
-        const auto& verts = cv_hull.m_points;
-        const auto& tris = cv_hull.m_triangles;
+//         const auto& verts = cv_hull.m_points;
+//         const auto& tris = cv_hull.m_triangles;
 
-        // Regenerate a convex base but for this hull
-        std::shared_ptr<coal::BVHModel<coal::AABB>> cv_base =
-            std::make_shared<coal::BVHModel<coal::AABB>>();
-        cv_base->beginModel(verts.size(), tris.size());
+//         // Regenerate a convex base but for this hull
+//         std::shared_ptr<coal::BVHModel<coal::AABB>> cv_base =
+//             std::make_shared<coal::BVHModel<coal::AABB>>();
+//         cv_base->beginModel(verts.size(), tris.size());
 
-        // For each triangle, we can access mI0, mI1, mI2 in the verts array
-        for (const auto& tri : tris) {
-            VHACD::Vertex v0(verts[tri.mI0]), v1(verts[tri.mI1]),
-                v2(verts[tri.mI2]);
-            coal::Vec3s ev0, ev1, ev2;
+//         // For each triangle, we can access mI0, mI1, mI2 in the verts array
+//         for (const auto& tri : tris) {
+//             VHACD::Vertex v0(verts[tri.mI0]), v1(verts[tri.mI1]),
+//                 v2(verts[tri.mI2]);
+//             coal::Vec3s ev0, ev1, ev2;
 
-            // May be a way to use float but CoalScalar is just a double
-            for (int dim = 0; dim < 3; dim++) {
-                ev0[dim] = static_cast<coal::CoalScalar>(v0[dim]);
-                ev1[dim] = static_cast<coal::CoalScalar>(v1[dim]);
-                ev2[dim] = static_cast<coal::CoalScalar>(v2[dim]);
-            }
+//             // May be a way to use float but CoalScalar is just a double
+//             for (int dim = 0; dim < 3; dim++) {
+//                 ev0[dim] = static_cast<coal::CoalScalar>(v0[dim]);
+//                 ev1[dim] = static_cast<coal::CoalScalar>(v1[dim]);
+//                 ev2[dim] = static_cast<coal::CoalScalar>(v2[dim]);
+//             }
 
-            cv_base->addTriangle(ev0, ev1, ev2);
-        }
+//             cv_base->addTriangle(ev0, ev1, ev2);
+//         }
 
-        cv_base->endModel();
-        cv_base->buildConvexHull(true, "Qt");
+//         cv_base->endModel();
+//         cv_base->buildConvexHull(true, "Qt");
 
-        cv_hulls[i] = cv_base->convex;
-    }
+//         cv_hulls[i] = cv_base->convex;
+//     }
 
-    // Clean up
-    interfaceVHACD->Clean();
-    interfaceVHACD->Release();
+//     // Clean up
+//     interfaceVHACD->Clean();
+//     interfaceVHACD->Release();
 
-    return cv_hulls;
-}
+//     return cv_hulls;
+// }
 
 #ifdef DEBUG_MAIN
 int main() {
@@ -235,12 +235,10 @@ int main() {
 }
 #endif  // DEBUG
 
-// FIXME: Should be pass by reference?
+// FIXME: Should shared ptrs be pass by reference?
 Contacts coalMeshMesh(const Eigen::Matrix4d& M1, const Eigen::Matrix4d& M2, 
                       std::shared_ptr<coal::ConvexBase> shape1, std::shared_ptr<coal::ConvexBase> shape2) {
-    // std::shared_ptr<coal::ConvexBase> shape1 = loadConvexMesh(meshPath1);
-    // std::shared_ptr<coal::ConvexBase> shape2 = loadConvexMesh(meshPath2);
-
+    
     coal::Transform3s T1;
     T1.setRotation(M1.topLeftCorner(3, 3));
     T1.setTranslation(M1.topRightCorner(3, 1));

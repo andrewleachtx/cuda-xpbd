@@ -616,7 +616,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
             float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
             apbd::ShapeMeshObj mesh =
-                apbd::ShapeMeshObj("./resources/bunny.obj");
+                apbd::ShapeMeshObj({"./resources/bunny.obj"});
 
             // This function call is pointless on first intuition, however it
             // actually populates many member variables
@@ -771,7 +771,65 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
             break;
         }
-        case 999: {
+        case 98: {
+            // Single convex-decomposition with square cup. Limited to n = 1 bodies that stack, but the loop breaks, making
+            // it effectively one object at the origin.
+            model.tEnd = 1.0f;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0f;
+            float w = 2.0f;
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5f;
+
+            model.ground_size = 20;
+
+            float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
+
+            // Should use the first index
+            std::vector<std::string> cv_filenames(10);
+            cv_filenames[0] = "./resources/bowl_full.obj";
+            for (size_t i = 0; i < 9; i++) {
+                cv_filenames[i] = "bowl00" + std::to_string(i + 1) + ".obj";
+                printf("Using %s", cv_filenames[i].c_str());
+            }
+
+            apbd::ShapeMeshObj mesh =
+                apbd::ShapeMeshObj(cv_filenames);
+
+            mesh.computeInertia(density);
+
+            // One body at the origin for now
+            size_t n = 1;
+
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            for (int i = 0; i < n; i++) {
+                apbd::BodyRigid br(mesh, density, true, mu);
+                bodies[i] = apbd::Body(br);
+
+                auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
+
+                float x = 0.0f;
+                float y = 0.0f;
+                float z = (i + 0.5f) * w;
+
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                E.block<3, 3>(0, 0) = R;
+                Eigen::Vector3f pos = {x, y, z};
+                E.block<3, 1>(0, 3) = R * pos;
+
+                bodies[i].setInitTransform(E * mesh.E_oi);
+            }
+
+            break;
+        }
+        case 99: {
             // Stacking for CMA-ES, zero offet
             model.tEnd = 1;
             model.h = h;

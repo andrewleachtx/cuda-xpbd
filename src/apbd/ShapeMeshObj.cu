@@ -11,11 +11,11 @@ namespace apbd {
 ShapeMeshObj::ShapeMeshObj()
     : F(), V(), E_oi(), E_io(), radius(1.0f) {}
 
-ShapeMeshObj::ShapeMeshObj(const std::string &filename, int id)
-    : F(), V(), E_oi(), E_io(), radius(1.0f), filename(filename), id(id) {
-    readOBJ(filename, this->V, this->F);
-    // initHulls(filename);
-    this->cv_representation = loadConvexMesh(filename);
+// If you use multiple convex decompositions, make sure the very first is the full obj
+ShapeMeshObj::ShapeMeshObj(const std::vector<std::string> &filenames, int id)
+    : F(), V(), E_oi(), E_io(), radius(1.0f), filenames(filenames), id(id) {
+    readOBJ(this->filenames[0], this->V, this->F);
+    initHulls();
 }
 
 ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
@@ -24,12 +24,15 @@ ShapeMeshObj::ShapeMeshObj(const ShapeMeshObj &mesh) {
     E_oi = mesh.E_oi;
     E_io = mesh.E_io;
     radius = mesh.radius;
-    filename = mesh.filename;
+    filenames = mesh.filenames;
     id = mesh.id;
+
+    initHulls();
 }
 
 ShapeMeshObj::~ShapeMeshObj() {}
 
+// TODO: A clear might be nice, but all members are explicitly overwritten
 ShapeMeshObj& ShapeMeshObj::operator=(const ShapeMeshObj& other) {
     if (this != &other) {
         F = other.F;
@@ -37,9 +40,11 @@ ShapeMeshObj& ShapeMeshObj::operator=(const ShapeMeshObj& other) {
         E_oi = other.E_oi;
         E_io = other.E_io;
         radius = other.radius;
-        filename = other.filename;
+        filenames = other.filenames;
+
+        initHulls();
     }
-    
+
     return *this;
 }
 
@@ -290,20 +295,19 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     Eigen::Matrix4d M1 = (E1 * E_io).cast<double>();
     Eigen::Matrix4d M2 = (E2 * other.E_io).cast<double>();
 
-    // TODO:
     /*
-        To take advantage of the convex hull decomposition we can now
-        loop over each pair of convex hull decompositions from shape1 to all 
-        instances in shape2.
-
-        Accumulate the collisions across each pairwise check.
-
-        TODO: Can we optimize broadphase with this? Or just narrowphase? How
-        TODO: specifically is it optimal for narrowphase.
+        We should determine if our shape is using convex decomposition. If it is, shape.cv_hulls will be populated
+        with >1 elements.
     */
+    std::shared_ptr<coal::ConvexBase> shape1, shape2;
+    if (this->filenames.size() == 1) {
+        shape1 = this->cv_hulls[0];
+    }
+    if (other.filenames.size() == 1) {
+        shape2 = other.cv_hulls[0];
+    }
 
-
-    auto collisions = coalMeshMesh(M1, M2, this->cv_representation, other.cv_representation);
+    auto collisions = coalMeshMesh(M1, M2, shape1, shape2);
 
     Eigen::Vector3f nw = collisions.normal.cast<float>();
 
@@ -339,12 +343,13 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     return cuda::std::make_pair(cdata, contactCount);
 }
 
-// This loads and caches the hulls. Should be done on construction of the ShapeMeshObj instance.
-// TODO: If multiple instances of ShapeMeshObj exist, we could even cache across instances.
-__host__ void ShapeMeshObj::initHulls(const std::string& filename) {
-//     this->cv_hulls = loadConvexDecompositions(filename);
-// TODO: Remove if not using
-return;
+// Iterates over all obj files that represent the shape and adds a cached convexBase instance for them.
+// TODO: Depending on extent of file count used, using .reserve before
+void ShapeMeshObj::initHulls() {
+    // If we aren't using decomposition, this only caches the first
+    for (const auto& f : this->filenames) {
+        cv_hulls.push_back(loadConvexMesh(f));
+    }
 }
 
 void ShapeMeshObj::readOBJ(const std::string &filename,
