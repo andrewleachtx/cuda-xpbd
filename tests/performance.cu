@@ -67,6 +67,34 @@ void run_kernel(apbd::Model model, apbd::Body *bodies, int sims,
     std::cout << "# Kernel took: " << (t2 - t1).count() << '\t';
 }
 
+void run_kernelCMAES(apbd::Model model, apbd::Body *bodies, int sims,
+                     bool do_variations) {
+    cout << "# thread blocks: " << (sims + BLOCK_SIZE - 1) / BLOCK_SIZE << endl;
+
+    const size_t shared_size = model.get_shared_memory_size();
+
+    apbd::BodyReference *body_ptr_buffer = nullptr;
+    apbd::Collision *collision_buffer = nullptr;
+    unsigned int *active_collision_buffer = nullptr;
+    apbd::Collider::allocate_buffers(model, sims, body_ptr_buffer,
+                                     collision_buffer, active_collision_buffer);
+    auto buffers = apbd::Model::allocate_buffers(sims, model);
+
+    model.move_to_device();
+    bodies = move_array_to_device(bodies, model.body_count);
+
+    auto t1 = Clock::now();
+
+    kernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE, shared_size>>>(
+        model, buffers, bodies, body_ptr_buffer, collision_buffer,
+        active_collision_buffer, sims, do_variations);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    auto t2 = Clock::now();
+    std::cout << "# Kernel took: " << (t2 - t1).count() << '\t';
+}
+
 void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
                     int processor_count, int id, bool do_variations) {
     for (int i = id; i < sims; i += processor_count) {
@@ -198,7 +226,8 @@ int main(int argc, char *argv[]) {
     auto t1 = Clock::now();
 #ifdef USE_CUDA
     cout << "# Running with CUDA #" << endl;
-    run_kernel(model, bodies, state.scene_count, state.variations);
+    // run_kernel(model, bodies, state.scene_count, state.variations);
+    run_kernelCMAES(model, bodies, state.scene_count, state.variations);
 #else
     cout << "# Running on CPU #" << endl;
     cpu_run_group(model, bodies, state.scene_count, state.variations);

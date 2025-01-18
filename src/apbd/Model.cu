@@ -150,19 +150,44 @@ float comouteResiduals(){
 }
 */
 float Model::computeResiduals(Collider *collider, float h) {
-    Eigen::VectorXf rs = Eigen::VectorXf::Zero(this->constraint_count * 3);
+    // Should be num_constraints * 3
+    Eigen::VectorXf rs = Eigen::VectorXf::Zero(collider->active_collision_count * 3);
 
     // 'Constraint' doesn't work, it only points to ConstraintReference and we need all collisions first to access them
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
 
-        for (unsigned int j = 0; j < this->forward_iters; j++) {
-            if (collider->collisions[clr.index].is_ground(clr)) {
-                collider->collisions[clr.index].constraints[j].get_ground().evalCs(h);
+        /*
+        if (this->is_ground(clr)) {
+                for (unsigned int i = 0; i < clr.contactNum(); i++) {
+                    ConstraintReference cr(ground_count++);
+                    cr.get_ground().create(clr.body1().get_rigid(), contacts[i], clr);
+                    this->constraints[i] = cr;
+                }
+            } else {
+                for (unsigned int i = 0; i < clr.contactNum(); i++) {
+                    ConstraintReference cr(rigid_count++);
+                    cr.get_rigid().create(clr.body1().get_rigid(),
+                                        clr.body2().get_rigid(), contacts[i], clr);
+                    this->constraints[i] = cr;
+                }
+            }
+
+    collider->collisions[collider->activeCollisions[i]]
+
+    collider->collisions[collider->activeCollisions[i]]
+        */
+        for (unsigned int j = 0; j < clr.contactNum(); j++) {
+            Eigen::Vector3f Cs;
+            if (collider->collisions[collider->activeCollisions[i]].is_ground(clr)) {
+                Cs = collider->collisions[collider->activeCollisions[i]].constraints[j].get_ground().evalCs(this->h);
             }
             else {
-                collider->collisions[clr.index].constraints[j].get_rigid().evalCs(h);
+                Cs = collider->collisions[collider->activeCollisions[i]].constraints[j].get_rigid().evalCs(this->h);
             }
+
+            // add to rs
+            rs.segment(i * 3, 3) = Cs;
         }
     }
 
@@ -182,8 +207,8 @@ void Model::simulate(Collider *collider) {
         }
 
         this->write_state(step + 1);
-        // float resid = this->computeResiduals(collider, hs);
-        // printf("Residuals: %f\n", resid);
+        float resid = this->computeResiduals(collider, hs);
+        printf("Residuals: %f\n", resid);
     }
 }
 

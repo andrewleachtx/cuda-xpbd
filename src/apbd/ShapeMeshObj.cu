@@ -140,45 +140,39 @@ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
 
     // FIXME: The computeInertia is erroneous, so for this shape do this
     // TODO: Correct this Inertia moment
-    // I.head<3>() << 0.019202, 0.019202, 0.031935;
-    // I(3) = mass;
-    // I(4) = mass;
-    // I(5) = mass;
+    I.head<3>() << 0.019202, 0.019202, 0.031935;
+    I(3) = mass;
+    I(4) = mass;
+    I(5) = mass;
     
-    // r = V.rowwise().mean();
+    r = V.rowwise().mean();
 
-    // E = Eigen::Matrix4f::Identity();
-    // E.block<3, 1>(0, 3) = r;
-    // E.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity();
-
-    // x = E.block<3, 1>(0, 0);
-    // y = E.block<3, 1>(0, 1);
-    // z = E.block<3, 1>(0, 2);
-    // if (x.cross(y).dot(z) < 0.0f) {
-    //     E.block<3, 1>(0, 2) = -z;
-    // }
-
-    // E_oi = E;
-    // E_io = se3::inv(E);
-
-    // nverts = V.cols();
-    // V_.topRows<3>() = V;
-    // V_.row(3).setOnes();
-    // V_ = E_io * V_;
-    // this->radius = 0.0f;
-    // for (int i = 0; i < V.cols(); i++) {
-    //     float vecnorm = V_.col(i).norm();
-    //     if (vecnorm > this->radius) {
-    //         this->radius = vecnorm;
-    //     }
-    // }
-    
     E = Eigen::Matrix4f::Identity();
-    E << 0.0049, -1, 0, 0, 1, 0.0049, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
-    this->E_oi = E;
-    this->E_io = E.inverse();
-    this->radius = 0.9513f;
+    E.block<3, 1>(0, 3) = r;
+    E.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity();
 
+    x = E.block<3, 1>(0, 0);
+    y = E.block<3, 1>(0, 1);
+    z = E.block<3, 1>(0, 2);
+    if (x.cross(y).dot(z) < 0.0f) {
+        E.block<3, 1>(0, 2) = -z;
+    }
+
+    E_oi = E;
+    E_io = se3::inv(E);
+
+    nverts = V.cols();
+    V_.topRows<3>() = V;
+    V_.row(3).setOnes();
+    V_ = E_io * V_;
+    this->radius = 0.0f;
+    for (int i = 0; i < V.cols(); i++) {
+        float vecnorm = V_.col(i).norm();
+        if (vecnorm > this->radius) {
+            this->radius = vecnorm;
+        }
+    }
+    
     if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
         throw std::runtime_error(
             "I has NaN or negative values in ShapeMeshObj::computeInertia");

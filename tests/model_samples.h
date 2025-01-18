@@ -738,19 +738,19 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
             model.ground_size = 20;
 
-            float angle = (-90.0f * static_cast<float>(M_PI)) / 180.0f;
-            // float angle = 0.0f;
+            // float angle = (-90.0f * static_cast<float>(M_PI)) / 180.0f;
+            float angle = 0.0f;
 
             // Should use the first index
-            std::vector<std::string> cv_filenames(1);
-            cv_filenames[0] = "./resources/sbowl2.obj";
-
-            // std::vector<std::string> cv_filenames(10);
+            // std::vector<std::string> cv_filenames(1);
             // cv_filenames[0] = "./resources/square_bowl.obj";
-            // for (size_t i = 0; i < 9; i++) {
-            //     cv_filenames[i + 1] = "./resources/square_bowl00" + std::to_string(i) + ".obj";
-            //     printf("# Using %s\n", cv_filenames[i + 1].c_str());
-            // }
+
+            std::vector<std::string> cv_filenames(10);
+            cv_filenames[0] = "./resources/square_bowl.obj";
+            for (size_t i = 0; i < 9; i++) {
+                cv_filenames[i + 1] = "./resources/square_bowl00" + std::to_string(i) + ".obj";
+                printf("# Using %s\n", cv_filenames[i + 1].c_str());
+            }
 
             apbd::ShapeMeshObj mesh =
                 apbd::ShapeMeshObj(cv_filenames);
@@ -758,7 +758,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             mesh.computeInertia(density);
 
             // One body at the origin for now
-            size_t n = 1;
+            size_t n = 20;
 
             bodies = new apbd::Body[n];
             model.body_count = n;
@@ -769,11 +769,10 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 bodies[i] = apbd::Body(br);
 
                 auto R = se3::aaToMat(Eigen::Vector3f(0.0f, 0.0f, 1.0f), angle);
-                cout << R << endl;
 
                 float x = 0.0f;
                 float y = 0.0f;
-                float z = 0.65f * i + 0.33f;
+                float z = 0.6f * i + 0.33f;
 
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 E.block<3, 3>(0, 0) = R;
@@ -781,8 +780,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 Eigen::Vector3f pos = {x, y, z};
                 E.block<3, 1>(0, 3) = R * pos;
 
-                cout << mesh.E_oi << endl;
-                cout << E << endl;
                 bodies[i].setInitTransform(E * mesh.E_oi);
             }
 

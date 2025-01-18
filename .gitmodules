@@ -4,3 +4,6 @@
 [submodule "include/v-hacd"]
 	path = include/v-hacd
 	url = git@github.com:kmammou/v-hacd.git
+[submodule "include/libcmaes"]
+	path = include/libcmaes
+	url = git@github.com:CMA-ES/libcmaes.git
