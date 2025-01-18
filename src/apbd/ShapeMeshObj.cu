@@ -138,6 +138,47 @@ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
         }
     }
 
+    // FIXME: The computeInertia is erroneous, so for this shape do this
+    // TODO: Correct this Inertia moment
+    // I.head<3>() << 0.019202, 0.019202, 0.031935;
+    // I(3) = mass;
+    // I(4) = mass;
+    // I(5) = mass;
+    
+    // r = V.rowwise().mean();
+
+    // E = Eigen::Matrix4f::Identity();
+    // E.block<3, 1>(0, 3) = r;
+    // E.block<3, 3>(0, 0) = Eigen::Matrix3f::Identity();
+
+    // x = E.block<3, 1>(0, 0);
+    // y = E.block<3, 1>(0, 1);
+    // z = E.block<3, 1>(0, 2);
+    // if (x.cross(y).dot(z) < 0.0f) {
+    //     E.block<3, 1>(0, 2) = -z;
+    // }
+
+    // E_oi = E;
+    // E_io = se3::inv(E);
+
+    // nverts = V.cols();
+    // V_.topRows<3>() = V;
+    // V_.row(3).setOnes();
+    // V_ = E_io * V_;
+    // this->radius = 0.0f;
+    // for (int i = 0; i < V.cols(); i++) {
+    //     float vecnorm = V_.col(i).norm();
+    //     if (vecnorm > this->radius) {
+    //         this->radius = vecnorm;
+    //     }
+    // }
+    
+    E = Eigen::Matrix4f::Identity();
+    E << 0.0049, -1, 0, 0, 1, 0.0049, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
+    this->E_oi = E;
+    this->E_io = E.inverse();
+    this->radius = 0.9513f;
+
     if (I.hasNaN() || I.x() < 0.0f || I.y() < 0.0f || I.z() < 0.0f) {
         throw std::runtime_error(
             "I has NaN or negative values in ShapeMeshObj::computeInertia");
@@ -159,11 +200,11 @@ bool ShapeMeshObj::broadphaseGround(const Eigen::Matrix4f E,
     Eigen::Vector4f xw = E * xl;
 
     Eigen::Vector4f xg = Eg.inverse() * xw;
-    float r = radius;
+    float r = this->radius;
 
-    if (xg(2) < 1.2f * r) {
-        printf("# Detected groundphase\n");
-    }
+    // if (xg(2) < 1.2f * r) {
+    //     printf("# Detected groundphase\n");
+    // }
     return xg(2) < 1.2f * r;
 }
 
@@ -178,123 +219,215 @@ cdata_t ShapeMeshObj::narrowphaseGround(
     */
     for (const std::shared_ptr<coal::ConvexBase> hull : this->cv_hulls) {
         // Grab vertices, TODO: for now on the fly calculation, should add container
-        std::vector<coal::Vec3s> &verts = hull->points;
-        Eigen::Matrix<float, 3, Eigen::Dynamic> V_hull;
-        for (const auto& v : verts) {
-            V_hull
+        std::vector<coal::Vec3s> &verts = *hull->points;
+        Eigen::Matrix<float, 3, Eigen::Dynamic> V_hull(3, verts.size());
+        for (size_t i = 0; i < verts.size(); i++) {
+            V_hull.col(i) = verts[i].cast<float>();
         }
 
-        const int nverts = hull->num_points;
+        // Transform vertices to local
+        const int nverts = V_hull.cols();
         Eigen::Matrix<float, 4, Eigen::Dynamic> V4(4, nverts);
+        V4.topRows<3>() = V_hull;
+        V4.row(3).setOnes();
 
+        // Convert from local to world to ground
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xl = E_io * V4;
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
+        Eigen::Matrix4f Eg_inv = Eg.inverse();
+        Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg_inv * xw;
+        
+        Eigen::RowVectorXf depth = xg.row(2);
+        float maxDepth = depth.minCoeff();
 
-    }
-}
-
-cdata_t ShapeMeshObj::narrowphaseGround(
-    const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
-    cuda::std::array<Contact, 8> cdata{};
-    size_t contactCount = 0;
-
-    const int nverts = V.cols();
-    Eigen::Matrix<float, 4, Eigen::Dynamic> V4(4, nverts);
-    V4.topRows<3>() = V;
-    V4.row(3).setOnes();
-
-    Eigen::Matrix<float, 4, Eigen::Dynamic> xl = E_io * V4;
-
-    Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
-
-    Eigen::Matrix4f Eg_inv = Eg.inverse();
-    Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg_inv * xw;
-
-    Eigen::RowVectorXf depth = xg.row(2);
-    float maxDepth = depth.minCoeff();
-
-    if (maxDepth < 0.2f) {
-        std::vector<int> cindices;
-        cindices.reserve(nverts);
-        float threshold = maxDepth + 5e-2f;
-        for (int i = 0; i < nverts; ++i) {
-            if (depth(i) < threshold) {
-                cindices.push_back(i);
+        if (maxDepth < 0.2f) {
+            std::vector<int> cindices;
+            cindices.reserve(nverts);
+            float threshold = maxDepth + 5e-2f;
+            for (int i = 0; i < nverts; ++i) {
+                if (depth(i) < threshold) {
+                    cindices.push_back(i);
+                }
             }
-        }
 
-        if (cindices.size() > 8) {
-            int minXIdx(-1), maxXIdx(-1);
-            int minYIdx(-1), maxYIdx(-1);
-            float minXVal = std::numeric_limits<float>::infinity();
-            float maxXVal = -std::numeric_limits<float>::infinity();
-            float minYVal = std::numeric_limits<float>::infinity();
-            float maxYVal = -std::numeric_limits<float>::infinity();
+            if (cindices.size() > 8) {
+                int minXIdx(-1), maxXIdx(-1);
+                int minYIdx(-1), maxYIdx(-1);
+                float minXVal = std::numeric_limits<float>::infinity();
+                float maxXVal = -std::numeric_limits<float>::infinity();
+                float minYVal = std::numeric_limits<float>::infinity();
+                float maxYVal = -std::numeric_limits<float>::infinity();
+
+                for (int idx : cindices) {
+                    float xVal = xg(0, idx);
+                    float yVal = xg(1, idx);
+
+                    if (xVal < minXVal) {
+                        minXVal = xVal;
+                        minXIdx = idx;
+                    }
+                    if (xVal > maxXVal) {
+                        maxXVal = xVal;
+                        maxXIdx = idx;
+                    }
+                    if (yVal < minYVal) {
+                        minYVal = yVal;
+                        minYIdx = idx;
+                    }
+                    if (yVal > maxYVal) {
+                        maxYVal = yVal;
+                        maxYIdx = idx;
+                    }
+                }
+
+                std::vector<int> sub4;
+                sub4.reserve(4);
+                if (minXIdx >= 0) {
+                    sub4.push_back(minXIdx);
+                }
+                if (maxXIdx >= 0) {
+                    sub4.push_back(maxXIdx);
+                }
+                if (minYIdx >= 0) {
+                    sub4.push_back(minYIdx);
+                }
+                if (maxYIdx >= 0) {
+                    sub4.push_back(maxYIdx);
+                }
+
+                cindices = std::move(sub4);
+            }
 
             for (int idx : cindices) {
-                float xVal = xg(0, idx);
-                float yVal = xg(1, idx);
+                if (contactCount >= 8) break;
 
-                if (xVal < minXVal) {
-                    minXVal = xVal;
-                    minXIdx = idx;
-                }
-                if (xVal > maxXVal) {
-                    maxXVal = xVal;
-                    maxXIdx = idx;
-                }
-                if (yVal < minYVal) {
-                    minYVal = yVal;
-                    minYIdx = idx;
-                }
-                if (yVal > maxYVal) {
-                    maxYVal = yVal;
-                    maxYIdx = idx;
-                }
+                Eigen::Vector3f localPt = xl.col(idx).head<3>();
+
+                Eigen::Vector4f xgproj = xg.col(idx);
+                xgproj(2) = 0.0f;
+
+                Eigen::Vector4f x2Hom = Eg * xgproj;
+                Eigen::Vector3f x2World = x2Hom.head<3>();
+
+                Eigen::Vector3f normal = Eg.block<3, 1>(0, 2);
+
+                Contact contact;
+                contact.nw = normal;
+                contact.x1 = localPt;
+                contact.x2 = x2World;
+
+                cdata[contactCount++] = contact;
             }
-
-            std::vector<int> sub4;
-            sub4.reserve(4);
-            if (minXIdx >= 0) {
-                sub4.push_back(minXIdx);
-            }
-            if (maxXIdx >= 0) {
-                sub4.push_back(maxXIdx);
-            }
-            if (minYIdx >= 0) {
-                sub4.push_back(minYIdx);
-            }
-            if (maxYIdx >= 0) {
-                sub4.push_back(maxYIdx);
-            }
-
-            cindices = std::move(sub4);
-        }
-
-        for (int idx : cindices) {
-            if (contactCount >= 8) break;
-
-            Eigen::Vector3f localPt = xl.col(idx).head<3>();
-
-            Eigen::Vector4f xgproj = xg.col(idx);
-            xgproj(2) = 0.0f;
-
-            Eigen::Vector4f x2Hom = Eg * xgproj;
-            Eigen::Vector3f x2World = x2Hom.head<3>();
-
-            Eigen::Vector3f normal = Eg.block<3, 1>(0, 2);
-
-            Contact contact;
-            contact.nw = normal;
-            contact.x1 = localPt;
-            contact.x2 = x2World;
-
-            cdata[contactCount++] = contact;
         }
     }
-
-    printf("# Collision count: %zu\n", contactCount);
 
     return cuda::std::make_pair(cdata, contactCount);
 }
+
+// cdata_t ShapeMeshObj::narrowphaseGround(
+//     const Eigen::Matrix4f E, const Eigen::Matrix4f Eg) const {
+//     cuda::std::array<Contact, 8> cdata{};
+//     size_t contactCount = 0;
+
+//     const int nverts = V.cols();
+//     Eigen::Matrix<float, 4, Eigen::Dynamic> V4(4, nverts);
+//     V4.topRows<3>() = V;
+//     V4.row(3).setOnes();
+
+//     Eigen::Matrix<float, 4, Eigen::Dynamic> xl = E_io * V4;
+
+//     Eigen::Matrix<float, 4, Eigen::Dynamic> xw = E * xl;
+
+//     Eigen::Matrix4f Eg_inv = Eg.inverse();
+//     Eigen::Matrix<float, 4, Eigen::Dynamic> xg = Eg_inv * xw;
+
+//     Eigen::RowVectorXf depth = xg.row(2);
+//     float maxDepth = depth.minCoeff();
+
+//     if (maxDepth < 0.2f) {
+//         std::vector<int> cindices;
+//         cindices.reserve(nverts);
+//         float threshold = maxDepth + 5e-2f;
+//         for (int i = 0; i < nverts; ++i) {
+//             if (depth(i) < threshold) {
+//                 cindices.push_back(i);
+//             }
+//         }
+
+//         if (cindices.size() > 8) {
+//             int minXIdx(-1), maxXIdx(-1);
+//             int minYIdx(-1), maxYIdx(-1);
+//             float minXVal = std::numeric_limits<float>::infinity();
+//             float maxXVal = -std::numeric_limits<float>::infinity();
+//             float minYVal = std::numeric_limits<float>::infinity();
+//             float maxYVal = -std::numeric_limits<float>::infinity();
+
+//             for (int idx : cindices) {
+//                 float xVal = xg(0, idx);
+//                 float yVal = xg(1, idx);
+
+//                 if (xVal < minXVal) {
+//                     minXVal = xVal;
+//                     minXIdx = idx;
+//                 }
+//                 if (xVal > maxXVal) {
+//                     maxXVal = xVal;
+//                     maxXIdx = idx;
+//                 }
+//                 if (yVal < minYVal) {
+//                     minYVal = yVal;
+//                     minYIdx = idx;
+//                 }
+//                 if (yVal > maxYVal) {
+//                     maxYVal = yVal;
+//                     maxYIdx = idx;
+//                 }
+//             }
+
+//             std::vector<int> sub4;
+//             sub4.reserve(4);
+//             if (minXIdx >= 0) {
+//                 sub4.push_back(minXIdx);
+//             }
+//             if (maxXIdx >= 0) {
+//                 sub4.push_back(maxXIdx);
+//             }
+//             if (minYIdx >= 0) {
+//                 sub4.push_back(minYIdx);
+//             }
+//             if (maxYIdx >= 0) {
+//                 sub4.push_back(maxYIdx);
+//             }
+
+//             cindices = std::move(sub4);
+//         }
+
+//         for (int idx : cindices) {
+//             if (contactCount >= 8) break;
+
+//             Eigen::Vector3f localPt = xl.col(idx).head<3>();
+
+//             Eigen::Vector4f xgproj = xg.col(idx);
+//             xgproj(2) = 0.0f;
+
+//             Eigen::Vector4f x2Hom = Eg * xgproj;
+//             Eigen::Vector3f x2World = x2Hom.head<3>();
+
+//             Eigen::Vector3f normal = Eg.block<3, 1>(0, 2);
+
+//             Contact contact;
+//             contact.nw = normal;
+//             contact.x1 = localPt;
+//             contact.x2 = x2World;
+
+//             cdata[contactCount++] = contact;
+//         }
+//     }
+
+//     printf("# Collision count: %zu\n", contactCount);
+
+//     return cuda::std::make_pair(cdata, contactCount);
+// }
 
 bool ShapeMeshObj::broadphaseShapeMesh(
     const Eigen::Matrix4f E1, const ShapeMeshObj &other,

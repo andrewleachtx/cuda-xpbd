@@ -731,24 +731,26 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.forward_iters = 5;
             model.reverse_iters = 25;
             float density = 1.0f;
-            float w = 2.0f;
+            float w = 1.0f;
             model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
             model.ground_E = Eigen::Matrix4f::Identity();
             float mu = 0.5f;
 
             model.ground_size = 20;
 
-            // We have to rotate 
-            // float angle = -90.0f * static_cast<float>(M_PI) / 180.0f;
-            float angle = 0.0f;
+            float angle = (-90.0f * static_cast<float>(M_PI)) / 180.0f;
+            // float angle = 0.0f;
 
             // Should use the first index
-            std::vector<std::string> cv_filenames(10);
-            cv_filenames[0] = "./resources/bowl_full.obj";
-            for (size_t i = 1; i < 10; i++) {
-                cv_filenames[i] = "./resources/bowl00" + std::to_string(i) + ".obj";
-                printf("# Using %s\n", cv_filenames[i].c_str());
-            }
+            std::vector<std::string> cv_filenames(1);
+            cv_filenames[0] = "./resources/sbowl2.obj";
+
+            // std::vector<std::string> cv_filenames(10);
+            // cv_filenames[0] = "./resources/square_bowl.obj";
+            // for (size_t i = 0; i < 9; i++) {
+            //     cv_filenames[i + 1] = "./resources/square_bowl00" + std::to_string(i) + ".obj";
+            //     printf("# Using %s\n", cv_filenames[i + 1].c_str());
+            // }
 
             apbd::ShapeMeshObj mesh =
                 apbd::ShapeMeshObj(cv_filenames);
@@ -766,56 +768,28 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 apbd::BodyRigid br(mesh, density, true, mu);
                 bodies[i] = apbd::Body(br);
 
-                auto R = se3::aaToMat(Eigen::Vector3f(0, 0, 1), angle);
+                auto R = se3::aaToMat(Eigen::Vector3f(0.0f, 0.0f, 1.0f), angle);
+                cout << R << endl;
 
                 float x = 0.0f;
                 float y = 0.0f;
-                float z = 3.0f;
+                float z = 0.65f * i + 0.33f;
 
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 E.block<3, 3>(0, 0) = R;
+
                 Eigen::Vector3f pos = {x, y, z};
                 E.block<3, 1>(0, 3) = R * pos;
 
+                cout << mesh.E_oi << endl;
+                cout << E << endl;
                 bodies[i].setInitTransform(E * mesh.E_oi);
             }
 
             break;
         }
         case 99: {
-            // Stacking for CMA-ES, zero offet
-            model.tEnd = 1;
-            model.h = h;
-            model.substeps = substeps;
-            model.forward_iters = 5;
-            model.reverse_iters = 25;
-            float density = 1.0;
-            float w = 1;
-            Eigen::Vector3f sides{w, w, w};
-            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
-            model.ground_E = Eigen::Matrix4f::Identity();
-            float mu = 0.5;
 
-            model.ground_size = 20;
-
-            size_t n = 10;
-            bodies = new apbd::Body[n];
-            model.body_count = n;
-            model.bodies = new apbd::BodyReference[n];
-            for (size_t i = 0; i < n; i++) {
-                bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
-                                                       density, true, mu));
-                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
-                float x = 0.0f;
-                float y = 0.0f;
-                float z = (i + 0.5) * w;
-                E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
-                bodies[i].setInitTransform(E);
-                if (i == 1) {
-                    bodies[i].setInitVelocity(
-                        Eigen::Matrix<float, 6, 1>(0, 0, 0, 0, 0, 0));
-                }
-            }
             break;
         }
     }

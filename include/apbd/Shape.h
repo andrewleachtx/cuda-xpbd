@@ -31,6 +31,7 @@ class alignas(16) Shape {
 
     __host__ __device__ Shape() : type(SHAPE_CUBOID) {
         data.cuboid = ShapeCuboid(Eigen::Vector3f(1.0f, 1.0f, 1.0f));
+        data.meshObj = nullptr;
     }
     __host__ __device__ Shape(ShapeCuboid cuboid);
     __host__ __device__ Shape(ShapeMeshObj meshObj);

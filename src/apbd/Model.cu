@@ -139,6 +139,37 @@ void Model::move_to_device() {
     constraints = move_array_to_device(constraints, constraint_count);
 }
 
+/*
+float comouteResiduals(){
+    Eigen::VectorXf rs(num_constraints*3);
+    for(int i = 0; i< num_constraints;i++){
+        rs(seq(i*3,i*3+2)) = constraints[i].evalCs(h);
+    }
+    float residual = rs.array().max(0).matrix().norm();
+    return residual;
+}
+*/
+float Model::computeResiduals(Collider *collider, float h) {
+    Eigen::VectorXf rs = Eigen::VectorXf::Zero(this->constraint_count * 3);
+
+    // 'Constraint' doesn't work, it only points to ConstraintReference and we need all collisions first to access them
+    for (size_t i = 0; i < collider->active_collision_count; i++) {
+        CollisionReference clr(collider->activeCollisions[i]);
+
+        for (unsigned int j = 0; j < this->forward_iters; j++) {
+            if (collider->collisions[clr.index].is_ground(clr)) {
+                collider->collisions[clr.index].constraints[j].get_ground().evalCs(h);
+            }
+            else {
+                collider->collisions[clr.index].constraints[j].get_rigid().evalCs(h);
+            }
+        }
+    }
+
+    float residual = rs.array().max(0).matrix().norm();
+    return residual;
+}
+
 void Model::simulate(Collider *collider) {
     float hs = this->h / static_cast<float>(this->substeps);
     // printf("Simulating a total of %u steps.\n", this->steps);
@@ -146,12 +177,13 @@ void Model::simulate(Collider *collider) {
         // printf("==== Step %u starting ====\n", step);
         if (this->solver_type == Solver_Type::S_2PSP) {
             this->solveConTGS(collider, hs);
-        }
-        else if (this->solver_type == Solver_Type::S_GPQP) {
+        } else if (this->solver_type == Solver_Type::S_GPQP) {
             this->solveConGPQP(collider, hs);
         }
 
         this->write_state(step + 1);
+        // float resid = this->computeResiduals(collider, hs);
+        // printf("Residuals: %f\n", resid);
     }
 }
 
@@ -262,7 +294,7 @@ void Model::solveConGPQP(Collider *collider, float hs) {
         collider->collisions[collider->activeCollisions[i]].initConstraints(
             clr);
     }
-    
+
     this->stepBDF1(this->h);
 
     for (size_t i = 0; i < this->constraint_count; i++) {
@@ -280,8 +312,9 @@ void Model::solveConGPQP(Collider *collider, float hs) {
                 this->constraints[i].solve();
             }
 
-        That said, it tells us to use a Gauss-Seidel solve instead. But in MATLAB it doesn't even do that, so we will leave out for now
-        
+        That said, it tells us to use a Gauss-Seidel solve instead. But in
+       MATLAB it doesn't even do that, so we will leave out for now
+
         for (size_t i = 0; i < collider->active_collision_count; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collider->activeCollisions[i]]
@@ -297,7 +330,7 @@ void Model::solveConGPQP(Collider *collider, float hs) {
         CollisionReference clr(collider->activeCollisions[i]);
         clr.index = ci;
         clr.mIndices(n);
-        
+
         // computeJ_b
         collider->collisions[collider->activeCollisions[i]].computeJ_b(clr,
                                                                        this->h);
@@ -323,7 +356,8 @@ void Model::solveConGPQP(Collider *collider, float hs) {
         exit(1);
     }
 
-    // TODO: The use of mIndices is a bit odd. It doesn't really need to exist in C++, we can just use offsetting. Should investigate that
+    // TODO: The use of mIndices is a bit odd. It doesn't really need to exist
+    // in C++, we can just use offsetting. Should investigate that
     for (unsigned int i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
 
@@ -381,11 +415,14 @@ void Model::solveConGPQP(Collider *collider, float hs) {
 /*
     This seeks to replicate the MATLAB call to `unique(tList, 'sorted')`.
 
-    Main issue using std is device compilation -- potential implementation (seems to work) with thrust for CUDA usage.
+    Main issue using std is device compilation -- potential implementation
+   (seems to work) with thrust for CUDA usage.
 
-    Should 1) remove dupes 2) sort. Note this is done in backwards because of how thrust::unique works.
+    Should 1) remove dupes 2) sort. Note this is done in backwards because of
+   how thrust::unique works.
 */
-__host__ __device__ void uniqueDeviceVector(thrust::device_vector<float> &vec, size_t &used_ct) {
+__host__ __device__ void uniqueDeviceVector(thrust::device_vector<float> &vec,
+                                            size_t &used_ct) {
     if (used_ct > vec.size()) {
         used_ct = vec.size();
     }
@@ -431,7 +468,8 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].get_rigid().LTx(vec6f::Zero());
     }
-    // TODO: A bit weird that collison_indices[i] and activeCollisions[i] are interchanged, my fault
+    // TODO: A bit weird that collison_indices[i] and activeCollisions[i] are
+    // interchanged, my fault
     for (size_t i = 0; i < coll_ct; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collision_indices[i]].compute_LTlambda(clr);
@@ -529,13 +567,16 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
             /*
                 FIXME:
 
-                At this point, for some reason clr.b() is getting set to only zeroes, unlike the first
-                round of this when calculating clr.g(...).
+                At this point, for some reason clr.b() is getting set to only
+               zeroes, unlike the first round of this when calculating
+               clr.g(...).
 
-                Because of that, Ax_local - b_local == vec24(0.0f), and the norm of that is of course zero.
+                Because of that, Ax_local - b_local == vec24(0.0f), and the norm
+               of that is of course zero.
 
-                Then a divide by zero occurs in compute_tbar->rayConeIntersection->g_norm = g / g.norm()
-                which produces a NaN.
+                Then a divide by zero occurs in
+               compute_tbar->rayConeIntersection->g_norm = g / g.norm() which
+               produces a NaN.
             */
             const auto &tbar_local =
                 collider->collisions[collision_indices[i]].compute_tbar(clr);

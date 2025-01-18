@@ -264,9 +264,6 @@ Contacts coalMeshMesh(const Eigen::Matrix4d& M1, const Eigen::Matrix4d& M2,
     if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
         coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
 
-        // size_t
-        printf("# Detected contactpatch.size() = %lu\n", contactpatch.size());
-
         results.depthMax = contactpatch.penetration_depth;
         results.count = contactpatch.size();
         if (results.count > 8) results.count = 8;

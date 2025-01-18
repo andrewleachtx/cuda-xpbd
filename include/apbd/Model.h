@@ -79,6 +79,10 @@ class Model {
     __host__ __device__ void solveConTGS(Collider *collider, float hs);
     __host__ __device__ void solveConGPQP(Collider *collider, float hs);
     __host__ __device__ GPQPOutput GPQP(Collider *collider, int n);
+    
+    // Helper to compute residuals
+    __host__ __device__ float computeResiduals(Collider *collider, float h);
+
 
     /**
      * Constructs default data structures

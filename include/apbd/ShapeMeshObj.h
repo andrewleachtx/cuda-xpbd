@@ -8,7 +8,6 @@
 
 #include "Contact.h"
 #include "util.h"
-// #include "coal/BVH/BVH_model.h"
 #include "collideBoxBox/coalMeshMesh.h"
 
 /*

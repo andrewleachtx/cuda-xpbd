@@ -32,10 +32,6 @@ Shape::Shape(const Shape &other) : type(other.type) {
 
 Shape &Shape::operator=(const Shape &other) {
     if (this != &other) {
-        if (type == SHAPE_MESHOBJ && data.meshObj) {
-            delete data.meshObj;
-        }
-
         type = other.type;
         switch (type) {
             case SHAPE_CUBOID: {
@@ -43,6 +39,10 @@ Shape &Shape::operator=(const Shape &other) {
                 break;
             }
             case SHAPE_MESHOBJ: {
+                if (data.meshObj != nullptr) {
+                    delete data.meshObj;
+                    data.meshObj = nullptr;
+                }
                 data.meshObj = new ShapeMeshObj(*other.data.meshObj);
                 break;
             }

@@ -206,6 +206,12 @@ inline void BodyRigidReference::updateStates(float hs) {
     Eigen::Matrix3f diag(Eigen::Matrix3f::Zero());
     Eigen::Vector3f Mr = this->Mr();
     Eigen::Vector3f isqrtMr = (1.0 / Mr.array()).sqrt();
+
+    if (isqrtMr.hasNaN()) {
+        printf("NaN, line=%d\n", __LINE__);
+        exit(1);
+    }
+
     diag(0, 0) = isqrtMr(0);
     diag(1, 1) = isqrtMr(1);
     diag(2, 2) = isqrtMr(2);
