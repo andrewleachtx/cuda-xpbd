@@ -1,5 +1,7 @@
 #pragma once
-#define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#ifndef EIGEN_DEFAULT_DENSE_INDEX_TYPE
+    #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#endif
 #include <Eigen/Dense>
 
 #include "util.h"

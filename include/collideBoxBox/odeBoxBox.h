@@ -1,7 +1,9 @@
 #ifndef _ODEBOXBOX_
 #define _ODEBOXBOX_
 
-#define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#ifndef EIGEN_DEFAULT_DENSE_INDEX_TYPE
+    #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#endif
 #include <Eigen/Dense>
 #define _USE_MATH_DEFINES
 #include <cmath>

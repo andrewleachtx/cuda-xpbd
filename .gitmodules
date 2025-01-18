@@ -1,9 +1,3 @@
 [submodule "include/eigen"]
 	path = include/eigen
 	url = https://gitlab.com/libeigen/eigen.git
-[submodule "include/v-hacd"]
-	path = include/v-hacd
-	url = git@github.com:kmammou/v-hacd.git
-[submodule "include/libcmaes"]
-	path = include/libcmaes
-	url = git@github.com:CMA-ES/libcmaes.git

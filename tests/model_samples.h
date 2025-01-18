@@ -723,8 +723,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             break;
         }
         case 98: {
-            // Single convex-decomposition with square cup. Limited to n = 1 bodies that stack, but the loop breaks, making
-            // it effectively one object at the origin.
+            // Convex decomposition with 9 shapes and 10 bodies.
             model.tEnd = 1.0f;
             model.h = h;
             model.substeps = substeps;
@@ -786,6 +785,41 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             break;
         }
         case 99: {
+            // CMAES starting with one box at the origin and a goal slightly far away.
+            model.tEnd = 1;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 1;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5;
+
+            model.ground_size = 20;
+
+            size_t n = 1;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+            for (size_t i = 0; i < n; i++) {
+                bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                float x = 0.0f;
+                float y = 0.0f;
+                float z = (i + 0.5f) * w;
+                E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+                bodies[i].setInitTransform(E);
+
+                // TODO: Update this part based on libcmaes
+                if (i == 1) {
+                    bodies[i].setInitVelocity(
+                        Eigen::Matrix<float, 6, 1>(0, 0, 0, 0, 0, 0));
+                }
+            }
 
             break;
         }

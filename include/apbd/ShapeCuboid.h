@@ -1,7 +1,9 @@
 #pragma once
 
 #include "JGT-float/smits_mul.h"
+#ifndef EIGEN_DEFAULT_DENSE_INDEX_TYPE
 #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int
+#endif
 #include <Eigen/Dense>
 #include <cuda/std/array>
 #include <cuda/std/utility>
