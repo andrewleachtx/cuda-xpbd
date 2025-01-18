@@ -220,28 +220,48 @@ void Model::stepBDF1(float hs) {
     }
 }
 
-// TODO: In addition to the GPQP changes, it appears this method in Model.m has
-// changed as well.
 void Model::solveConTGS(Collider *collider, float hs) {
+    // 1) Step BDF1
     this->stepBDF1(this->h);
+    // Check for NaN in bodies after stepBDF1
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN detected in body #%zu position after stepBDF1, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN detected in body #%zu velocity after stepBDF1, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
 
-    // Run collider; generate contact points
+    // 2) Run collider -> generate contact points
     collider->run(this);
     float biasCoefficient = 2 * sqrt(hs / this->h);
-    // 1e20 is used instead of oo for maximum hardware
-    // compatibilty/predictability
     const float Inf = 1e20f;
 
-    // We solve constraints in the layer order. The exact layer sizes don't
-    // matter at this step, so we don't bother walking through each layer
-    // individually.
-
-    // 2 Pass Shock Propagation
+    // 3) initConstraints for collisions
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
-        collider->collisions[collider->activeCollisions[i]].initConstraints(
-            clr);
+        collider->collisions[collider->activeCollisions[i]].initConstraints(clr);
     }
+    // Check for NaN in bodies after initConstraints
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu position after initConstraints, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu velocity after initConstraints, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
+
+    // 4) Forward shock propagation (forward_iters)
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         for (unsigned int j = 0; j < this->forward_iters; j++) {
@@ -249,9 +269,21 @@ void Model::solveConTGS(Collider *collider, float hs) {
                 .solveCollisionNor(clr, hs, biasCoefficient, -Inf, true);
         }
     }
+    // Check bodies for NaN after forward shock
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu position after forward shock, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu velocity after forward shock, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
 
-    // work backward now
-    // order within layers might matter, but this is much simpler
+    // 5) Backward shock propagation (reverse_iters)
     for (long int i = collider->active_collision_count - 1; i >= 0; i--) {
         CollisionReference clr(collider->activeCollisions[i]);
         for (unsigned int j = 0; j < this->reverse_iters; j++) {
@@ -260,25 +292,51 @@ void Model::solveConTGS(Collider *collider, float hs) {
         }
         collider->collisions[collider->activeCollisions[i]].applyLambdaSP(clr);
     }
+    // Check bodies after backward shock
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu position after backward shock, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu velocity after backward shock, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
 
+    // 6) Update states
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].updateStates(hs);
     }
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu after updateStates, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu velocity after updateStates, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
 
+    // 7) Substeps
     unsigned int ks = 0;
     while (ks < this->substeps) {
-        for (size_t constraint_i = 0; constraint_i < this->constraint_count;
-             constraint_i++) {
+        // Clear constraints
+        for (size_t constraint_i = 0; constraint_i < this->constraint_count; constraint_i++) {
             this->constraints[constraint_i].clear();
         }
 
-        // Gauss-Seidel solve for non-collision constraints
-        for (size_t constraint_i = 0; constraint_i < this->constraint_count;
-             constraint_i++) {
+        // Solve non-collision constraints
+        for (size_t constraint_i = 0; constraint_i < this->constraint_count; constraint_i++) {
             this->constraints[constraint_i].solve();
         }
 
-        // Gauss-Seidel for collisions
+        // Solve collisions: normal + tangential
         for (size_t i = 0; i < collider->active_collision_count; i++) {
             CollisionReference clr(collider->activeCollisions[i]);
             collider->collisions[collider->activeCollisions[i]]
@@ -287,13 +345,29 @@ void Model::solveConTGS(Collider *collider, float hs) {
                 .solveCollisionTan(clr, hs, biasCoefficient, false);
         }
 
+        // Update states
         for (size_t i = 0; i < this->body_count; i++) {
             this->bodies[i].updateStates(hs);
+        }
+
+        // Check for NaNs after substep
+        for (size_t i = 0; i < this->body_count; i++) {
+            auto pos = this->bodies[i].get_rigid().position();
+            auto vel = this->bodies[i].get_rigid().v();
+            if (pos.hasNaN()) {
+                printf("NaN in body #%zu pos after substep %u, line=%d\n", i, ks, __LINE__);
+                exit(1);
+            }
+            if (vel.hasNaN()) {
+                printf("NaN in body #%zu vel after substep %u, line=%d\n", i, ks, __LINE__);
+                exit(1);
+            }
         }
 
         ks++;
     }
 
+    // 8) Final collision solve
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
@@ -302,12 +376,128 @@ void Model::solveConTGS(Collider *collider, float hs) {
             clr, hs, biasCoefficient, false);
     }
 
+    // Check for NaN after final collision solve
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu pos after final collision solve, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu vel after final collision solve, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
+
+    // 9) integrateStates
     for (size_t i = 0; i < this->body_count; i++) {
         this->bodies[i].integrateStates();
     }
+    // Check for NaNs
+    for (size_t i = 0; i < this->body_count; i++) {
+        auto pos = this->bodies[i].get_rigid().position();
+        auto vel = this->bodies[i].get_rigid().v();
+        if (pos.hasNaN()) {
+            printf("NaN in body #%zu pos after integrateStates, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+        if (vel.hasNaN()) {
+            printf("NaN in body #%zu vel after integrateStates, line=%d\n", i, __LINE__);
+            exit(1);
+        }
+    }
 }
 
-/* FIXME: Still in progress! */
+
+// TODO: In addition to the GPQP changes, it appears this method in Model.m has
+// changed as well.
+// void Model::solveConTGS(Collider *collider, float hs) {
+//     this->stepBDF1(this->h);
+
+//     // Run collider; generate contact points
+//     collider->run(this);
+//     float biasCoefficient = 2 * sqrt(hs / this->h);
+//     // 1e20 is used instead of oo for maximum hardware
+//     // compatibilty/predictability
+//     const float Inf = 1e20f;
+
+//     // We solve constraints in the layer order. The exact layer sizes don't
+//     // matter at this step, so we don't bother walking through each layer
+//     // individually.
+
+//     // 2 Pass Shock Propagation
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         collider->collisions[collider->activeCollisions[i]].initConstraints(
+//             clr);
+//     }
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         for (unsigned int j = 0; j < this->forward_iters; j++) {
+//             collider->collisions[collider->activeCollisions[i]]
+//                 .solveCollisionNor(clr, hs, biasCoefficient, -Inf, true);
+//         }
+//     }
+
+//     // work backward now
+//     // order within layers might matter, but this is much simpler
+//     for (long int i = collider->active_collision_count - 1; i >= 0; i--) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         for (unsigned int j = 0; j < this->reverse_iters; j++) {
+//             collider->collisions[collider->activeCollisions[i]]
+//                 .solveCollisionNor(clr, hs, biasCoefficient, -Inf, true);
+//         }
+//         collider->collisions[collider->activeCollisions[i]].applyLambdaSP(clr);
+//     }
+
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].updateStates(hs);
+//     }
+
+//     unsigned int ks = 0;
+//     while (ks < this->substeps) {
+//         for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+//              constraint_i++) {
+//             this->constraints[constraint_i].clear();
+//         }
+
+//         // Gauss-Seidel solve for non-collision constraints
+//         for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+//              constraint_i++) {
+//             this->constraints[constraint_i].solve();
+//         }
+
+//         // Gauss-Seidel for collisions
+//         for (size_t i = 0; i < collider->active_collision_count; i++) {
+//             CollisionReference clr(collider->activeCollisions[i]);
+//             collider->collisions[collider->activeCollisions[i]]
+//                 .solveCollisionNor(clr, hs, biasCoefficient, -Inf, false);
+//             collider->collisions[collider->activeCollisions[i]]
+//                 .solveCollisionTan(clr, hs, biasCoefficient, false);
+//         }
+
+//         for (size_t i = 0; i < this->body_count; i++) {
+//             this->bodies[i].updateStates(hs);
+//         }
+
+//         ks++;
+//     }
+
+//     for (size_t i = 0; i < collider->active_collision_count; i++) {
+//         CollisionReference clr(collider->activeCollisions[i]);
+//         collider->collisions[collider->activeCollisions[i]].solveCollisionNor(
+//             clr, hs, biasCoefficient, 0, false);
+//         collider->collisions[collider->activeCollisions[i]].solveCollisionTan(
+//             clr, hs, biasCoefficient, false);
+//     }
+
+//     for (size_t i = 0; i < this->body_count; i++) {
+//         this->bodies[i].integrateStates();
+//     }
+// }
+
+// /* FIXME: Still in progress! */
 void Model::solveConGPQP(Collider *collider, float hs) {
     const float POSINF(1e20), biasCoefficient(2 * sqrt(hs / this->h));
     collider->run(this);

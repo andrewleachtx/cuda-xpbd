@@ -758,7 +758,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             mesh.computeInertia(density);
 
             // One body at the origin for now
-            size_t n = 20;
+            size_t n = 10;
 
             bodies = new apbd::Body[n];
             model.body_count = n;
@@ -772,7 +772,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
                 float x = 0.0f;
                 float y = 0.0f;
-                float z = 0.6f * i + 0.33f;
+                float z = 0.65f * i + 0.33f;
 
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 E.block<3, 3>(0, 0) = R;

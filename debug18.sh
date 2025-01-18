@@ -18,6 +18,6 @@ fi
 if [[ $version == *"release"* ]]; then
     ./build/$version/tests/performance -m $m -s $s -t $t
 else
-#    gdb --args ./build/$version/tests/performance -m $m -s $s -t $t
-   ./build/$version/tests/performance -m $m -s $s -t $t
+   gdb --args ./build/$version/tests/performance -m $m -s $s -t $t
+#    ./build/$version/tests/performance -m $m -s $s -t $t
 fi
