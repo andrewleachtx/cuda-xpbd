@@ -45,14 +45,14 @@ inline void Collision::getConstraints(CollisionReference clr,
         for (unsigned int i = 0; i < clr.contactNum(); i++) {
             ConstraintReference cr(ground_count++);
             // TODO: handle other body types
-            cr.get_ground().create(clr.body1().get_rigid(), contacts[i], clr);
+            cr.get_ground().create(clr.body1().get_rigid(), this->contacts[i], clr);
             this->constraints[i] = cr;
         }
     } else {
         for (unsigned int i = 0; i < clr.contactNum(); i++) {
             ConstraintReference cr(rigid_count++);
             cr.get_rigid().create(clr.body1().get_rigid(),
-                                  clr.body2().get_rigid(), contacts[i], clr);
+                                  clr.body2().get_rigid(), this->contacts[i], clr);
             this->constraints[i] = cr;
         }
     }
@@ -94,6 +94,9 @@ inline void Collision::applyLambdaSP(CollisionReference clr) {
 }
 
 inline void Collision::initConstraints(CollisionReference clr) {
+    // printf("#clr.contactNum() == %u and clr.index == %u\n", clr.contactNum(),
+        //    clr.index);
+
     for (unsigned int i = 0; i < clr.contactNum(); i++) {
         if (this->is_ground(clr)) {
             this->constraints[i].get_ground().init();

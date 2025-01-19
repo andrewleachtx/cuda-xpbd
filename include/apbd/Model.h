@@ -22,17 +22,17 @@ struct ModelBuffers {
     Because we can't use dynamic sized arrays, we will instead store an upper
    bound (in config.h) and a size for each member that represents one
 */
-using vecGPQPf = Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1>;
+using vecGPQPf = Eigen::Matrix<float, MAX_GPQP_COLLISIONS, 1>;
 struct GPQPOutput {
     public:
         unsigned int iterations;
 
-        Eigen::Matrix<float, MAX_COLLISION_CONSTRAINTS, 1> lambdas;
+        Eigen::Matrix<float, MAX_GPQP_COLLISIONS, 1> lambdas;
 
-        unsigned int cgiterations[MAX_COLLISION_CONSTRAINTS];
+        unsigned int cgiterations[MAX_GPQP_COLLISIONS];
         unsigned int cgiterations_ct;
 
-        float rs[MAX_COLLISION_CONSTRAINTS];
+        float rs[MAX_GPQP_COLLISIONS];
 };
 
 enum Solver_Type {

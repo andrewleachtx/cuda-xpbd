@@ -28,12 +28,6 @@ A CUDA-accelerated XPBD-based physics simulation framework.
         cmake .. -DCMAKE_INSTALL_PREFIX=../install -DCOAL_HAS_QHULL=ON
         make && make install # you can do make -j<nprocs> && make install to speed this up
         ```
-        After this, install pagmo for CMA-ES **and be sure you are in the environment**
-        ```
-        conda config --add channels conda-forge
-        conda config --set channel_priority strict
-        conda install pagmo pagmo-devel 
-        ```
     3. At this point, you should be able to see `install/` in your `coal` directory. You should run `ldd install/lib/libcoal.so` and confirm everything has linked correctly.
     4. After this, when running `cmake` in the project directory, you may need to have this same pixi shell enabled. You can locate it with `conda env list`. If none of that works, my raw `environment.yml` stores one environment I used, you can retrieve it with `conda env create -f environment.yml`.
 

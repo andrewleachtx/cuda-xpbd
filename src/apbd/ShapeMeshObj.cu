@@ -140,7 +140,7 @@ Eigen::Matrix<float, 6, 1> ShapeMeshObj::computeInertia(
 
     // FIXME: The computeInertia is erroneous, so for this shape do this
     // TODO: Correct this Inertia moment
-    I.head<3>() << 0.019202, 0.019202, 0.031935;
+    I.head<3>() << 0.164704034613446, 0.340328895359945, 0.360641100142137;
     I(3) = mass;
     I(4) = mass;
     I(5) = mass;
@@ -315,6 +315,12 @@ cdata_t ShapeMeshObj::narrowphaseGround(
         }
     }
 
+    if (contactCount > 8) {
+        throw std::runtime_error(
+            "More than 8 contacts found in narrowphaseGround");
+        contactCount = 8;
+    }
+
     return cuda::std::make_pair(cdata, contactCount);
 }
 
@@ -437,7 +443,6 @@ bool ShapeMeshObj::broadphaseShapeMesh(
     return d <= 1.2f * (r1 + r2);
 }
 
-// TODO: Update to remove doubles here and in coalMeshMesh
 cdata_t ShapeMeshObj::narrowphaseShapeMesh(
     const Eigen::Matrix4f E1, const ShapeMeshObj &other,
     const Eigen::Matrix4f E2) const {
@@ -494,6 +499,11 @@ cdata_t ShapeMeshObj::narrowphaseShapeMesh(
         if (contactCount >= 8) {
             break;
         }
+    }
+
+    // Should be an error probably, but clamp
+    if (contactCount > 8) {
+        contactCount = 8;
     }
 
     return cuda::std::make_pair(cdata, contactCount);

@@ -352,12 +352,12 @@ inline void _SOAStoreBodyRigid::set(unsigned int index,
     v.set(index, data.v);
     w.set(index, data.w);
     deltaBody2Worldp.set(index, Eigen::Vector3f::Zero());
-    deltaBody2Worldq.set(index, Eigen::Quaternionf(1.0, 0.0, 0.0, 0.0));
+    deltaBody2Worldq.set(index, Eigen::Quaternionf(1.0f, 0.0f, 0.0f, 0.0f));
     deltaAngDt.set(index, Eigen::Vector3f::Zero());
     deltaLinDt.set(index, Eigen::Vector3f::Zero());
-    dxJacobi.set(index, vec7::Zero());
-    dphiJacobi.set(index, vec7::Zero());
-    LTx.set(index, vec6f::Zero());
+    dxJacobi.set(index, data.dxJacobi);
+    dphiJacobi.set(index, data.dphiJacobi);
+    LTx.set(index, data.LTx);
 }
 
 #ifdef __CUDA_ARCH__

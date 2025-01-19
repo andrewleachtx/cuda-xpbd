@@ -14,6 +14,8 @@ set(CMAKE_CUDA_ARCHITECTURES 89)
 set(CMAKE_CXX_STANDARD 17 REQUIRED)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --generate-line-info --expt-relaxed-constexpr")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -42,7 +44,8 @@ add_library(svd3_cuda INTERFACE)
 target_include_directories(svd3_cuda INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Set to your coal path
-set(COAL_PATH "/home/ugrads/a/andrewleachtx/packages/coal/install")
+# set(COAL_PATH "/home/ugrads/a/andrewleachtx/packages/coal/install")
+set(COAL_PATH "/home/andyleach/pkgs/coal/install")
 if (NOT EXISTS ${COAL_PATH})
     message(FATAL_ERROR "${COAL_PATH} not found, did you update COAL_PATH in CMakeLists.txt?")
 endif()
@@ -53,15 +56,22 @@ include_directories(${COAL_PATH}/include)
 link_directories(${COAL_PATH}/lib)
 
 # CMake gets upset when nvcc doesnt get explicitly passed to nvcc - this will take some management on your end if it happens
-set(BOOST_INCLUDE_PATH "/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/")
-if (NOT EXISTS ${BOOST_INCLUDE_PATH})
-    message(FATAL_ERROR "${BOOST_INCLUDE_PATH} not found, did you update BOOST_INCLUDE_PATH in CMakeLists.txt?")
-endif()
+# set(BOOST_INCLUDE_PATH "/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/")
+# if (NOT EXISTS ${BOOST_INCLUDE_PATH})
+#     message(FATAL_ERROR "${BOOST_INCLUDE_PATH} not found, did you update BOOST_INCLUDE_PATH in CMakeLists.txt?")
+# endif()
 
-include_directories("${BOOST_INCLUDE_PATH}/include")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -I/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/include")
+# include_directories("${BOOST_INCLUDE_PATH}/include")
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -I/home/ugrads/a/andrewleachtx/packages/coal/.pixi/envs/default/include")
 
 # https://esa.github.io/pagmo2/quickstart.html#using-pagmo-with-cmake
+# find_package(Pagmo REQUIRED)
+set(PAGMO_PATH "/home/andyleach/.local/")
+if (NOT EXISTS ${PAGMO_PATH})
+    message(FATAL_ERROR "${PAGMO_PATH} not found, did you update PAGMO_PATH in CMakeLists.txt?")
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH ${PAGMO_PATH})
 find_package(Pagmo REQUIRED)
 
 add_subdirectory(src)

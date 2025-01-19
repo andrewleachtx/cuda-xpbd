@@ -80,6 +80,7 @@ void Model::create_store(size_t scene_count) {
 #endif
 }
 
+// WORMWOOD 1
 void Model::copy_data_to_store(Body *body_array) {
     for (size_t i = 0; i < this->body_count; i++) {
         auto &body = body_array[i];
@@ -151,39 +152,27 @@ float comouteResiduals(){
 */
 float Model::computeResiduals(Collider *collider, float h) {
     // Should be num_constraints * 3
-    Eigen::VectorXf rs = Eigen::VectorXf::Zero(collider->active_collision_count * 3);
+    Eigen::VectorXf rs =
+        Eigen::VectorXf::Zero(collider->active_collision_count * 3);
 
-    // 'Constraint' doesn't work, it only points to ConstraintReference and we need all collisions first to access them
+    // 'Constraint' doesn't work, it only points to ConstraintReference and we
+    // need all collisions first to access them
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
 
-        /*
-        if (this->is_ground(clr)) {
-                for (unsigned int i = 0; i < clr.contactNum(); i++) {
-                    ConstraintReference cr(ground_count++);
-                    cr.get_ground().create(clr.body1().get_rigid(), contacts[i], clr);
-                    this->constraints[i] = cr;
-                }
-            } else {
-                for (unsigned int i = 0; i < clr.contactNum(); i++) {
-                    ConstraintReference cr(rigid_count++);
-                    cr.get_rigid().create(clr.body1().get_rigid(),
-                                        clr.body2().get_rigid(), contacts[i], clr);
-                    this->constraints[i] = cr;
-                }
-            }
-
-    collider->collisions[collider->activeCollisions[i]]
-
-    collider->collisions[collider->activeCollisions[i]]
-        */
         for (unsigned int j = 0; j < clr.contactNum(); j++) {
             Eigen::Vector3f Cs;
-            if (collider->collisions[collider->activeCollisions[i]].is_ground(clr)) {
-                Cs = collider->collisions[collider->activeCollisions[i]].constraints[j].get_ground().evalCs(this->h);
-            }
-            else {
-                Cs = collider->collisions[collider->activeCollisions[i]].constraints[j].get_rigid().evalCs(this->h);
+            if (collider->collisions[collider->activeCollisions[i]].is_ground(
+                    clr)) {
+                Cs = collider->collisions[collider->activeCollisions[i]]
+                         .constraints[j]
+                         .get_ground()
+                         .evalCs(this->h);
+            } else {
+                Cs = collider->collisions[collider->activeCollisions[i]]
+                         .constraints[j]
+                         .get_rigid()
+                         .evalCs(this->h);
             }
 
             // add to rs
@@ -228,11 +217,15 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN detected in body #%zu position after stepBDF1, line=%d\n", i, __LINE__);
+            printf(
+                "NaN detected in body #%zu position after stepBDF1, line=%d\n",
+                i, __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN detected in body #%zu velocity after stepBDF1, line=%d\n", i, __LINE__);
+            printf(
+                "NaN detected in body #%zu velocity after stepBDF1, line=%d\n",
+                i, __LINE__);
             exit(1);
         }
     }
@@ -245,18 +238,21 @@ void Model::solveConTGS(Collider *collider, float hs) {
     // 3) initConstraints for collisions
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
-        collider->collisions[collider->activeCollisions[i]].initConstraints(clr);
+        collider->collisions[collider->activeCollisions[i]].initConstraints(
+            clr);
     }
     // Check for NaN in bodies after initConstraints
     for (size_t i = 0; i < this->body_count; i++) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu position after initConstraints, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu position after initConstraints, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu velocity after initConstraints, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu velocity after initConstraints, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
     }
@@ -274,11 +270,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu position after forward shock, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu position after forward shock, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu velocity after forward shock, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu velocity after forward shock, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
     }
@@ -297,11 +295,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu position after backward shock, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu position after backward shock, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu velocity after backward shock, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu velocity after backward shock, line=%d\n",
+                   i, __LINE__);
             exit(1);
         }
     }
@@ -314,11 +314,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu after updateStates, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu after updateStates, line=%d\n", i,
+                   __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu velocity after updateStates, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu velocity after updateStates, line=%d\n", i,
+                   __LINE__);
             exit(1);
         }
     }
@@ -327,12 +329,14 @@ void Model::solveConTGS(Collider *collider, float hs) {
     unsigned int ks = 0;
     while (ks < this->substeps) {
         // Clear constraints
-        for (size_t constraint_i = 0; constraint_i < this->constraint_count; constraint_i++) {
+        for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+             constraint_i++) {
             this->constraints[constraint_i].clear();
         }
 
         // Solve non-collision constraints
-        for (size_t constraint_i = 0; constraint_i < this->constraint_count; constraint_i++) {
+        for (size_t constraint_i = 0; constraint_i < this->constraint_count;
+             constraint_i++) {
             this->constraints[constraint_i].solve();
         }
 
@@ -355,11 +359,13 @@ void Model::solveConTGS(Collider *collider, float hs) {
             auto pos = this->bodies[i].get_rigid().position();
             auto vel = this->bodies[i].get_rigid().v();
             if (pos.hasNaN()) {
-                printf("NaN in body #%zu pos after substep %u, line=%d\n", i, ks, __LINE__);
+                printf("NaN in body #%zu pos after substep %u, line=%d\n", i,
+                       ks, __LINE__);
                 exit(1);
             }
             if (vel.hasNaN()) {
-                printf("NaN in body #%zu vel after substep %u, line=%d\n", i, ks, __LINE__);
+                printf("NaN in body #%zu vel after substep %u, line=%d\n", i,
+                       ks, __LINE__);
                 exit(1);
             }
         }
@@ -381,11 +387,15 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu pos after final collision solve, line=%d\n", i, __LINE__);
+            printf(
+                "NaN in body #%zu pos after final collision solve, line=%d\n",
+                i, __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu vel after final collision solve, line=%d\n", i, __LINE__);
+            printf(
+                "NaN in body #%zu vel after final collision solve, line=%d\n",
+                i, __LINE__);
             exit(1);
         }
     }
@@ -399,16 +409,17 @@ void Model::solveConTGS(Collider *collider, float hs) {
         auto pos = this->bodies[i].get_rigid().position();
         auto vel = this->bodies[i].get_rigid().v();
         if (pos.hasNaN()) {
-            printf("NaN in body #%zu pos after integrateStates, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu pos after integrateStates, line=%d\n", i,
+                   __LINE__);
             exit(1);
         }
         if (vel.hasNaN()) {
-            printf("NaN in body #%zu vel after integrateStates, line=%d\n", i, __LINE__);
+            printf("NaN in body #%zu vel after integrateStates, line=%d\n", i,
+                   __LINE__);
             exit(1);
         }
     }
 }
-
 
 // TODO: In addition to the GPQP changes, it appears this method in Model.m has
 // changed as well.
@@ -657,14 +668,14 @@ __host__ __device__ void uniqueDeviceVector(thrust::device_vector<float> &vec,
 }
 
 GPQPOutput Model::GPQP(Collider *collider, int n) {
-    DEBUG_ASSERT(n <= MAX_COLLISION_CONSTRAINTS,
+    DEBUG_ASSERT(n <= MAX_GPQP_COLLISIONS,
                  "GPQP n exceeds constraint limit; overflow");
 
     GPQPOutput output;
     output.iterations = 0;
     output.cgiterations_ct = 0;
 
-    unsigned int collision_indices[MAX_COLLISION_CONSTRAINTS];
+    unsigned int collision_indices[MAX_GPQP_COLLISIONS];
     size_t coll_ct = 0;
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         collision_indices[coll_ct++] = collider->activeCollisions[i];
@@ -833,7 +844,7 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
             tUniqueList(i) = tUniqueListVec[i];
         }
         if (used_ct > 0 && tUniqueList(used_ct - 1) != Inf &&
-            used_ct < MAX_COLLISION_CONSTRAINTS) {
+            used_ct < MAX_GPQP_COLLISIONS) {
             tUniqueList(used_ct) = Inf;
         }
         float tc = 0.0f;
@@ -1099,7 +1110,7 @@ GPQPOutput Model::GPQP(Collider *collider, int n) {
                 clr.d_cg(-clr.g_cg() + beta * clr.d_cg());
             }
         }
-        if (output.cgiterations_ct < MAX_COLLISION_CONSTRAINTS) {
+        if (output.cgiterations_ct < MAX_GPQP_COLLISIONS) {
             output.cgiterations[output.cgiterations_ct++] = CGiter;
         }
 

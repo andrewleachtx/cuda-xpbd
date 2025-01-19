@@ -64,6 +64,9 @@ inline void BodyRigidReference::init(vec7 xInit) {
     this->rotation(Eigen::Quaternionf(xInit.block<4, 1>(0, 0)));
 
     this->x0(xInit);
+    this->dxJacobi(vec7::Zero());
+    this->dphiJacobi(vec7::Zero());
+    this->LTx(vec6f::Zero());
 }
 
 inline void BodyRigidReference::stepBDF1(const float h,

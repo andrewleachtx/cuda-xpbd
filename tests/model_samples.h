@@ -745,9 +745,9 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             // cv_filenames[0] = "./resources/square_bowl.obj";
 
             std::vector<std::string> cv_filenames(10);
-            cv_filenames[0] = "./resources/square_bowl.obj";
+            cv_filenames[0] = "./resources/bigalone.obj";
             for (size_t i = 0; i < 9; i++) {
-                cv_filenames[i + 1] = "./resources/square_bowl00" + std::to_string(i) + ".obj";
+                cv_filenames[i + 1] = "./resources/bigbowl00" + std::to_string(i) + ".obj";
                 printf("# Using %s\n", cv_filenames[i + 1].c_str());
             }
 
@@ -757,7 +757,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             mesh.computeInertia(density);
 
             // One body at the origin for now
-            size_t n = 10;
+            size_t n = 2;
 
             bodies = new apbd::Body[n];
             model.body_count = n;
@@ -771,7 +771,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
 
                 float x = 0.0f;
                 float y = 0.0f;
-                float z = 0.65f * i + 0.33f;
+                float z = 1.08666666666f * i + 0.767362f;
 
                 Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
                 E.block<3, 3>(0, 0) = R;

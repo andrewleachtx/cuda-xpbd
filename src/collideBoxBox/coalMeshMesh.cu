@@ -261,12 +261,17 @@ Contacts coalMeshMesh(const Eigen::Matrix4d& M1, const Eigen::Matrix4d& M2,
                               patch_req, patch_res);
 
     Contacts results;
+    results.count = 0;
     if (patch_res.numContactPatches() > 0 && col_res.isCollision()) {
         coal::ContactPatch contactpatch = patch_res.getContactPatch(0);
 
         results.depthMax = contactpatch.penetration_depth;
-        results.count = contactpatch.size();
-        if (results.count > 8) results.count = 8;
+        if (contactpatch.size() > 8) {
+            results.count = 8;
+        }
+        else {
+            results.count = static_cast<int>(contactpatch.size());
+        }
 
         for (size_t i = 0; i < contactpatch.size() && i < 8; ++i) {
             results.positions[i] = contactpatch.getPoint(i);
