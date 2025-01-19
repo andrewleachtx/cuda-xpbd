@@ -11,6 +11,7 @@ endif()
 
 # link libcmaes installed to ~/.local, and there is a libcmaesConfig.cmake.in at /home/andyleach/pkgs/libcmaes
 find_package(libcmaes CONFIG REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem system)
 
 add_executable(cmaes-stack src/cmaes.cpp)
-target_link_libraries(cmaes-stack PRIVATE libcmaes::cmaes)
+target_link_libraries(cmaes-stack PRIVATE libcmaes::cmaes Boost::filesystem Boost::system)

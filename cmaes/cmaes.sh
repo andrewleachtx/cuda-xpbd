@@ -5,5 +5,5 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-./build/cmaes-stack
+time ./build/cmaes-stack
 # gdb ./build/cmaes-stack

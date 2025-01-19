@@ -187,10 +187,10 @@ int main(int argc, char *argv[]) {
     auto t1 = Clock::now();
 #ifdef USE_CUDA
     cout << "# Running with CUDA #" << endl;
-    run_kernelCMAES(model, bodies, state.scene_count, state.variations);
+    // run_kernelCMAES(model, bodies, state.scene_count, state.variations);
 #else
-    std::runtime_error("# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
+    throw std::runtime_error("# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
 #endif
     auto t2 = Clock::now();
-    cout << " Simulation took: " << (t2 - t1).count() << '\n';
+    cout << "Simulation took: " << (t2 - t1).count() << '\n';
 }
