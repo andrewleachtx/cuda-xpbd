@@ -615,39 +615,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             model.body_count = n;
             model.bodies = new apbd::BodyReference[n];
 
-            /* CMAES VELOCITIES */
-            // Read in the float x* and update each model's initial velocities
-            fs::path p = fs::current_path();
-            fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
-            cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
-            std::ifstream fin(VELOCITIES_PATH);
-            if (!fin.is_open()) {
-                cout << "Failed to open " << p / "data/velocities.txt" << endl;
-                exit(1);
-            }
-
-            /* THESE SHOULD BE THE SAME AS cmaes.cpp */
-            const int NUM_ENVIRONMENTS = 1;
-            const int DIM              = 6;
-
-            float g_x[DIM * NUM_ENVIRONMENTS] = {0.0f};
-            for (int i = 0; i < DIM * NUM_ENVIRONMENTS; i++) {
-                float tmp;
-                if (!(fin >> tmp)) {
-                    cout << "Failed to read value at index " << i << endl;
-                    if (fin.eof()) {
-                        cout << "End of file reached unexpectedly." << endl;
-                    } else if (fin.fail()) {
-                        cout << "Input failed. Check file contents." << endl;
-                    } else if (fin.bad()) {
-                        cout << "Stream error while reading." << endl;
-                    }
-                    exit(1);
-                }
-                printf("# fin = %f\n", tmp);
-                g_x[i] = tmp;
-            }
-
             for (size_t i = 0; i < n; i++) {
                 bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
                                                        density, true, mu));

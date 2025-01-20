@@ -10,9 +10,14 @@
 #include "apbd/BodyReference_impl.h"
 #include "model_samples.h"
 
+
+/* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
+#define NUM_ENVIRONMENTS 1
+#define DIM 6
 #define GOAL_X 1.0f
 #define GOAL_Y 1.0f
 #define GOAL_Z 0.5f
+__constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
 
 using std::cout, std::endl, std::string, std::runtime_error, std::vector;
 typedef std::chrono::high_resolution_clock Clock;
@@ -32,7 +37,28 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
         return;
     }
 
-    // make a copy of the model
+    /*
+        Each scene / env / world makes its own copy of the models based on the root model.
+        
+        Because we want different conditions for each scene, we can preload those conditions
+        for each thread by passing in the buffer of floats to constant memory and indexing in.
+    */
+    for (size_t i = 0; i < model.body_count; i++) {
+        Eigen::Vector3f vel = Eigen::Vector3f(
+            d_initialVels[scene_id * DIM + 0],
+            d_initialVels[scene_id * DIM + 1],
+            d_initialVels[scene_id * DIM + 2]
+        );
+        body_buffer[i].data.rigid.w = vel;
+
+        vel = Eigen::Vector3f(
+            d_initialVels[scene_id * DIM + 3],
+            d_initialVels[scene_id * DIM + 4],
+            d_initialVels[scene_id * DIM + 5]
+        );
+        body_buffer[i].data.rigid.v = vel;
+    }
+
     model.copy_data_to_store(body_buffer);
     model.populate_shared_mem(shared_memory);
     Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
@@ -92,10 +118,39 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     apbd::Collision *collision_buffer = nullptr;
     unsigned int *active_collision_buffer = nullptr;
 
-    // Could L2 copy to goal pos because each kernel reads the same one at compile time, but CUDA
-    // doesn't like __constant__ Eigen::Vector3f
-    // const Eigen::Vector3f h_goalPosition = Eigen::Vector3f(1.0f, 1.0f, 0.5f);
-    // cudaMemcpyToSymbol(d_goalPosition, &h_goalPosition, sizeof(Eigen::Vector3f));
+    /* CMAES VELOCITIES */
+    // Read in the float x* and update each model's initial velocities
+    fs::path p = fs::current_path();
+    fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
+    cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
+    std::ifstream fin(VELOCITIES_PATH);
+    if (!fin.is_open()) {
+        cout << "Failed to open " << p / "data/velocities.txt" << endl;
+        exit(1);
+    }
+
+    float h_initialVels[DIM * NUM_ENVIRONMENTS];
+    for (int i = 0; i < DIM * NUM_ENVIRONMENTS; i++) {
+        float tmp;
+        if (!(fin >> tmp)) {
+            cout << "Failed to read value at index " << i << endl;
+            if (fin.eof()) {
+                cout << "End of file reached unexpectedly." << endl;
+            } else if (fin.fail()) {
+                cout << "Input failed. Check file contents." << endl;
+            } else if (fin.bad()) {
+                cout << "Stream error while reading." << endl;
+            }
+            exit(1);
+        }
+        printf("# fin = %f\n", tmp);
+        h_initialVels[i] = tmp;
+    }
+
+    // Copy to L2 as it shouldn't change past this.
+    cudaMemcpyToSymbol(d_initialVels, h_initialVels, sizeof(d_initialVels));
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
    
     // Inside allocate_buffer alloc_device ... cudaMalloc(&d_dp, sims * sizeof(float)) is called
     float* h_dp = new float[sims];
@@ -124,7 +179,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     CUDA_CHECK(cudaDeviceSynchronize());
 
     auto t2 = Clock::now();
-    std::cout << "# Kernel took: " << (t2 - t1).count() << '\t';
+    std::cout << "# Kernel took: " << (t2 - t1).count() << endl;
 
     // Run L2 kernel to find how far we are from the boxes
     t1 = Clock::now();
@@ -135,7 +190,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     CUDA_CHECK(cudaDeviceSynchronize());
 
     t2 = Clock::now();
-    std::cout << "L2 Kernel took: " << (t2 - t1).count() << '\t';
+    // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
     for (int i = 0; i < sims; i++) {
@@ -240,5 +295,5 @@ int main(int argc, char *argv[]) {
     throw std::runtime_error("# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
 #endif
     auto t2 = Clock::now();
-    cout << "Simulation took: " << (t2 - t1).count() << '\n';
+    cout << "# Simulation took: " << (t2 - t1).count() << endl;
 }
