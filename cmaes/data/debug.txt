@@ -1,0 +1,11 @@
+### BUILDING ###
+[0/2] Re-checking globbed directories...
+ninja: no work to do.
+
+real	0m0.468s
+user	0m0.013s
+sys	0m0.036s
+### RUNNING ###
+# model_id: 99
+# scene-count: 1
+# substeps: 20

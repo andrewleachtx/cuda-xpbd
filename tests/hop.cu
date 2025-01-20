@@ -10,7 +10,6 @@
 #include "apbd/BodyReference_impl.h"
 #include "model_samples.h"
 
-
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
 #define NUM_ENVIRONMENTS 1
 #define DIM 6
@@ -37,33 +36,36 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
         return;
     }
 
+    model.copy_data_to_store(body_buffer);
+    model.populate_shared_mem(shared_memory);
+    Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+
+    // This thread has its own copy of the model including bodies, this is what we should modify
+    apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
+    
     /*
         Each scene / env / world makes its own copy of the models based on the root model.
         
         Because we want different conditions for each scene, we can preload those conditions
         for each thread by passing in the buffer of floats to constant memory and indexing in.
+
+        We should only do this for the 0th (lowest) box, but it is important to be aware
+        that body_buffer was originally global; only after the clone_with_buffers have we
+        branched into our new code where local[0] is really scene_id * model.body_count.
     */
-    for (size_t i = 0; i < model.body_count; i++) {
-        Eigen::Vector3f vel = Eigen::Vector3f(
-            d_initialVels[scene_id * DIM + 0],
-            d_initialVels[scene_id * DIM + 1],
-            d_initialVels[scene_id * DIM + 2]
-        );
-        body_buffer[i].data.rigid.w = vel;
+    Eigen::Vector3f vel = Eigen::Vector3f(
+        d_initialVels[scene_id * DIM + 0],
+        d_initialVels[scene_id * DIM + 1],
+        d_initialVels[scene_id * DIM + 2]
+    );
+    thread_model.bodies[0].get_rigid().w(vel);
 
-        vel = Eigen::Vector3f(
-            d_initialVels[scene_id * DIM + 3],
-            d_initialVels[scene_id * DIM + 4],
-            d_initialVels[scene_id * DIM + 5]
-        );
-        body_buffer[i].data.rigid.v = vel;
-    }
-
-    model.copy_data_to_store(body_buffer);
-    model.populate_shared_mem(shared_memory);
-    Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
-
-    apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
+    vel = Eigen::Vector3f(
+        d_initialVels[scene_id * DIM + 3],
+        d_initialVels[scene_id * DIM + 4],
+        d_initialVels[scene_id * DIM + 5]
+    );
+    thread_model.bodies[0].get_rigid().v(vel);
 
     // create a thread-local collider
     auto collider = apbd::Collider(&thread_model, scene_id, body_ptr_buffer,
@@ -121,11 +123,11 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     /* CMAES VELOCITIES */
     // Read in the float x* and update each model's initial velocities
     fs::path p = fs::current_path();
-    fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
+    fs::path VELOCITIES_PATH = fs::current_path() / "data/velocities.txt";
     cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
     std::ifstream fin(VELOCITIES_PATH);
     if (!fin.is_open()) {
-        cout << "Failed to open " << p / "data/velocities.txt" << endl;
+        cout << VELOCITIES_PATH << endl;
         exit(1);
     }
 
@@ -134,17 +136,11 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         float tmp;
         if (!(fin >> tmp)) {
             cout << "Failed to read value at index " << i << endl;
-            if (fin.eof()) {
-                cout << "End of file reached unexpectedly." << endl;
-            } else if (fin.fail()) {
-                cout << "Input failed. Check file contents." << endl;
-            } else if (fin.bad()) {
-                cout << "Stream error while reading." << endl;
-            }
             exit(1);
         }
-        printf("# fin = %f\n", tmp);
+
         h_initialVels[i] = tmp;
+        printf("h_init[%d] = %f\n", i, h_initialVels[i]);
     }
 
     // Copy to L2 as it shouldn't change past this.
@@ -194,8 +190,17 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
     for (int i = 0; i < sims; i++) {
-        cout << "dp[" << i << "]: " << h_dp[i] << endl;
+        cout << "# dp[" << i << "]: " << h_dp[i] << endl;
     }
+
+    // Write to cmaes/data/objective.txt
+    fs::path OBJECTIVE_PATH = fs::current_path() / "data/objective.txt";
+    std::ofstream fout(OBJECTIVE_PATH);
+    if (!fout.is_open()) {
+        throw std::runtime_error("Couldn't open " + OBJECTIVE_PATH.string() + " for writing");
+    }
+    fout << h_dp[0];
+    fout.close();
 
     delete[] h_dp;
 }

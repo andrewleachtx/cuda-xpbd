@@ -10,8 +10,10 @@ namespace fs = boost::filesystem;
 
 // Number of worlds to simulate in parallel, should
 const int NUM_ENVIRONMENTS = 1;
-const int NUM_SUBSTEPS = 20;
+const int NUM_SUBSTEPS     = 20;
 string EXEC_CMD;
+
+#include <omp.h>
 
 #define ERR_STR string(__FILE__) + ":" + std::to_string(__LINE__)
 
@@ -81,35 +83,42 @@ FitFunc distance = [](const double *x, const int N) {
 
     float objective;
     fin >> objective;
+    fin.close();
 
     return objective;
 };
 
 int main(int argc, char *argv[]) {
+    // It would make sense that the CPU multithreading is done with omp
+    // https://github.com/bkaradzic/bgfx/discussions/3033
+    omp_set_num_threads(1);
+        
     // https://en.cppreference.com/w/cpp/filesystem/current_path
     // (technically using Boost bc C++11 but that's ok)
     fs::path cwd = fs::current_path();
 
+    string DEBUG_PATH = fs::absolute("data/debug.txt").string();
     string INP_PATH = fs::absolute("data/objective.txt").string();
     string OUT_PATH = fs::absolute("data/velocities.txt").string();
 
-    string EXEC_CMD = cwd.string() + "/../hop.sh debug_cuda";
+    EXEC_CMD = cwd.string() + "/../hop.sh debug_cuda";
 
     // Add flags
     EXEC_CMD += " 99 " + std::to_string(NUM_ENVIRONMENTS) + " " +
-                std::to_string(NUM_SUBSTEPS) + " > " + INP_PATH + " 2>&1";
+                std::to_string(NUM_SUBSTEPS) + " > " + DEBUG_PATH + " 2>&1";
 
     // 6 dims, 3 for linear vel, 3 for angular. If we awnted to vary the number
-    // of bodies, we would do * N, but we only modify the lowest (1st) box const
-    // int DIM = 6; std::vector<float> x0(DIM * NUM_ENVIRONMENTS, 0.0f); float
-    // sigma = 0.1f;
+    // of bodies, we would do * N, but we only modify the lowest (1st) bo
+    const int DIM = 6;
+    std::vector<double> x0(DIM * NUM_ENVIRONMENTS, 0.0f);
+    float sigma = 0.1f;
 
-    // CMAParameters<> cmparams(x0, sigma);
+    CMAParameters<> cmparams(x0, sigma);
 
-    // CMASolutions cmasols = cmaes<>(distance, cmparams);
-    // cout << "Best Solution: " << cmasols << endl;
-    // std::cout << "optimization took " << cmasols.elapsed_time() / 1000.0
-    //           << " seconds\n";
+    CMASolutions cmasols = cmaes<>(distance, cmparams);
+    cout << "Best Solution: " << cmasols << endl;
+    std::cout << "optimization took " << cmasols.elapsed_time() / 1000.0
+              << " seconds\n";
 
-    // return cmasols.run_status();
+    return cmasols.run_status();
 }
