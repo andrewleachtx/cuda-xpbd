@@ -11,7 +11,7 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 1
+#define NUM_ENVIRONMENTS 2048
 #define DIM 6
 #define GOAL_X 1.0f
 #define GOAL_Y 1.0f
@@ -125,7 +125,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     /* CMAES VELOCITIES */
     // Read in the float x* and update each model's initial velocities
     fs::path p = fs::current_path();
-    fs::path VELOCITIES_PATH = fs::current_path() / "data/velocities.txt";
+    fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
     cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
     std::ifstream fin(VELOCITIES_PATH);
     if (!fin.is_open()) {
@@ -142,7 +142,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         }
 
         h_initialVels[i] = tmp;
-        printf("h_init[%d] = %f\n", i, h_initialVels[i]);
+        // printf("h_init[%d] = %f\n", i, h_initialVels[i]);
     }
 
     // Copy to L2 as it shouldn't change past this.
@@ -195,18 +195,21 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
-    for (int i = 0; i < sims; i++) {
-        cout << "# dp[" << i << "]: " << h_dp[i] << endl;
-    }
+    // for (int i = 0; i < sims; i++) {
+    //     cout << "# dp[" << i << "]: " << h_dp[i] << endl;
+    // }
 
     // Write to cmaes/data/objective.txt
-    fs::path OBJECTIVE_PATH = fs::current_path() / "data/objective.txt";
+    fs::path OBJECTIVE_PATH = fs::current_path() / "cmaes/data/objective.txt";
     std::ofstream fout(OBJECTIVE_PATH);
     if (!fout.is_open()) {
         throw std::runtime_error("Couldn't open " + OBJECTIVE_PATH.string() +
                                  " for writing");
     }
-    fout << h_dp[0];
+    for (size_t i = 0; i < NUM_ENVIRONMENTS - 1; i++) {
+        fout << h_dp[i] << ' ';
+    }
+    fout << h_dp[NUM_ENVIRONMENTS - 1];
     fout.close();
 
     delete[] h_dp;
@@ -294,7 +297,7 @@ int main(int argc, char *argv[]) {
     apbd::Body *bodies;
 
     // Guaranteed to use model # 99
-    assert(state.model_id == 99 && "Model ID must be 99");
+    // assert(state.model_id == 99 && "Model ID must be 99");
 
     auto model = createModelSample(state.model_id, 1e-2, state.substeps, bodies,
                                    state.scene_count);
