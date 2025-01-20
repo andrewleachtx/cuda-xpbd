@@ -83,7 +83,8 @@ Collider::Collider(Model *model, size_t scene_id,
 void Collider::allocate_buffers(Model &model, int sim_count,
                                 BodyReference *&body_ptr_buffer,
                                 Collision *&collision_buffer,
-                                unsigned int *&active_collision_buffer) {
+                                unsigned int *&active_collision_buffer,
+                                float*& h_dp_buffer) {
     // bpList1 - 1 x body_count
     // bpList2 - body_count * (body_count - 1) / 2 * 2
     body_ptr_buffer = alloc_device<BodyReference>(
@@ -93,6 +94,9 @@ void Collider::allocate_buffers(Model &model, int sim_count,
         model.body_count * (model.body_count + 1) / 2 * sim_count);
     active_collision_buffer = alloc_device<unsigned int>(
         model.body_count * (model.body_count + 1) / 2 * sim_count);
+
+    // We need one dp'dp per simulation
+    h_dp_buffer = alloc_device<float>(sim_count);
 }
 
 void Collider::run(Model *model) {

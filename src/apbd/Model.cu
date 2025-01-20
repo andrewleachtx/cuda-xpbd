@@ -80,9 +80,9 @@ void Model::copy_data_to_store(Body *body_array) {
                                                  body.data.rigid);
                 auto br = BodyReference(i, body.type);
                 br.get_rigid().init(body.data.rigid.xInit);
-                printf("br v = %f %f %f\n", body.data.rigid.v(0), body.data.rigid.v(1), body.data.rigid.v(2));
                 br.get_rigid().v(body.data.rigid.v);
                 br.get_rigid().w(body.data.rigid.w);
+                printf("br v = %f %f %f\n", body.data.rigid.v(0), body.data.rigid.v(1), body.data.rigid.v(2));
                 this->bodies[i] = br;
                 break;
             }

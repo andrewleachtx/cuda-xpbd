@@ -657,13 +657,6 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 float z = (i + 0.5f) * w;
                 E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
                 bodies[i].setInitTransform(E);
-
-                Eigen::Matrix<float, 6, 1> vw0;
-                for (int j = 0; j < DIM; j++) {
-                    vw0(j) = g_x[i * DIM + j];
-                }
-
-                bodies[i].setInitVelocity(vw0);
             }
 
             break;
