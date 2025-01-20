@@ -13,8 +13,6 @@ const int NUM_ENVIRONMENTS = 1;
 const int NUM_SUBSTEPS     = 20;
 string EXEC_CMD;
 
-#include <omp.h>
-
 #define ERR_STR string(__FILE__) + ":" + std::to_string(__LINE__)
 
 // https://github.com/CMA-ES/libcmaes?tab=readme-ov-file#sample-code
@@ -89,10 +87,9 @@ FitFunc distance = [](const double *x, const int N) {
 };
 
 int main(int argc, char *argv[]) {
-    // It would make sense that the CPU multithreading is done with omp
+    // FIXME: Disable CPU multithreading.
     // https://github.com/bkaradzic/bgfx/discussions/3033
-    omp_set_num_threads(1);
-        
+
     // https://en.cppreference.com/w/cpp/filesystem/current_path
     // (technically using Boost bc C++11 but that's ok)
     fs::path cwd = fs::current_path();
@@ -110,10 +107,16 @@ int main(int argc, char *argv[]) {
     // 6 dims, 3 for linear vel, 3 for angular. If we awnted to vary the number
     // of bodies, we would do * N, but we only modify the lowest (1st) bo
     const int DIM = 6;
-    std::vector<double> x0(DIM * NUM_ENVIRONMENTS, 0.0f);
+    std::vector<double> x0(DIM * NUM_ENVIRONMENTS, 10.0f);
     float sigma = 0.1f;
 
+    const uint64_t SEED = 441;
+    const float THRESHOLD = 1e-5f; 0.0000
     CMAParameters<> cmparams(x0, sigma);
+    cmparams.set_seed(SEED);
+    cmparams.set_mt_feval(false);
+    cmparams.set_max_iter(1000);
+    cmparams.set_ftolerance(THRESHOLD);
 
     CMASolutions cmasols = cmaes<>(distance, cmparams);
     cout << "Best Solution: " << cmasols << endl;
