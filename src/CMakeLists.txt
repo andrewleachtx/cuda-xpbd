@@ -11,7 +11,7 @@ set_property(TARGET apbd-lib PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 target_include_directories(apbd-lib PUBLIC ../include)
 
-target_link_libraries(apbd-lib PUBLIC svd3_cuda Eigen3::Eigen)
+target_link_libraries(apbd-lib PUBLIC coal svd3_cuda Eigen3::Eigen)
 
 source_group(
   TREE "${PROJECT_SOURCE_DIR}/include"

@@ -5,9 +5,9 @@
 namespace apbd {
 
 struct Contact {
-  Eigen::Vector3f nw;
-  Eigen::Vector3f x1;
-  Eigen::Vector3f x2;
+    Eigen::Vector3f nw;
+    Eigen::Vector3f x1;
+    Eigen::Vector3f x2;
 };
 
-} // namespace apbd
+}  // namespace apbd
