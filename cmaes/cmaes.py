@@ -9,9 +9,14 @@ from typing import List
 
 NUM_ENVIRONMENTS = 2048
 DIM              = 6
-NUM_SUBSTEPS     = 20
+GOAL_X           = 8.0
+GOAL_Y           = 0.0
+GOAL_Z           = 0.5
+
+NUM_SUBSTEPS     = 10
+MODEL_ID         = 100
 SEED             = 441
-CONVERGE_TOL     = 1e-8
+CONVERGE_TOL     = 1e-12
 MAX_ITER         = 100
 EXEC_CMD         = ""
 
@@ -25,7 +30,7 @@ cwd = os.getcwd()
 DEBUG_PATH = os.path.join(cwd, "cmaes/data", "debug.txt")
 INP_PATH   = os.path.join(cwd, "cmaes/data", "velocities.txt")
 OUT_PATH   = os.path.join(cwd, "cmaes/data", "objective.txt")
-EXEC_CMD   = f"{cwd}/hop.sh release_cuda 99 {NUM_ENVIRONMENTS} {NUM_SUBSTEPS}"
+EXEC_CMD   = f"{cwd}/hop.sh release_cuda {MODEL_ID} {NUM_ENVIRONMENTS} {NUM_SUBSTEPS}"
 printd(cwd)
 printd(f"#{DEBUG_PATH}\n#{INP_PATH}\n#{OUT_PATH}")
 
@@ -50,10 +55,18 @@ def fitness_distance(x) -> List[float]:
 
     return objectives
 
-x0 = [10.0] * DIM
+# Make initial guess based on a unit vector towards the goal, assume cube at 0, 0, 0.5
+goal = np.array([GOAL_X, GOAL_Y, GOAL_Z])
+origin = np.array([0.0, 0.0, 0.5])
+
+GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
+print(f"# Initial Guess: {GUESS_VEC}")
+
+x0 = [0.0, 0.0, 0.0] + GUESS_VEC
 sigma0 = 0.1
 opts = cma.CMAOptions()
-opts.set('tolfun', CONVERGE_TOL)
+# opts.set('tolfunhist', 1e-12)
+# opts.set('tolfun', -1)
 opts.set('ftarget', CONVERGE_TOL)
 opts.set('seed', SEED)
 opts.set('bounds', [-np.inf, np.inf])

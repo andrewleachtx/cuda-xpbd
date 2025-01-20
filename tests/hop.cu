@@ -13,8 +13,8 @@
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
 #define NUM_ENVIRONMENTS 2048
 #define DIM 6
-#define GOAL_X 1.0f
-#define GOAL_Y 1.0f
+#define GOAL_X 8.0f
+#define GOAL_Y 0.0f
 #define GOAL_Z 0.5f
 __constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
 
@@ -100,8 +100,13 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
         return;
     }
 
+    // TODO: Make sure you aren't erroneously counting bodies towards the objective function!
     float dpTdp = 0.0f;
     for (size_t i = 0; i < model.body_count; i++) {
+        if (i == 1) {
+            continue;
+        }
+
         Eigen::Vector3f pos = model.bodies[i].get_rigid().position();
 
         dpTdp += (pos(0) - GOAL_X) * (pos(0) - GOAL_X) +
@@ -195,9 +200,9 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
-    // for (int i = 0; i < sims; i++) {
-    //     cout << "# dp[" << i << "]: " << h_dp[i] << endl;
-    // }
+    for (int i = 0; i < sims; i++) {
+        cout << "# dp[" << i << "]: " << h_dp[i] << endl;
+    }
 
     // Write to cmaes/data/objective.txt
     fs::path OBJECTIVE_PATH = fs::current_path() / "cmaes/data/objective.txt";
@@ -295,9 +300,6 @@ MainState parse_arguments(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     auto state = parse_arguments(argc, argv);
     apbd::Body *bodies;
-
-    // Guaranteed to use model # 99
-    // assert(state.model_id == 99 && "Model ID must be 99");
 
     auto model = createModelSample(state.model_id, 1e-2, state.substeps, bodies,
                                    state.scene_count);

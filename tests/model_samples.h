@@ -597,6 +597,11 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
         case 99: {
             // CMAES starting with one box at the origin and a goal slightly far
             // away.
+            /*
+                #define GOAL_X 1.0f
+                #define GOAL_Y 1.0f
+                #define GOAL_Z 0.5f
+            */
             model.tEnd = 1;
             model.h = h;
             model.substeps = substeps;
@@ -626,6 +631,54 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                 E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
                 bodies[i].setInitTransform(E);
             }
+
+            break;
+        }
+        case 100: {
+            /*
+                Same as 99, but with an immovable object.
+
+                #define GOAL_X 8.0f
+                #define GOAL_Y 0.0f
+                #define GOAL_Z 0.5f
+            */
+            model.tEnd = 1;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 1;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.4;
+
+            model.ground_size = 20;
+
+            const size_t n = 2;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            bodies[0] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+            Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+            float x = 0.0f;
+            float y = 0.0f;
+            float z = 0.5f;
+            E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+            bodies[0].setInitTransform(E);
+
+            // use max density to simulate immovability
+            bodies[1] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                            1e20f, true, mu));
+            E = Eigen::Matrix4f::Identity();
+            x = 4.0f;
+            y = 0.0f;
+            z = 0.5f;
+            E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+            bodies[1].setInitTransform(E);
 
             break;
         }

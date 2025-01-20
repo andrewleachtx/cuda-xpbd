@@ -15,13 +15,15 @@ EXEC_PATH="$BUILD_PATH/tests/hop"
 # this script is run from ./cmaes/src/cmaes.cpp and should run
 # ./build/release_cuda/tests/hop -m 99 -s <scene count, should be given> -t <substeps>
 echo "### BUILDING ###"
-time cmake --build $BUILD_PATH --parallel -t hop
+# if [[ $version != *"release"* ]]; then
+    time cmake --build $BUILD_PATH --parallel -t hop
+# fi
 
 echo "### RUNNING ###"
 if [[ $version == *"release"* ]]; then
     time $EXEC_PATH -m $m -s $s -t $t
 else
-    # gdb --args $EXEC_PATH -m $m -s $s -t $t
+    # cuda-gdb --args $EXEC_PATH -m $m -s $s -t $t
     # valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds=all $EXEC_PATH -m $m -s $s -t $t
     $EXEC_PATH -m $m -s $s -t $t
 fi
