@@ -28,8 +28,8 @@ void memcpy_device_bytes(void *__restrict dest, void *__restrict src,
 #endif
 }
 
-// Restrict declares no other pointer will be used to access the object pointed to by
-// https://stackoverflow.com/a/8290689/27629759
+// Restrict declares no other pointer will be used to access the object pointed
+// to by https://stackoverflow.com/a/8290689/27629759
 void memcpy_host_device(void *__restrict dest, void *__restrict src,
                         size_t bytes) {
 #ifdef USE_CUDA

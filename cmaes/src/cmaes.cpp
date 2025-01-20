@@ -1,4 +1,4 @@
-// #include "cmaes.h"
+// https://github.com/CMA-ES/libcmaes?tab=readme-ov-file#sample-code
 #include <libcmaes/cmaes.h>
 
 #include <boost/filesystem.hpp>
@@ -15,47 +15,14 @@ string EXEC_CMD;
 
 #define ERR_STR string(__FILE__) + ":" + std::to_string(__LINE__)
 
-// https://github.com/CMA-ES/libcmaes?tab=readme-ov-file#sample-code
 
 /*
-   Let's say that we have a stack of boxes, and our goal is to make this stack
-   move to a different location, potentially jumping over an obstacle, by
-   adjusting the initial translational and angular velocities of the bottom box.
-   In this case, the search space for optimization, x, is the initial velocity
-   on the bottom box.
-
-   We can define an objective function f(x) that measures how
-   far we are from the goal after simulating for, say, 1 second. For this scene,
-   the objective function f(x) should be the squared norm of the distance
-   between the center of each box and their goal position: f(x) = dp'*dp, where
-   dp = [dp0,dp1,dp2,...] is a vector of position differences for each box. For
-   example, dp2 = p2_target - p2, where p2 is the 3D position of the 2nd box,
-   and p2_target is the 3D goal position of the 2nd box. This means that dp is
-   of size 3*n, where n is the number of bodies. The final objective value,
-   dp'*dp is a scalar. Notice that dp depends on x because when the initial
-   velocity is changed, the simulation will return a different position vector
-   p.
-
-    I should develop or use a stacked scene and vectorize dp, the difference in
-   goal and actual position after 1 second given some initial velocity x that
-   only applies to the first (lowest) box, and from there I can plug in the f(x)
-   = dp'*dp dot product or L2 norm of dp and use CMA-ES to abstract/evaluate
-   minimization for an optimal x that minimizes that distance.
-*/
-
-/*
-The distance function is complicated. We should pass in a vector of 6 * N, where
-N is the number of bodies in the stack.
-
-Note that angular velocity is first, not linear.
+Note that angular velocity is first, not linear. We can have 6 * NUM_SCENES:
 
 wx0 wy0 wz0 vx0 vy0 vz0 | wx1 wy1 wz1 vx1 vy1 vz1 | ...
 
 From here we can start a subshell that runs the simulation, assuming some
 baseline # of environments
-
-../build/hop.sh will run the simulation with the given initial velocities stored
-in x, and then we can return the distance from the goal position after 1 second.
 */
 FitFunc distance = [](const double *x, const int N) {
     std::ofstream fout("./data/velocities.txt");
@@ -87,9 +54,6 @@ FitFunc distance = [](const double *x, const int N) {
 };
 
 int main(int argc, char *argv[]) {
-    // FIXME: Disable CPU multithreading.
-    // https://github.com/bkaradzic/bgfx/discussions/3033
-
     // https://en.cppreference.com/w/cpp/filesystem/current_path
     // (technically using Boost bc C++11 but that's ok)
     fs::path cwd = fs::current_path();
@@ -111,7 +75,7 @@ int main(int argc, char *argv[]) {
     float sigma = 0.1f;
 
     const uint64_t SEED = 441;
-    const float THRESHOLD = 1e-5f; 0.0000
+    const float THRESHOLD = 1e-5f;
     CMAParameters<> cmparams(x0, sigma);
     cmparams.set_seed(SEED);
     cmparams.set_mt_feval(false);

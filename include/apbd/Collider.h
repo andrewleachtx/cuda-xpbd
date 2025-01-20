@@ -45,7 +45,7 @@ class Collider {
                                  BodyReference *&body_ptr_buffer,
                                  Collision *&collision_buffer,
                                  unsigned int *&active_collision_buffer,
-                                 float*& h_dp_buffer);
+                                 float *&h_dp_buffer);
     static __device__ __host__ void generateTangents(const Eigen::Vector3f nor,
                                                      Eigen::Vector3f *out_tx,
                                                      Eigen::Vector3f *out_ty);

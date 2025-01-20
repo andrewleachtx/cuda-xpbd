@@ -84,7 +84,7 @@ void Collider::allocate_buffers(Model &model, int sim_count,
                                 BodyReference *&body_ptr_buffer,
                                 Collision *&collision_buffer,
                                 unsigned int *&active_collision_buffer,
-                                float*& h_dp_buffer) {
+                                float *&h_dp_buffer) {
     // bpList1 - 1 x body_count
     // bpList2 - body_count * (body_count - 1) / 2 * 2
     body_ptr_buffer = alloc_device<BodyReference>(

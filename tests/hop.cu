@@ -1,8 +1,8 @@
 #include <getopt.h>
 
 #include <exception>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -23,11 +23,10 @@ typedef std::chrono::high_resolution_clock Clock;
 
 __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     simKernel(apbd::Model model, apbd::ModelBuffers buffers,
-           apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
-           apbd::Collision *collision_buffer,
-           unsigned int *active_collision_buffer, int sims,
-           bool do_variations) {
-
+              apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
+              apbd::Collision *collision_buffer,
+              unsigned int *active_collision_buffer, int sims,
+              bool do_variations) {
     extern __shared__ unsigned char shared_memory[];
     // get this scene ID
     size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -40,31 +39,31 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     model.populate_shared_mem(shared_memory);
     Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
 
-    // This thread has its own copy of the model including bodies, this is what we should modify
+    // This thread has its own copy of the model including bodies, this is what
+    // we should modify
     apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
-    
-    /*
-        Each scene / env / world makes its own copy of the models based on the root model.
-        
-        Because we want different conditions for each scene, we can preload those conditions
-        for each thread by passing in the buffer of floats to constant memory and indexing in.
 
-        We should only do this for the 0th (lowest) box, but it is important to be aware
-        that body_buffer was originally global; only after the clone_with_buffers have we
-        branched into our new code where local[0] is really scene_id * model.body_count.
+    /*
+        Each scene / env / world makes its own copy of the models based on the
+       root model.
+
+        Because we want different conditions for each scene, we can preload
+       those conditions for each thread by passing in the buffer of floats to
+       constant memory and indexing in.
+
+        We should only do this for the 0th (lowest) box, but it is important to
+       be aware that body_buffer was originally global; only after the
+       clone_with_buffers have we branched into our new code where local[0] is
+       really scene_id * model.body_count.
     */
-    Eigen::Vector3f vel = Eigen::Vector3f(
-        d_initialVels[scene_id * DIM + 0],
-        d_initialVels[scene_id * DIM + 1],
-        d_initialVels[scene_id * DIM + 2]
-    );
+    Eigen::Vector3f vel = Eigen::Vector3f(d_initialVels[scene_id * DIM + 0],
+                                          d_initialVels[scene_id * DIM + 1],
+                                          d_initialVels[scene_id * DIM + 2]);
     thread_model.bodies[0].get_rigid().w(vel);
 
-    vel = Eigen::Vector3f(
-        d_initialVels[scene_id * DIM + 3],
-        d_initialVels[scene_id * DIM + 4],
-        d_initialVels[scene_id * DIM + 5]
-    );
+    vel = Eigen::Vector3f(d_initialVels[scene_id * DIM + 3],
+                          d_initialVels[scene_id * DIM + 4],
+                          d_initialVels[scene_id * DIM + 5]);
     thread_model.bodies[0].get_rigid().v(vel);
 
     // create a thread-local collider
@@ -82,16 +81,19 @@ https://docs.nvidia.com/cuda/cuda-c-programming-guide/#launch-bounds
 
 TODO: Allocate space for dp, should be == NUM_ENVIRONMENTS (or sims)
 
-One thing I reason is, do I return a single float for the objective function as the sum?
-Wouldn't that make every initial velocity in x the same? Or should I say minimum is zero?
+One thing I reason is, do I return a single float for the objective function as
+the sum? Wouldn't that make every initial velocity in x the same? Or should I
+say minimum is zero?
 */
 __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     computeL2Kernel(apbd::Model model, apbd::ModelBuffers buffers,
-           apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
-           apbd::Collision *collision_buffer,
-           unsigned int *active_collision_buffer, int sims, float* dp) {
-
-    // By call time device memory is populated, we just need to iterate over the bodies to get dp
+                    apbd::Body *body_buffer,
+                    apbd::BodyReference *body_ptr_buffer,
+                    apbd::Collision *collision_buffer,
+                    unsigned int *active_collision_buffer, int sims,
+                    float *dp) {
+    // By call time device memory is populated, we just need to iterate over the
+    // bodies to get dp
     int scene_idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (scene_idx >= sims) {
@@ -111,7 +113,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
 }
 
 void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
-                     bool do_variations) {
+                        bool do_variations) {
     cout << "# thread blocks: " << (sims + BLOCK_SIZE - 1) / BLOCK_SIZE << endl;
 
     const size_t shared_size = model.get_shared_memory_size();
@@ -147,10 +149,11 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     cudaMemcpyToSymbol(d_initialVels, h_initialVels, sizeof(d_initialVels));
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
-   
-    // Inside allocate_buffer alloc_device ... cudaMalloc(&d_dp, sims * sizeof(float)) is called
-    float* h_dp = new float[sims];
-    float* d_dp = nullptr;
+
+    // Inside allocate_buffer alloc_device ... cudaMalloc(&d_dp, sims *
+    // sizeof(float)) is called
+    float *h_dp = new float[sims];
+    float *d_dp = nullptr;
     apbd::Collider::allocate_buffers(model, sims, body_ptr_buffer,
                                      collision_buffer, active_collision_buffer,
                                      d_dp);
@@ -168,9 +171,10 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
     auto t1 = Clock::now();
 
-    simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE, shared_size>>>(
-        model, buffers, bodies, body_ptr_buffer, collision_buffer,
-        active_collision_buffer, sims, do_variations);
+    simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
+                shared_size>>>(model, buffers, bodies, body_ptr_buffer,
+                               collision_buffer, active_collision_buffer, sims,
+                               do_variations);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -180,8 +184,10 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     // Run L2 kernel to find how far we are from the boxes
     t1 = Clock::now();
     // (a + b - 1) / b is the same as ceil(a / b)
-    computeL2Kernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE, shared_size>>>(
-        model, buffers, bodies, body_ptr_buffer, collision_buffer, active_collision_buffer, sims, d_dp);
+    computeL2Kernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
+                      shared_size>>>(model, buffers, bodies, body_ptr_buffer,
+                                     collision_buffer, active_collision_buffer,
+                                     sims, d_dp);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -197,7 +203,8 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     fs::path OBJECTIVE_PATH = fs::current_path() / "data/objective.txt";
     std::ofstream fout(OBJECTIVE_PATH);
     if (!fout.is_open()) {
-        throw std::runtime_error("Couldn't open " + OBJECTIVE_PATH.string() + " for writing");
+        throw std::runtime_error("Couldn't open " + OBJECTIVE_PATH.string() +
+                                 " for writing");
     }
     fout << h_dp[0];
     fout.close();
@@ -288,16 +295,17 @@ int main(int argc, char *argv[]) {
 
     // Guaranteed to use model # 99
     assert(state.model_id == 99 && "Model ID must be 99");
-    
+
     auto model = createModelSample(state.model_id, 1e-2, state.substeps, bodies,
                                    state.scene_count);
 
     auto t1 = Clock::now();
 #ifdef USE_CUDA
-    // cout << "# Running with CUDA #" << endl;
+    cout << "# Running with CUDA #" << endl;
     launchCMAESKernels(model, bodies, state.scene_count, state.variations);
 #else
-    throw std::runtime_error("# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
+    throw std::runtime_error(
+        "# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
 #endif
     auto t2 = Clock::now();
     cout << "# Simulation took: " << (t2 - t1).count() << endl;
