@@ -7,7 +7,7 @@ from tqdm import tqdm
 import time
 from typing import List
 
-NUM_ENVIRONMENTS = 2048
+NUM_ENVIRONMENTS = 4096
 DIM              = 6
 GOAL_X           = 8.0
 GOAL_Y           = 0.0
@@ -17,7 +17,7 @@ NUM_SUBSTEPS     = 10
 MODEL_ID         = 100
 SEED             = 441
 CONVERGE_TOL     = 1e-12
-MAX_ITER         = 100
+MAX_ITER         = 1_000_000
 EXEC_CMD         = ""
 
 DEBUG = False
@@ -34,15 +34,13 @@ EXEC_CMD   = f"{cwd}/hop.sh release_cuda {MODEL_ID} {NUM_ENVIRONMENTS} {NUM_SUBS
 printd(cwd)
 printd(f"#{DEBUG_PATH}\n#{INP_PATH}\n#{OUT_PATH}")
 
+DEVSLASHNULL = open(os.devnull, 'w')
 def fitness_distance(x) -> List[float]:
-    # TODO: May need to truncate but probably not
-    # Flatten logic could be faster
-    with open(INP_PATH, 'w') as fout:
-        for vel in x:
-            fout.write(' '.join(map(str, vel)))
+    x_flat = np.array(x).ravel()
+    np.savetxt(INP_PATH, x_flat, delimiter=' ', newline=' ', fmt="%.10f")
 
     with open(DEBUG_PATH, 'w') as f:
-        res = sp.run(EXEC_CMD, shell=True, stderr=sp.STDOUT, stdout=f)
+        res = sp.run(EXEC_CMD, shell=True, stderr=sp.STDOUT, stdout=DEVSLASHNULL)
         if res.returncode != 0:
             printd(f"# `{EXEC_CMD}` failed with exit code {res.returncode}")
             raise RuntimeError(f"Exec cmd `{EXEC_CMD}` failed with exit code {res.returncode}")
@@ -59,37 +57,52 @@ def fitness_distance(x) -> List[float]:
 goal = np.array([GOAL_X, GOAL_Y, GOAL_Z])
 origin = np.array([0.0, 0.0, 0.5])
 
-GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
+# GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
+GUESS_VEC = list(goal - origin)
 print(f"# Initial Guess: {GUESS_VEC}")
 
 x0 = [0.0, 0.0, 0.0] + GUESS_VEC
-sigma0 = 0.1
+print(x0)
+sigma0 = 0.3
 opts = cma.CMAOptions()
-# opts.set('tolfunhist', 1e-12)
+# opts.set('tolfunhist', -1)
 # opts.set('tolfun', -1)
-opts.set('ftarget', CONVERGE_TOL)
-opts.set('seed', SEED)
-opts.set('bounds', [-np.inf, np.inf])
-opts.set('popsize', NUM_ENVIRONMENTS)
+opts.set("maxfevals", MAX_ITER)
+opts.set("ftarget", CONVERGE_TOL)
+opts.set("seed", SEED)
+opts.set("bounds", [-np.inf, np.inf])
+opts.set("popsize", NUM_ENVIRONMENTS)
+opts.set("verb_log", 20)
+opts.set("verb_disp", 0)
+opts.set("verbose", -9)
+opts.set("verb_log_expensive", 0)
 
 es = cma.CMAEvolutionStrategy(x0, sigma0, options=opts)
 
-# N = 4 + floor(3 * log(DIM))
-# N = es.popsize
-# solns = es.ask(number=NUM_ENVIRONMENTS)
-
 print(f"### RUNNING ###")
-for step in tqdm(range(MAX_ITER)):
-    if es.stop():
-        break
-
-    printd(f"# Step {step}/{MAX_ITER}")
-    solns = es.ask(number=NUM_ENVIRONMENTS)
-
+step = 0
+pbar = tqdm(total=None, desc="Descent", unit=f" step")
+while not es.stop():
     # We should run 1 fitness function that uses each asked value, and we can return all of them.
+    solns = es.ask(number=NUM_ENVIRONMENTS)
     objectives = fitness_distance(solns)
-
     es.tell(solns, objectives)
+
+    # Batch min
+    # min_idx, min_val = -1, float('inf')
+    # for i, v in enumerate(objectives):
+    #     if v < min_val:
+    #         min_val = v
+    #         min_idx = i
+
+    # print(f" Best batch idx, val = ({min_idx}, {min_val})")
+    # human_readable = ' '.join(f"{v:.10f}" for v in solns[min_idx])
+    # print(f"Human Readable: {human_readable}")
+
+    step += 1
+    pbar.update(1)
 
 print(f"### RESULTS ###")
 es.result_pretty()
+soln = ' '.join(f"{v:.10f}" for v in es.result.xbest)
+print(f"### Best Output: {soln}")

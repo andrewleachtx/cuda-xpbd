@@ -11,12 +11,13 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 2048
+#define NUM_ENVIRONMENTS 4096
 #define DIM 6
 #define GOAL_X 8.0f
 #define GOAL_Y 0.0f
 #define GOAL_Z 0.5f
-__constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
+// Although it is much faster(?), ptxas error   : File uses too much global constant data (0x18000 bytes, 0x10000 max)
+// __constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
 
 using std::cout, std::endl, std::string, std::runtime_error, std::vector;
 typedef std::chrono::high_resolution_clock Clock;
@@ -26,7 +27,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
               apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
               apbd::Collision *collision_buffer,
               unsigned int *active_collision_buffer, int sims,
-              bool do_variations) {
+              bool do_variations, float* d_initVels) {
     extern __shared__ unsigned char shared_memory[];
     // get this scene ID
     size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -56,14 +57,14 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
        clone_with_buffers have we branched into our new code where local[0] is
        really scene_id * model.body_count.
     */
-    Eigen::Vector3f vel = Eigen::Vector3f(d_initialVels[scene_id * DIM + 0],
-                                          d_initialVels[scene_id * DIM + 1],
-                                          d_initialVels[scene_id * DIM + 2]);
+    Eigen::Vector3f vel = Eigen::Vector3f(d_initVels[scene_id * DIM + 0],
+                                          d_initVels[scene_id * DIM + 1],
+                                          d_initVels[scene_id * DIM + 2]);
     thread_model.bodies[0].get_rigid().w(vel);
 
-    vel = Eigen::Vector3f(d_initialVels[scene_id * DIM + 3],
-                          d_initialVels[scene_id * DIM + 4],
-                          d_initialVels[scene_id * DIM + 5]);
+    vel = Eigen::Vector3f(d_initVels[scene_id * DIM + 3],
+                          d_initVels[scene_id * DIM + 4],
+                          d_initVels[scene_id * DIM + 5]);
     thread_model.bodies[0].get_rigid().v(vel);
 
     // create a thread-local collider
@@ -138,7 +139,9 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         exit(1);
     }
 
-    float h_initialVels[DIM * NUM_ENVIRONMENTS];
+    float *h_initVels = new float[DIM * NUM_ENVIRONMENTS];
+    float *d_initVels = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
     for (int i = 0; i < DIM * NUM_ENVIRONMENTS; i++) {
         float tmp;
         if (!(fin >> tmp)) {
@@ -146,14 +149,16 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
             exit(1);
         }
 
-        h_initialVels[i] = tmp;
-        // printf("h_init[%d] = %f\n", i, h_initialVels[i]);
+        h_initVels[i] = tmp;
+        // printf("h_init[%d] = %f\n", i, h_initVels[i]);
     }
 
-    // Copy to L2 as it shouldn't change past this.
-    cudaMemcpyToSymbol(d_initialVels, h_initialVels, sizeof(d_initialVels));
+    cudaMemcpy(d_initVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
+
+    // We don't need it anymore
+    delete[] h_initVels;
 
     // Inside allocate_buffer alloc_device ... cudaMalloc(&d_dp, sims *
     // sizeof(float)) is called
@@ -179,7 +184,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
                 shared_size>>>(model, buffers, bodies, body_ptr_buffer,
                                collision_buffer, active_collision_buffer, sims,
-                               do_variations);
+                               do_variations, d_initVels);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -200,9 +205,10 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
-    for (int i = 0; i < sims; i++) {
-        cout << "# dp[" << i << "]: " << h_dp[i] << endl;
-    }
+    // for (int i = 0; i < sims; i++) {
+    //     cout << "# dp[" << i << "]: " << h_dp[i] << endl;
+    // }
+    cout << "# dp[0] = " << h_dp[0] << endl;
 
     // Write to cmaes/data/objective.txt
     fs::path OBJECTIVE_PATH = fs::current_path() / "cmaes/data/objective.txt";
