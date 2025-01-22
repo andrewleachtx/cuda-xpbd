@@ -11,11 +11,14 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 4096
+#define NUM_ENVIRONMENTS 2048
 #define DIM 6
 #define GOAL_X 8.0f
 #define GOAL_Y 0.0f
-#define GOAL_Z 0.5f
+#define GOAL_Z 1.5f
+#define GOAL_2X 8.0f
+#define GOAL_2Y 0.0f
+#define GOAL_2Z 1.5f
 // Although it is much faster(?), ptxas error   : File uses too much global constant data (0x18000 bytes, 0x10000 max)
 // __constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
 
@@ -103,23 +106,23 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
 
     // TODO: Make sure you aren't erroneously counting bodies towards the objective function!
     float dpTdp = 0.0f;
-    for (size_t i = 0; i < model.body_count; i++) {
-        if (i == 1) {
-            continue;
-        }
+    Eigen::Vector3f pos = model.bodies[0].get_rigid().position();
 
-        Eigen::Vector3f pos = model.bodies[i].get_rigid().position();
+    dpTdp += (pos(0) - GOAL_X) * (pos(0) - GOAL_X) +
+             (pos(1) - GOAL_Y) * (pos(1) - GOAL_Y) +
+             (pos(2) - GOAL_Z) * (pos(2) - GOAL_Z);
 
-        dpTdp += (pos(0) - GOAL_X) * (pos(0) - GOAL_X) +
-                 (pos(1) - GOAL_Y) * (pos(1) - GOAL_Y) +
-                 (pos(2) - GOAL_Z) * (pos(2) - GOAL_Z);
-    }
+    pos = model.bodies[2].get_rigid().position();
+
+    dpTdp += (pos(0) - GOAL_2X) * (pos(0) - GOAL_2X) +
+             (pos(1) - GOAL_2Y) * (pos(1) - GOAL_2Y) +
+             (pos(2) - GOAL_2Z) * (pos(2) - GOAL_2Z);
 
     dp[scene_idx] = dpTdp;
 }
 
 void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
-                        bool do_variations) {
+                        bool do_variations, int64_t& kernel_time) {
     cout << "# thread blocks: " << (sims + BLOCK_SIZE - 1) / BLOCK_SIZE << endl;
 
     const size_t shared_size = model.get_shared_memory_size();
@@ -180,7 +183,6 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     bodies = move_array_to_device(bodies, model.body_count);
 
     auto t1 = Clock::now();
-
     simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
                 shared_size>>>(model, buffers, bodies, body_ptr_buffer,
                                collision_buffer, active_collision_buffer, sims,
@@ -190,6 +192,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
     auto t2 = Clock::now();
     std::cout << "# Kernel took: " << (t2 - t1).count() << endl;
+    kernel_time += (t2 - t1).count();
 
     // Run L2 kernel to find how far we are from the boxes
     t1 = Clock::now();
@@ -203,6 +206,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
     t2 = Clock::now();
     // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
+    kernel_time += (t2 - t1).count();
 
     cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
     // for (int i = 0; i < sims; i++) {
@@ -224,6 +228,85 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     fout.close();
 
     delete[] h_dp;
+
+    // cuda dealloc
+    cudaFree(d_initVels);
+    cudaFree(d_dp);
+}
+
+void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
+                    int processor_count, int id, bool do_variations) {
+    for (int i = id; i < sims; i += processor_count) {
+        _thread_scene_id = i;
+        model->copy_data_to_store(bodies);
+        Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+
+        if (model->body_count > 1 && do_variations)
+            model->bodies[1].setInitVelocity(Eigen::Matrix<float, 6, 1>(
+                0, 0, 0, float(_thread_scene_id % 1000), 0, 0));
+        auto collider = apbd::Collider(model);
+        model->simulate(&collider);
+    }
+}
+
+void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
+                   bool do_variations) {
+    _global_scene_count = (size_t)sims;
+    const auto processor_count = std::thread::hardware_concurrency();
+    if (processor_count == 0) {
+        throw runtime_error("Failed to detect concurrency.");
+    }
+
+    fs::path p = fs::current_path();
+    fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
+    cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
+    float *h_initVels = new float[DIM * NUM_ENVIRONMENTS];
+
+    std::ifstream fin(VELOCITIES_PATH);
+    if (!fin.is_open()) {
+        cout << VELOCITIES_PATH << endl;
+        exit(1);
+    }
+    for (int i = 0; i < DIM * NUM_ENVIRONMENTS; i++) {
+        float tmp;
+        if (!(fin >> tmp)) {
+            cout << "Failed to read value at index " << i << endl;
+            exit(1);
+        }
+
+        h_initVels[i] = tmp;
+        // printf("h_init[%d] = %f\n", i, h_initVels[i]);
+    }
+
+    auto handles = std::vector<std::thread>();
+    auto t1 = Clock::now();
+    auto buffers = apbd::Model::allocate_buffers(sims, model);
+    for (int i = 0; i < processor_count; i++) {
+        if (i < sims) {
+            apbd::Model *thread_model = new apbd::Model(
+                std::move(model.clone_with_buffers(buffers, i)));
+
+            // Update the model for this sim
+            Eigen::Vector3f vel = Eigen::Vector3f(h_initVels[i * DIM + 0],
+                                                  h_initVels[i * DIM + 1],
+                                                  h_initVels[i * DIM + 2]);
+            bodies[0].data.rigid.w = vel;
+
+            vel = Eigen::Vector3f(h_initVels[i * DIM + 3],
+                                  h_initVels[i * DIM + 4],
+                                  h_initVels[i * DIM + 5]);
+            bodies[0].data.rigid.v = vel;
+
+            handles.push_back(std::thread(run_cpu_thread, thread_model, bodies,
+                                          sims, processor_count, i,
+                                          do_variations));
+        }
+    }
+    for (auto &h : handles) {
+        h.join();
+    }
+    auto t2 = Clock::now();
+    cout << "# Kernel took: " << (t2 - t1).count() << '\t';
 }
 
 // TODO: Move all this to its own util folder
@@ -232,6 +315,7 @@ struct MainState {
     unsigned long scene_count;
     unsigned long substeps;
     bool variations;
+    bool do_write;
 };
 
 const char *HELP =
@@ -260,7 +344,7 @@ MainState parse_arguments(int argc, char *argv[]) {
                          {0}};
 
     while (1) {
-        const int opt = getopt_long(argc, argv, "hm:s:t:v", longopts, 0);
+        const int opt = getopt_long(argc, argv, "hm:s:t:vw", longopts, 0);
 
         if (opt == -1) {
             break;
@@ -295,6 +379,11 @@ MainState parse_arguments(int argc, char *argv[]) {
                 cout << "# variations: true" << endl;
                 state.variations = true;
                 break;
+            case 'w': {
+                cout << "# write: true" << endl;
+                state.do_write = true;
+                break;
+            }
             case '?':
             default:
                 cout << "unknown option." << endl;
@@ -307,17 +396,31 @@ int main(int argc, char *argv[]) {
     auto state = parse_arguments(argc, argv);
     apbd::Body *bodies;
 
-    auto model = createModelSample(state.model_id, 1e-2, state.substeps, bodies,
+    auto model = createModelSample(state.model_id, 1e-2f, state.substeps, bodies,
                                    state.scene_count);
 
     auto t1 = Clock::now();
 #ifdef USE_CUDA
     cout << "# Running with CUDA #" << endl;
-    launchCMAESKernels(model, bodies, state.scene_count, state.variations);
+    int64_t kernel_time = 0;
+    launchCMAESKernels(model, bodies, state.scene_count, state.variations, kernel_time);
+
+    // Write aggregate time to times.txt
+    fs::path p = fs::current_path();
+    fs::path TIMES_PATH = fs::current_path() / "cmaes/data/times.txt";
+    cout << "# Trying to write times to " << TIMES_PATH << endl;
+    std::ofstream fout(TIMES_PATH, std::ios_base::app);
+    if (!fout.is_open()) {
+        throw std::runtime_error("Couldn't open " + TIMES_PATH.string() +
+                                 " for writing");
+    }
+    fout << kernel_time << endl;
 #else
-    throw std::runtime_error(
-        "# Rebuild with -DUSE_CUDA=ON, CPU is not supported!");
+    cout << "# Running on CPU #" << endl;
+    // cpu_run_group(model, bodies, state.scene_count, state.variations);
 #endif
     auto t2 = Clock::now();
     cout << "# Simulation took: " << (t2 - t1).count() << endl;
+
+    delete bodies;
 }

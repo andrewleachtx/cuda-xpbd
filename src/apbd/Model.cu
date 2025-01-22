@@ -129,11 +129,11 @@ void Model::move_to_device() {
     constraints = move_array_to_device(constraints, constraint_count);
 }
 
-void Model::simulate(Collider *collider) {
+void Model::simulate(Collider *collider, bool do_write) {
     float hs = this->h / static_cast<float>(this->substeps);
     for (unsigned int step = 0; step < this->steps; step++) {
         this->solveConTGS(collider, hs);
-        this->write_state(step + 1);
+        this->write_state(step + 1, do_write);
     }
 }
 
@@ -153,16 +153,17 @@ void Model::solveConTGS(Collider *collider, float hs) {
     // compatibilty/predictability
     const float Inf = 1e20;
 
-    // We solve contstraints in the layer order. The exact layer sizes don't
+    // We solve constraints in the layer order. The exact layer sizes don't
     // matter at this step, so we don't bother walking through each layer
     // individually.
 
-    // Shock propagation
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         collider->collisions[collider->activeCollisions[i]].initConstraints(
             clr);
     }
+    
+    // 2-Pass Shock Propagation
     for (size_t i = 0; i < collider->active_collision_count; i++) {
         CollisionReference clr(collider->activeCollisions[i]);
         for (unsigned int j = 0; j < this->forward_iters; j++) {
@@ -227,8 +228,9 @@ void Model::solveConTGS(Collider *collider, float hs) {
     }
 }
 
-void Model::write_state(unsigned int step) {
+void Model::write_state(unsigned int step, bool do_write) {
 #ifdef WRITE
+    if (!do_write) return;
 #ifdef __CUDA_ARCH__
     if (threadIdx.x == 0) printf("Step %d\n", step);
     // print up to 8 simulations in parallel

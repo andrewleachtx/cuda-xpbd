@@ -15,7 +15,7 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
                               apbd::Body *&bodies, size_t scene_count) {
     auto model = apbd::Model();
 
-    switch (modelID) {
+switch (modelID) {
         case -1: {
             // Simple test case for debugging
             model.h = 0.005;
@@ -679,6 +679,68 @@ apbd::Model createModelSample(int modelID, float h, unsigned int substeps,
             z = 0.5f;
             E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
             bodies[1].setInitTransform(E);
+
+            break;
+        }
+        case 101: {
+            /*
+                Same as 101, but with an object on top now.
+
+                Height = (i * 0.5) + w
+
+                #define GOAL_X  8.0f
+                #define GOAL_Y  0.0f
+                #define GOAL_Z  0.5f
+                #define GOAL_2X 8.0f
+                #define GOAL_2Y 0.0f
+                #define GOAL_2Z 1.5f
+            */
+            model.tEnd = 1;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 1;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5;
+
+            model.ground_size = 20;
+
+            const size_t n = 3;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            bodies[0] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+            Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+            float x = 0.0f;
+            float y = 0.0f;
+            float z = 0.5f;
+            E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+            bodies[0].setInitTransform(E);
+
+            // use max density to simulate immovability
+            bodies[1] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                            10000.0f, true, mu));
+            E = Eigen::Matrix4f::Identity();
+            x = 4.0f;
+            y = 0.0f;
+            z = 0.5f;
+            E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+            bodies[1].setInitTransform(E);
+
+            bodies[2] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                            density, true, mu));
+            E = Eigen::Matrix4f::Identity();
+            x = 0.0f;
+            y = 0.0f;
+            z = 1.5f;
+            E.block<3, 1>(0, 3) = Eigen::Vector3f(x, y, z);
+            bodies[2].setInitTransform(E);
 
             break;
         }

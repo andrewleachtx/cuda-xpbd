@@ -74,11 +74,11 @@ class Model {
     /**
      * Runs all simulations to completion
      */
-    __host__ __device__ void simulate(Collider *collider);
+    __host__ __device__ void simulate(Collider *collider, bool do_write=true);
     /**
      * Writes current state out for debugging
      */
-    __host__ __device__ void write_state(unsigned int step);
+    __host__ __device__ void write_state(unsigned int step, bool do_write=true);
     /**
      * Prints the configuration of this model to stdout
      */

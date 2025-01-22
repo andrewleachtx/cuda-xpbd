@@ -25,14 +25,14 @@ for line in file_text:
         y = float(elements[7])
         z = float(elements[8])
         bpy.data.objects[name].rotation_mode = "QUATERNION"
-        bpy.data.objects[name].rotation_quaternion = (w,x,y,z)
+        bpy.data.objects[name].rotation_quaternion = (x, y, z, w) 
         bpy.data.objects[name].keyframe_insert(data_path="location", frame=current_frame)
         bpy.data.objects[name].keyframe_insert(data_path="rotation_quaternion", frame=current_frame)
 
 try:
     with open(bpy.path.abspath("//positions_valid_autogen.txt")) as file:
         file_text = file.readlines()
-except:
+except: 
     print("No validations file; skipping")
     file_text = []
 
@@ -53,7 +53,10 @@ for line in file_text:
         x = float(elements[6])
         y = float(elements[7])
         z = float(elements[8])
+        
         bpy.data.objects[name].rotation_mode = "QUATERNION"
-        bpy.data.objects[name].rotation_quaternion = (w,x,y,z)
+        bpy.data.objects[name].rotation_quaternion = (x, y, z, w)
         bpy.data.objects[name].keyframe_insert(data_path="location", frame=current_frame)
         bpy.data.objects[name].keyframe_insert(data_path="rotation_quaternion", frame=current_frame)
+
+print("Hi")

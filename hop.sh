@@ -8,6 +8,7 @@ version=$1
 m=$2
 s=$3
 t=$4
+w=$5
 
 BUILD_PATH="$SCRIPT_PATH/build/$version"
 EXEC_PATH="$BUILD_PATH/tests/hop"
@@ -21,7 +22,7 @@ echo "### BUILDING ###"
 
 echo "### RUNNING ###"
 if [[ $version == *"release"* ]]; then
-    time $EXEC_PATH -m $m -s $s -t $t
+    time $EXEC_PATH -m $m -s $s -t $t -w $w
 else
     # cuda-gdb --args $EXEC_PATH -m $m -s $s -t $t
     # valgrind --tool=memcheck --leak-check=full --track-origins=yes --show-leak-kinds=all $EXEC_PATH -m $m -s $s -t $t

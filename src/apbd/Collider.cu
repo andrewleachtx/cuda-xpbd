@@ -216,7 +216,7 @@ void Collider::narrowphase(Model *model) {
             this->collisions[body_index].setContacts(clr, cdata);
         }
         if (clr.contactNum() != 0) {
-            clr.broken(false);
+            clr.broken(true);
             this->collisions[body_index].getConstraints(
                 clr, this->ground_constraint_count,
                 this->rigid_constraint_count);
@@ -251,7 +251,7 @@ void Collider::narrowphase(Model *model) {
         }
 
         if (clr.contactNum() != 0) {
-            clr.broken(false);
+            clr.broken(true);
             collision.getConstraints(clr, this->ground_constraint_count,
                                      this->rigid_constraint_count);
             this->bpList2[this->bp_count_2++] = body1;
