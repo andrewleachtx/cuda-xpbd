@@ -18,4 +18,6 @@ with open(TIME_DIR, 'r') as fin:
         except ValueError:
             print(f"Failed to convert {line} to an integer")
         except:
-            print("")
+            print("Err")
+
+print(f"Total time (ms): {total_time}")

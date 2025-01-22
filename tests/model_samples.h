@@ -801,7 +801,7 @@ switch (modelID) {
             break;
         }
         case 442: {
-            model.tEnd = 2.0f;
+            model.tEnd = 1.0f;
             model.h = h;
             model.substeps = substeps;
             model.forward_iters = 5;

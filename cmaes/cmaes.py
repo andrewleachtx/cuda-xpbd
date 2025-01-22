@@ -7,10 +7,10 @@ from tqdm import tqdm
 import time
 from typing import List
 
-NUM_ENVIRONMENTS = 2048
+NUM_ENVIRONMENTS = 4096
 
 MODEL_ID         = 442
-NUM_SUBSTEPS     = 100
+NUM_SUBSTEPS     = 50
 SEED             = 441
 MAX_STEPS        = 100
 MAX_FEVAL        = NUM_ENVIRONMENTS * MAX_STEPS
@@ -65,14 +65,16 @@ sigma0 = 0.1
 opts = cma.CMAOptions()
 opts.set('tolfunhist', -1)
 # opts.set('tolfun', -1)
+opts.set('tolfacupx', 100000);
 opts.set('tolflatfit', MAX_STEPS)
 opts.set("maxfevals", MAX_FEVAL)
 opts.set("ftarget", CONVERGE_TOL)
 opts.set("seed", SEED)
-opts.set("bounds", [-np.inf, np.inf])
+# opts.set("bounds", [-np.inf, np.inf])
 opts.set("popsize", NUM_ENVIRONMENTS)
 opts.set("verb_log", 0)
 opts.set("verb_disp", 0)
+opts.set("verb_plot", 0)
 opts.set("verbose", 0)
 opts.set("verb_log_expensive", 0)
 opts.set("verb_filenameprefix", "")

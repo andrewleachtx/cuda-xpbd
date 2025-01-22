@@ -13,18 +13,16 @@
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
 #define NUM_ENVIRONMENTS 1
 #define DIM 6
+
+/* FIXME: QUADRUPLE CHECK THESE */
 #define GOAL_X 0.0f
 #define GOAL_Y 0.0f
 #define GOAL_Z 10.5f
+
 #define GOAL_IDX 10
 #define LAUNCH_IDX 10
-#define W1 1e-5f
+#define W1 1e-2f
 #define W2 1e0f
-// #define GOAL_2X 8.0f
-// #define GOAL_2Y 0.0f
-// #define GOAL_2Z 1.5f
-// Although it is much faster(?), ptxas error   : File uses too much global constant data (0x18000 bytes, 0x10000 max)
-// __constant__ float d_initialVels[DIM * NUM_ENVIRONMENTS];
 
 using std::cout, std::endl, std::string, std::runtime_error, std::vector;
 typedef std::chrono::high_resolution_clock Clock;
@@ -34,12 +32,12 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
               apbd::Body *body_buffer, apbd::BodyReference *body_ptr_buffer,
               apbd::Collision *collision_buffer,
               unsigned int *active_collision_buffer, int sims,
-              bool do_variations, float* d_initVels, float* d_finalVels) {
+              bool do_variations, float *d_initVels, float *d_finalVels,
+              float *d_objectives) {
     extern __shared__ unsigned char shared_memory[];
     // get this scene ID
-    size_t scene_id = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (scene_id >= sims) {
+    size_t scene_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (scene_idx >= sims) {
         return;
     }
 
@@ -49,7 +47,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
 
     // This thread has its own copy of the model including bodies, this is what
     // we should modify
-    apbd::Model thread_model = model.clone_with_buffers(buffers, scene_id);
+    apbd::Model thread_model = model.clone_with_buffers(buffers, scene_idx);
 
     /*
         Each scene / env / world makes its own copy of the models based on the
@@ -64,58 +62,28 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
        clone_with_buffers have we branched into our new code where local[0] is
        really scene_id * model.body_count.
     */
-    Eigen::Vector3f vel = Eigen::Vector3f(d_initVels[scene_id * DIM + 0],
-                                          d_initVels[scene_id * DIM + 1],
-                                          d_initVels[scene_id * DIM + 2]);
+    Eigen::Vector3f vel = Eigen::Vector3f(d_initVels[scene_idx * DIM + 0],
+                                          d_initVels[scene_idx * DIM + 1],
+                                          d_initVels[scene_idx * DIM + 2]);
     thread_model.bodies[LAUNCH_IDX].get_rigid().w(vel);
 
-    vel = Eigen::Vector3f(d_initVels[scene_id * DIM + 3],
-                          d_initVels[scene_id * DIM + 4],
-                          d_initVels[scene_id * DIM + 5]);
+    vel = Eigen::Vector3f(d_initVels[scene_idx * DIM + 3],
+                          d_initVels[scene_idx * DIM + 4],
+                          d_initVels[scene_idx * DIM + 5]);
     thread_model.bodies[LAUNCH_IDX].get_rigid().v(vel);
 
     // create a thread-local collider
-    auto collider = apbd::Collider(&thread_model, scene_id, body_ptr_buffer,
+    auto collider = apbd::Collider(&thread_model, scene_idx, body_ptr_buffer,
                                    collision_buffer, active_collision_buffer);
     // simulate
     thread_model.simulate(&collider);
 
-    // store final velocities
-    // FIXME: Should unroll, strides are weird
-    for (size_t j = 0; j < 3; j++) {
-        d_finalVels[scene_id * DIM + j] = thread_model.bodies[GOAL_IDX].get_rigid().w()(j);
-        d_finalVels[scene_id * DIM + j + 3] = thread_model.bodies[GOAL_IDX].get_rigid().v()(j);
-    }
-}
-
-/*
-This kernel calculates for a scene or environment the squared norm of the distances
-https://docs.nvidia.com/cuda/cuda-c-programming-guide/#launch-bounds
-
-TODO: Allocate space for dp, should be == NUM_ENVIRONMENTS (or sims)
-
-One thing I reason is, do I return a single float for the objective function as
-the sum? Wouldn't that make every initial velocity in x the same? Or should I
-say minimum is zero?
-*/
-__global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
-    computeL2Kernel(apbd::Model model, apbd::ModelBuffers buffers,
-                    apbd::Body *body_buffer,
-                    apbd::BodyReference *body_ptr_buffer,
-                    apbd::Collision *collision_buffer,
-                    unsigned int *active_collision_buffer, int sims,
-                    float *dp) {
-    // By call time device memory is populated, we just need to iterate over the
-    // bodies to get dp
-    int scene_idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (scene_idx >= sims) {
-        return;
-    }
-
-    // TODO: Make sure you aren't erroneously counting bodies towards the objective function!
+    /////////////// CALCULATE DP ///////////////
+    /* CALCULATE DP */
+    // TODO: Make sure you aren't erroneously counting bodies towards the
+    // objective function!
     float dpTdp = 0.0f;
-    Eigen::Vector3f pos = model.bodies[GOAL_IDX].get_rigid().position();
+    Eigen::Vector3f pos = thread_model.bodies[GOAL_IDX].get_rigid().position();
 
     dpTdp += (pos(0) - GOAL_X) * (pos(0) - GOAL_X) +
              (pos(1) - GOAL_Y) * (pos(1) - GOAL_Y) +
@@ -127,11 +95,21 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     //          (pos(1) - GOAL_2Y) * (pos(1) - GOAL_2Y) +
     //          (pos(2) - GOAL_2Z) * (pos(2) - GOAL_2Z);
 
-    dp[scene_idx] = dpTdp;
+    d_objectives[scene_idx] = dpTdp;
+
+    /////////////// STORE FINAL VELOCITIES ///////////////
+    // store final velocities
+    // FIXME: Should unroll(?), strides are weird
+    for (size_t j = 0; j < 3; j++) {
+        d_finalVels[scene_idx * DIM + j] =
+            thread_model.bodies[GOAL_IDX].get_rigid().w()(j);
+        d_finalVels[scene_idx * DIM + j + 3] =
+            thread_model.bodies[GOAL_IDX].get_rigid().v()(j);
+    }
 }
 
 void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
-                        bool do_variations, int64_t& kernel_time) {
+                        bool do_variations, int64_t &kernel_time) {
     cout << "# thread blocks: " << (sims + BLOCK_SIZE - 1) / BLOCK_SIZE << endl;
 
     const size_t shared_size = model.get_shared_memory_size();
@@ -140,8 +118,13 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     apbd::Collision *collision_buffer = nullptr;
     unsigned int *active_collision_buffer = nullptr;
 
-    /* CMAES VELOCITIES */
+    ////////////////////////////// CMAES VELOCITY READ //////////////////////////////
+    // TODO: Make inline func do this
     // Read in the float x* and update each model's initial velocities
+    float *h_initVels = new float[DIM * NUM_ENVIRONMENTS];
+    float *h_finalVels = new float[DIM * NUM_ENVIRONMENTS];
+    // cudaMallocHost(&h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
+
     fs::path p = fs::current_path();
     fs::path VELOCITIES_PATH = fs::current_path() / "cmaes/data/velocities.txt";
     cout << "# Trying to read velocities from " << VELOCITIES_PATH << endl;
@@ -150,86 +133,72 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         cout << VELOCITIES_PATH << endl;
         exit(1);
     }
-
-    float *h_initVels = nullptr;
-    cudaMallocHost(&h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
-    float *h_finalVels = nullptr;
-    float *d_initVels = nullptr;
-    float *d_finalVels = nullptr;
-    CUDA_CHECK(cudaMalloc(&d_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
-    CUDA_CHECK(cudaMalloc(&d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
     for (int i = 0; i < DIM * NUM_ENVIRONMENTS; i++) {
         float tmp;
         if (!(fin >> tmp)) {
             cout << "Failed to read value at index " << i << endl;
             exit(1);
         }
-        
+
         h_initVels[i] = tmp;
     }
+    fin.close();
+
+    ////////////////////////////// DEV PTR ALLOC & COPY //////////////////////////////
+
+    float *d_initVels = nullptr;
+    float *d_finalVels = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
+    CUDA_CHECK(cudaMalloc(&d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
 
     cudaMemcpy(d_initVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
-    // We will overwrite it anyways, no reason to heap alloc 4 * body_count * env yet
-    cudaMemcpy(d_initVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_finalVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
-    // We don't need it anymore
-    // delete[] h_initVels;
 
-    // Inside allocate_buffer alloc_device ... cudaMalloc(&d_dp, sims *
-    // sizeof(float)) is called
-    float *h_dp = new float[sims];
-    float *d_dp = nullptr;
+    float *h_objectives = new float[sims];
+    // cudaMallocHost(&h_objectives, sizeof(float) * DIM * NUM_ENVIRONMENTS);
+    float *d_objectives = nullptr;
     apbd::Collider::allocate_buffers(model, sims, body_ptr_buffer,
                                      collision_buffer, active_collision_buffer,
-                                     d_dp);
+                                     d_objectives);
     auto buffers = apbd::Model::allocate_buffers(sims, model);
-    if (d_dp == nullptr) {
-        printf("d_dp not allocated properly, exiting\n");
+    if (d_objectives == nullptr) {
+        printf("d_objs not allocated properly, exiting\n");
         exit(1);
     }
-    cudaMemcpy(d_dp, h_dp, sizeof(float) * sims, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_objectives, h_objectives, sizeof(float) * sims, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
     model.move_to_device();
     bodies = move_array_to_device(bodies, model.body_count);
 
+    ////////////////////////////// KERNEL LAUNCH //////////////////////////////
     auto t1 = Clock::now();
     simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
                 shared_size>>>(model, buffers, bodies, body_ptr_buffer,
                                collision_buffer, active_collision_buffer, sims,
-                               do_variations, d_initVels, d_finalVels);
+                               do_variations, d_initVels, d_finalVels, d_objectives);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
     auto t2 = Clock::now();
-    std::cout << "# Kernel took: " << (t2 - t1).count() << endl;
+    std::cout << "# Kernel Took: " << (t2 - t1).count() << endl;
     kernel_time += (t2 - t1).count();
 
-    cudaMallocHost(&h_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
+    // cudaMallocHost(&h_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
     cudaMemcpy(h_finalVels, d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyDeviceToHost);
     CUDA_CHECK(cudaGetLastError());
 
-    // Run L2 kernel to find how far we are from the boxes
-    t1 = Clock::now();
-    // (a + b - 1) / b is the same as ceil(a / b)
-    computeL2Kernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
-                      shared_size>>>(model, buffers, bodies, body_ptr_buffer,
-                                     collision_buffer, active_collision_buffer,
-                                     sims, d_dp);
+    cudaMemcpy(h_objectives, d_objectives, sizeof(float) * sims, cudaMemcpyDeviceToHost);
     CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
 
-    t2 = Clock::now();
-    // std::cout << "L2 Kernel took: " << (t2 - t1).count() << endl;
-    kernel_time += (t2 - t1).count();
+    for (int i = 0; i < sims; i++) {
+        cout << "# dp[" << i << "]: " << h_objectives[i] << endl;
+    }
 
-    cudaMemcpy(h_dp, d_dp, sizeof(float) * sims, cudaMemcpyDeviceToHost);
-    // for (int i = 0; i < sims; i++) {
-    //     cout << "# dp[" << i << "]: " << h_dp[i] << endl;
-    // }
-
+    ////////////////////////////// WRITE BACK //////////////////////////////
     // Write to cmaes/data/objective.txt
     fs::path OBJECTIVE_PATH = fs::current_path() / "cmaes/data/objective.txt";
     std::ofstream fout(OBJECTIVE_PATH);
@@ -237,17 +206,18 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         throw std::runtime_error("Couldn't open " + OBJECTIVE_PATH.string() +
                                  " for writing");
     }
-    /* 
+
+    /*
         fine tune with w: f(x) = dp'*dp + w*0.5*x0'*M*x0 + w*0.5*xf'*M*xf
 
         (xf = xfinal = final velocity)
     */
-    Eigen::Matrix<float, DIM, 1> I = Eigen::Matrix<float, DIM, 1>::Zero();
-    I << 1.666666667f, 1.666666667f, 1.666666667f, 1.0f, 1.0f, 1.0f;
-    const auto& M = I.asDiagonal();
+    // Eigen::Matrix<float, DIM, 1> I = Eigen::Matrix<float, DIM, 1>::Zero();
+    const Eigen::Matrix<float, DIM, 1> I = {1.66666667f, 1.66666667f, 1.66666667f, 1.0f, 1.0f, 1.0f};
+    const auto &M = I.asDiagonal();
 
     fout << std::fixed << std::setprecision(8);
-    
+
     for (size_t i = 0; i < NUM_ENVIRONMENTS; i++) {
         Eigen::Matrix<float, DIM, 1> v0 = Eigen::Matrix<float, DIM, 1>::Zero();
         Eigen::Matrix<float, DIM, 1> vf = Eigen::Matrix<float, DIM, 1>::Zero();
@@ -258,25 +228,24 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
         // DEBUG_VEC(v0, 6);
         // DEBUG_VEC(vf, 6);
-        // printf("term1 (v0) = %f\n", (W_OBJ * 0.5f * v0.dot(I.asDiagonal() * v0)));
-        // printf("term1 (vf) = %f\n", (W_OBJ * 0.5f * vf.dot(I.asDiagonal() * vf)));
-        
-        h_dp[i] += 0.5f * (W1 * v0.dot(M * v0) + W2 * vf.dot(M * vf)); 
-        fout << h_dp[i] << ' ';
+        // printf("term1 (v0) = %f\n", (W_OBJ * 0.5f * v0.dot(I.asDiagonal() *
+        // v0))); printf("term1 (vf) = %f\n", (W_OBJ * 0.5f *
+        // vf.dot(I.asDiagonal() * vf)));
+
+        h_objectives[i] += 0.5f * (W1 * v0.dot(M * v0) + W2 * vf.dot(M * vf));
+        fout << h_objectives[i] << ' ';
     }
-    // FIXME: Probably bad
-    // fout << h_dp[NUM_ENVIRONMENTS - 1];
     fout.close();
 
-    cout << "# h_dp[0] = " << h_dp[0] << endl;
+    cout << "# h_dp[0] = " << h_objectives[0] << endl;
 
-    delete[] h_dp;
-    // delete[] h_initVels;
-    // delete[] h_finalVels;
+    delete[] h_objectives;
+    delete[] h_initVels;
+    delete[] h_finalVels;
 
     // cuda dealloc
     cudaFree(d_initVels);
-    cudaFree(d_dp);
+    cudaFree(d_objectives);
 }
 
 void run_cpu_thread(apbd::Model *model, apbd::Body *bodies, int sims,
@@ -441,14 +410,15 @@ int main(int argc, char *argv[]) {
     auto state = parse_arguments(argc, argv);
     apbd::Body *bodies;
 
-    auto model = createModelSample(state.model_id, 1e-2f, state.substeps, bodies,
-                                   state.scene_count);
+    auto model = createModelSample(state.model_id, 1e-2f, state.substeps,
+                                   bodies, state.scene_count);
 
     auto t1 = Clock::now();
 #ifdef USE_CUDA
     cout << "# Running with CUDA #" << endl;
     int64_t kernel_time = 0;
-    launchCMAESKernels(model, bodies, state.scene_count, state.variations, kernel_time);
+    launchCMAESKernels(model, bodies, state.scene_count, state.variations,
+                       kernel_time);
 
     // Write aggregate time to times.txt
     fs::path p = fs::current_path();
