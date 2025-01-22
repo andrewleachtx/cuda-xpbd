@@ -8,19 +8,16 @@ import time
 from typing import List
 
 NUM_ENVIRONMENTS = 2048
-DIM              = 6
-GOAL_X           = 8.0
-GOAL_Y           = 0.0
-GOAL_Z           = 0.5
 
-NUM_SUBSTEPS     = 20
-MODEL_ID         = 101
+MODEL_ID         = 442
+NUM_SUBSTEPS     = 100
 SEED             = 441
-CONVERGE_TOL     = 1e-12
 MAX_STEPS        = 100
 MAX_FEVAL        = NUM_ENVIRONMENTS * MAX_STEPS
 DO_WRITE         = False
 EXEC_CMD         = ""
+CONVERGE_TOL     = 1e-12
+DIM              = 6
 
 DEBUG = False
 def printd(msg: str):
@@ -49,26 +46,26 @@ def fitness_distance(x) -> List[float]:
     
     objectives = []
     with open(OUT_PATH, 'r') as fin:
-        objectives = list(map(float, fin.readline().split(' ')))
+        output = fin.readline().split(' ')[:-1]
+        objectives = list(map(float, output))
     
     printd(f"# Objectives = {objectives}")
 
     return objectives
 
-# Make initial guess based on a unit vector towards the goal, assume cube at 0, 0, 0.5
-goal = np.array([GOAL_X, GOAL_Y, GOAL_Z])
-origin = np.array([0.0, 0.0, 0.5])
-
 # GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
-GUESS_VEC = list(goal - origin)
+# -1.0464412582 2.5312968977 -1.8802998887 -20.6529659668 0.0 186.4705882562
+GUESS_VEC = list(np.array([20, 0, 200]))
 print(f"# Initial Guess: {GUESS_VEC}")
 
+# keep wx0, wy0, wz0 as none for now
 x0 = [0.0, 0.0, 0.0] + GUESS_VEC
 print(x0)
-sigma0 = 0.3
+sigma0 = 0.1
 opts = cma.CMAOptions()
-# opts.set('tolfunhist', -1)
+opts.set('tolfunhist', -1)
 # opts.set('tolfun', -1)
+opts.set('tolflatfit', MAX_STEPS)
 opts.set("maxfevals", MAX_FEVAL)
 opts.set("ftarget", CONVERGE_TOL)
 opts.set("seed", SEED)
