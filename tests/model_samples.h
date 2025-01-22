@@ -744,6 +744,140 @@ switch (modelID) {
 
             break;
         }
+        case 441: {
+            /*
+                case 441
+                model.name = 'limit test';
+                model.plotH = false;
+                model.tEnd = 1;
+                model.h = h;
+                model.substeps = substeps;
+                model.iters = substeps;
+                density = 1.0;
+                w = 1;
+                sides = [w w w];
+                model.grav = [0 0 -980]';
+                model.ground.E = eye(4);
+                mu = 0.5;
+                
+                model.ground.size = 20;
+                model.axis = 2*w*[-1 1 -1 1 0 1];
+                model.drawHz = 1000;
+                
+                model.view = [0 0];
+                
+                n = 3;
+
+                % first four bodies at (16, 16, (i - 0.5) * w)
+                for i = 1 : 4
+                    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+                    model.bodies{end}.collide = true;
+                    model.bodies{end}.mu = mu;
+                    R = se3.aaToMat([0 0 1], 0.0);
+                    E = eye(4);
+                    x = 16;
+                    y = 16;
+                    z = (i - 0.5) * w;
+                    E(1:3,1:3) = R;
+                    E(1:3,4) = R * [x y z]';
+                    model.bodies{end}.setInitTransform(E);
+                end
+
+                % at (-4, 0, 0) mega box
+                model.bodies{end + 1} = apbd.BodyRigid(apbd.ShapeCuboid([6 6 6]), density * 4);
+                model.bodies{end}.collide = true;
+                model.bodies{end}.mu = mu;
+                R = se3.aaToMat([0 0 1], 0.0);
+                E = eye(4);
+                x = -4;
+                y = 0;
+                z = 3;
+                E(1:3,1:3) = R;
+                E(1:3,4) = R * [x y z]';
+                model.bodies{end}.setInitTransform(E);
+
+                % 1 horizontal slab on top
+                model.bodies{end + 1} = apbd.BodyRigid(apbd.ShapeCuboid([12 4 1]), density * 4);
+                model.bodies{end}.collide = true;
+                model.bodies{end}.mu = mu;
+                R = se3.aaToMat([0 0 1], 0.0);
+                E = eye(4);
+                x = -1;
+                y = 0;
+                z = 6 + 0.5 * w;
+                E(1:3,1:3) = R;
+                E(1:3,4) = R * [x y z]';
+                model.bodies{end}.setInitTransform(E);
+
+                % 1 box on that slab
+                model.bodies{end + 1} = apbd.BodyRigid(apbd.ShapeCuboid([w w w]), density);
+                model.bodies{end}.collide = true;
+                model.bodies{end}.mu = mu;
+                R = se3.aaToMat([0 0 1], 0.0);
+                E = eye(4);
+                x = -4;
+                y = 0;
+                z = 6 + 1 + 0.5 * w;
+                E(1:3,1:3) = R;
+                E(1:3,4) = R * [x y z]';
+                model.bodies{end}.setInitTransform(E);
+            */
+            model.tEnd = 1.0f;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 2;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5;
+
+            model.ground_size = 20;
+
+            const size_t n = 7;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            // NOTE, COMMENTS BASED ON MATLAB, SO INDEXING NEEDS +1
+            // first four bodies at (8, 8, (i - 0.5) * w)
+            for (size_t i = 0; i < 4; i++) {
+                bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                Eigen::Vector3f pos = Eigen::Vector3f(8, 8, (i + 0.5) * w);
+                E.block<3, 1>(0, 3) = pos;
+                bodies[i].setInitTransform(E);
+            }
+
+            // at (-4, 0, 0) mega box
+            bodies[4] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{Eigen::Vector3f(6, 6, 6)},
+                                            density * 4, true, mu));
+            Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+            Eigen::Vector3f pos = Eigen::Vector3f(-4.0f, 0.0f, 3.0f);
+            E.block<3, 1>(0, 3) = pos;
+            bodies[4].setInitTransform(E);
+
+            // 1 horizontal slab on top
+            bodies[5] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{Eigen::Vector3f(12, 4, 1)},
+                                            density * 2, true, mu));
+            E = Eigen::Matrix4f::Identity();
+            pos = Eigen::Vector3f(-1.0f, 0.0f, 6.0f + 0.5f);
+            E.block<3, 1>(0, 3) = pos;
+            bodies[5].setInitTransform(E);
+
+            // 1 box on that slab
+            bodies[6] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{Eigen::Vector3f(w, w, w)},
+                                            density, true, mu));
+            E = Eigen::Matrix4f::Identity();
+            pos = Eigen::Vector3f(-4.0f, 0.0f, 7.0f + 0.5f * w);
+            E.block<3, 1>(0, 3) = pos;
+            bodies[6].setInitTransform(E);
+
+            break;
+        }
     }
 
     model.init();

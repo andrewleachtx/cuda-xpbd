@@ -11,7 +11,7 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 2048
+#define NUM_ENVIRONMENTS 1
 #define DIM 6
 #define GOAL_X 8.0f
 #define GOAL_Y 0.0f
