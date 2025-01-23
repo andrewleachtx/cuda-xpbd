@@ -11,7 +11,7 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 1
+#define NUM_ENVIRONMENTS 4096
 #define DIM 6
 
 /* FIXME: QUADRUPLE CHECK THESE */
@@ -21,7 +21,7 @@
 
 #define GOAL_IDX 10
 #define LAUNCH_IDX 10
-#define W1 1e-2f
+#define W1 1e-3f
 #define W2 1e0f
 
 using std::cout, std::endl, std::string, std::runtime_error, std::vector;
