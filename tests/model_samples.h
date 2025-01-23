@@ -836,6 +836,47 @@ switch (modelID) {
             Eigen::Vector3f pos = Eigen::Vector3f(-6.0f, 0.0f, 0.5f);
             E.block<3, 1>(0, 3) = pos;
             bodies[10].setInitTransform(E);
+
+            break;
+        }
+        case 443: {
+            model.tEnd = 1.0f;
+            model.h = h;
+            model.substeps = substeps;
+            model.forward_iters = 5;
+            model.reverse_iters = 25;
+            float density = 1.0;
+            float w = 1;
+            Eigen::Vector3f sides{w, w, w};
+            model.gravity = Eigen::Vector3f(0, 0, -980).transpose();
+            model.ground_E = Eigen::Matrix4f::Identity();
+            float mu = 0.5;
+
+            model.ground_size = 20;
+
+            const size_t n = 11;
+            bodies = new apbd::Body[n];
+            model.body_count = n;
+            model.bodies = new apbd::BodyReference[n];
+
+            // NOTE, COMMENTS BASED ON MATLAB, SO INDEXING NEEDS +1
+            for (size_t i = 0; i < 10; i++) {
+                bodies[i] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                       density, true, mu));
+                Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+                Eigen::Vector3f pos = Eigen::Vector3f(0.0f, 0.0f, (i + 0.5f) * w);
+                E.block<3, 1>(0, 3) = pos;
+                bodies[i].setInitTransform(E);
+            }
+
+            bodies[10] = apbd::Body(apbd::BodyRigid(apbd::ShapeCuboid{sides},
+                                                    density, true, mu));
+            Eigen::Matrix4f E = Eigen::Matrix4f::Identity();
+            Eigen::Vector3f pos = Eigen::Vector3f(-6.0f, 0.0f, 0.5f);
+            E.block<3, 1>(0, 3) = pos;
+            bodies[10].setInitTransform(E);
+
+            break;
         }
     }
 

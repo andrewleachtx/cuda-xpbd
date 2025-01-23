@@ -7,9 +7,9 @@ from tqdm import tqdm
 import time
 from typing import List
 
-NUM_ENVIRONMENTS = 4096
+NUM_ENVIRONMENTS = 8192
 
-MODEL_ID         = 442
+MODEL_ID         = 443
 NUM_SUBSTEPS     = 50
 SEED             = 441
 MAX_STEPS        = 100
@@ -54,8 +54,8 @@ def fitness_distance(x) -> List[float]:
     return objectives
 
 # GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
-# -1.0464412582 2.5312968977 -1.8802998887 -20.6529659668 0.0 186.4705882562
-GUESS_VEC = list(np.array([20, 0, 200]))
+# 0.3774860634 0.1638224951 -0.2425103568 40.0353612820 -0.0206891967 140.3287482591
+GUESS_VEC = list(np.array([40, 0, 140]))
 print(f"# Initial Guess: {GUESS_VEC}")
 
 # keep wx0, wy0, wz0 as none for now
@@ -85,24 +85,23 @@ print(f"### RUNNING ###")
 step = 0
 pbar = tqdm(total=None, desc="Descent", unit=f" step")
 min_idx, min_val = -1, float('inf')
+best_human = None
 while not es.stop():
     # We should run 1 fitness function that uses each asked value, and we can return all of them.
     solns = es.ask(number=NUM_ENVIRONMENTS)
     objectives = fitness_distance(solns)
     es.tell(solns, objectives)
 
-    # Batch min
-    # min_idx, min_val = -1, float('inf')
+    # batch min
     for i, v in enumerate(objectives):
         if v < min_val:
+            # (human readable)
+            best_human = ' '.join(f"{v:.10f}" for v in solns[min_idx])
             min_val = v
             min_idx = i
     
-    # 0.1562725026 240.9189158924 -71.8697619566 80.4508945356 -0.0479658356 186.5888997418
     print(f" Best batch idx, val = ({min_idx}, {min_val})")
-    #TODO: Logically this isn't right, store the velocity
-    human_readable = ' '.join(f"{v:.10f}" for v in solns[min_idx])
-    print(f"Human Readable: {human_readable}")
+    print(f"Human Readable: {best_human}")
 
     step += 1
     pbar.update(1)
@@ -110,4 +109,4 @@ while not es.stop():
 print(f"### RESULTS ###")
 es.result_pretty()
 soln = ' '.join(f"{v:.10f}" for v in es.result.xbest)
-print(f"### Best Output: {soln}")
+print(f"# Best Output: {soln}")
