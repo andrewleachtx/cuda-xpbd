@@ -7,9 +7,9 @@ from tqdm import tqdm
 import time
 from typing import List
 
-NUM_ENVIRONMENTS = 8192
+NUM_ENVIRONMENTS = 4096
 
-MODEL_ID         = 443
+MODEL_ID         = 442
 NUM_SUBSTEPS     = 50
 SEED             = 441
 MAX_STEPS        = 100
@@ -54,12 +54,14 @@ def fitness_distance(x) -> List[float]:
     return objectives
 
 # GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
-# 0.3774860634 0.1638224951 -0.2425103568 40.0353612820 -0.0206891967 140.3287482591
-GUESS_VEC = list(np.array([40, 0, 140]))
+# 10 10 10 25 0 160
+# 10.4036928110 10.0484809075 10.0851058919 30.3226707817 0.2016256760 169.9435648538
+# 9.6847074055 9.7142719089 9.7547234550 29.9624322641 0.0050233115 170.2891737905
+GUESS_VEC = list(np.array([10, 10, 10, 30, 0, 170]))
 print(f"# Initial Guess: {GUESS_VEC}")
 
 # keep wx0, wy0, wz0 as none for now
-x0 = [0.0, 0.0, 0.0] + GUESS_VEC
+x0 = GUESS_VEC
 print(x0)
 sigma0 = 0.1
 opts = cma.CMAOptions()
@@ -96,9 +98,9 @@ while not es.stop():
     for i, v in enumerate(objectives):
         if v < min_val:
             # (human readable)
-            best_human = ' '.join(f"{v:.10f}" for v in solns[min_idx])
             min_val = v
             min_idx = i
+            best_human = ' '.join(f"{v:.10f}" for v in solns[min_idx])
     
     print(f" Best batch idx, val = ({min_idx}, {min_val})")
     print(f"Human Readable: {best_human}")

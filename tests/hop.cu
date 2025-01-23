@@ -11,23 +11,15 @@
 #include "model_samples.h"
 
 /* THESE SHOULD BE THE SAME AS IN cmaes.cpp */
-#define NUM_ENVIRONMENTS 1
+#define NUM_ENVIRONMENTS 4096
 #define DIM 6
 
 /* FIXME: QUADRUPLE CHECK THESE */
-#define LAUNCH_X 0.0f
-#define LAUNCH_Y 0.0f
-#define LAUNCH_Z 8.5f
+#define GOAL_X 0.0f
+#define GOAL_Y 0.0f
+#define GOAL_Z 10.5f
 
-#define GOAL_BOTX 6.0f
-#define GOAL_BOTY 0.0f
-#define GOAL_BOTZ 1.5f
-#define GOAL_TOPX 6.0f
-#define GOAL_TOPY 0.0f
-#define GOAL_TOPZ 0.5f
-
-#define GOAL_BOT_IDX 9
-#define GOAL_TOP_IDX 10
+#define GOAL_IDX 10
 #define LAUNCH_IDX 10
 #define W1 1e-3f
 #define W2 1e0f
@@ -91,38 +83,28 @@ __global__ void __launch_bounds__(BLOCK_SIZE, MIN_BLOCKS_PER_SM)
     // TODO: Make sure you aren't erroneously counting bodies towards the
     // objective function!
     float dpTdp = 0.0f;
-    Eigen::Vector3f pos =
-        thread_model.bodies[LAUNCH_IDX].get_rigid().position();
+    Eigen::Vector3f pos = thread_model.bodies[GOAL_IDX].get_rigid().position();
 
-    dpTdp += (pos(0) - LAUNCH_X) * (pos(0) - LAUNCH_X) +
-             (pos(1) - LAUNCH_Y) * (pos(1) - LAUNCH_Y) +
-             (pos(2) - LAUNCH_Z) * (pos(2) - LAUNCH_Z);
+    dpTdp += (pos(0) - GOAL_X) * (pos(0) - GOAL_X) +
+             (pos(1) - GOAL_Y) * (pos(1) - GOAL_Y) +
+             (pos(2) - GOAL_Z) * (pos(2) - GOAL_Z);
 
-    pos = model.bodies[GOAL_TOP_IDX].get_rigid().position();
+    // pos = model.bodies[2].get_rigid().position();
 
-    dpTdp += (pos(0) - GOAL_TOPX) * (pos(0) - GOAL_TOPX) +
-             (pos(1) - GOAL_TOPY) * (pos(1) - GOAL_TOPY) +
-             (pos(2) - GOAL_TOPZ) * (pos(2) - GOAL_TOPZ);
-
-    pos = model.bodies[GOAL_BOT_IDX].get_rigid().position();
-
-    dpTdp += (pos(0) - GOAL_BOTX) * (pos(0) - GOAL_BOTX) +
-             (pos(1) - GOAL_BOTY) * (pos(1) - GOAL_BOTY) +
-             (pos(2) - GOAL_BOTZ) * (pos(2) - GOAL_BOTZ);
+    // dpTdp += (pos(0) - GOAL_2X) * (pos(0) - GOAL_2X) +
+    //          (pos(1) - GOAL_2Y) * (pos(1) - GOAL_2Y) +
+    //          (pos(2) - GOAL_2Z) * (pos(2) - GOAL_2Z);
 
     d_objectives[scene_idx] = dpTdp;
 
     /////////////// STORE FINAL VELOCITIES ///////////////
+    // store final velocities
     // FIXME: Should unroll(?), strides are weird
     for (size_t j = 0; j < 3; j++) {
         d_finalVels[scene_idx * DIM + j] =
-            thread_model.bodies[LAUNCH_IDX].get_rigid().w()(j) +
-            thread_model.bodies[GOAL_TOP_IDX].get_rigid().w()(j) +
-            thread_model.bodies[GOAL_BOT_IDX].get_rigid().w()(j);
+            thread_model.bodies[GOAL_IDX].get_rigid().w()(j);
         d_finalVels[scene_idx * DIM + j + 3] =
-            thread_model.bodies[LAUNCH_IDX].get_rigid().v()(j);
-            thread_model.bodies[GOAL_TOP_IDX].get_rigid().v()(j) +
-            thread_model.bodies[GOAL_BOT_IDX].get_rigid().v()(j);
+            thread_model.bodies[GOAL_IDX].get_rigid().v()(j);
     }
 }
 
@@ -136,8 +118,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     apbd::Collision *collision_buffer = nullptr;
     unsigned int *active_collision_buffer = nullptr;
 
-    ////////////////////////////// CMAES VELOCITY READ
-    /////////////////////////////////
+    ////////////////////////////// CMAES VELOCITY READ //////////////////////////////
     // TODO: Make inline func do this
     // Read in the float x* and update each model's initial velocities
     float *h_initVels = new float[DIM * NUM_ENVIRONMENTS];
@@ -163,21 +144,17 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     }
     fin.close();
 
-    ////////////////////////////// DEV PTR ALLOC & COPY
-    /////////////////////////////////
+    ////////////////////////////// DEV PTR ALLOC & COPY //////////////////////////////
 
     float *d_initVels = nullptr;
     float *d_finalVels = nullptr;
     CUDA_CHECK(cudaMalloc(&d_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
-    CUDA_CHECK(
-        cudaMalloc(&d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
+    CUDA_CHECK(cudaMalloc(&d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS));
 
-    cudaMemcpy(d_initVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS,
-               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_initVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
-    cudaMemcpy(d_finalVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS,
-               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_finalVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
     float *h_objectives = new float[sims];
@@ -191,8 +168,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         printf("d_objs not allocated properly, exiting\n");
         exit(1);
     }
-    cudaMemcpy(d_objectives, h_objectives, sizeof(float) * sims,
-               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_objectives, h_objectives, sizeof(float) * sims, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
     model.move_to_device();
@@ -203,8 +179,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     simKernel<<<(sims + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE,
                 shared_size>>>(model, buffers, bodies, body_ptr_buffer,
                                collision_buffer, active_collision_buffer, sims,
-                               do_variations, d_initVels, d_finalVels,
-                               d_objectives);
+                               do_variations, d_initVels, d_finalVels, d_objectives);
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -213,16 +188,11 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     kernel_time += (t2 - t1).count();
 
     // cudaMallocHost(&h_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
-    cudaMemcpy(h_finalVels, d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS,
-               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_finalVels, d_finalVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyDeviceToHost);
     CUDA_CHECK(cudaGetLastError());
 
-    cudaMemcpy(h_objectives, d_objectives, sizeof(float) * sims,
-               cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_objectives, d_objectives, sizeof(float) * sims, cudaMemcpyDeviceToHost);
     CUDA_CHECK(cudaGetLastError());
-    // for (int i = 0; i < sims; i++) {
-    //     cout << "# dp[" << i << "]: " << h_objectives[i] << endl;
-    // }
 
     ////////////////////////////// WRITE BACK //////////////////////////////
     // Write to cmaes/data/objective.txt
@@ -239,8 +209,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
         (xf = xfinal = final velocity)
     */
     // Eigen::Matrix<float, DIM, 1> I = Eigen::Matrix<float, DIM, 1>::Zero();
-    const Eigen::Matrix<float, DIM, 1> I = {
-        1.66666667f, 1.66666667f, 1.66666667f, 1.0f, 1.0f, 1.0f};
+    const Eigen::Matrix<float, DIM, 1> I = {1.66666667f, 1.66666667f, 1.66666667f, 1.0f, 1.0f, 1.0f};
     const auto &M = I.asDiagonal();
 
     fout << std::fixed << std::setprecision(8);
@@ -331,12 +300,12 @@ void cpu_run_group(apbd::Model model, apbd::Body *bodies, int sims,
             Eigen::Vector3f vel = Eigen::Vector3f(h_initVels[i * DIM + 0],
                                                   h_initVels[i * DIM + 1],
                                                   h_initVels[i * DIM + 2]);
-            bodies[LAUNCH_IDX].data.rigid.w = vel;
+            bodies[GOAL_IDX].data.rigid.w = vel;
 
             vel = Eigen::Vector3f(h_initVels[i * DIM + 3],
                                   h_initVels[i * DIM + 4],
                                   h_initVels[i * DIM + 5]);
-            bodies[LAUNCH_IDX].data.rigid.v = vel;
+            bodies[GOAL_IDX].data.rigid.v = vel;
 
             handles.push_back(std::thread(run_cpu_thread, thread_model, bodies,
                                           sims, processor_count, i,
