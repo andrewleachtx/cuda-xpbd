@@ -121,7 +121,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     ////////////////////////////// CMAES VELOCITY READ //////////////////////////////
     // TODO: Make inline func do this
     // Read in the float x* and update each model's initial velocities
-    float *h_initVels = new float[DIM * NUM_ENVIRONMENTS];
+    float *h_initVels  = new float[DIM * NUM_ENVIRONMENTS];
     float *h_finalVels = new float[DIM * NUM_ENVIRONMENTS];
     // cudaMallocHost(&h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS);
 
@@ -157,7 +157,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
     cudaMemcpy(d_finalVels, h_initVels, sizeof(float) * DIM * NUM_ENVIRONMENTS, cudaMemcpyHostToDevice);
     CUDA_CHECK(cudaGetLastError());
 
-    float *h_objectives = new float[sims];
+    float *h_objectives = new float[NUM_ENVIRONMENTS];
     // cudaMallocHost(&h_objectives, sizeof(float) * DIM * NUM_ENVIRONMENTS);
     float *d_objectives = nullptr;
     apbd::Collider::allocate_buffers(model, sims, body_ptr_buffer,
@@ -241,6 +241,7 @@ void launchCMAESKernels(apbd::Model model, apbd::Body *bodies, int sims,
 
     // cuda dealloc
     cudaFree(d_initVels);
+    cudaFree(d_finalVels);
     cudaFree(d_objectives);
 }
 

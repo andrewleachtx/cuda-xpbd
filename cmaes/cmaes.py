@@ -1,11 +1,12 @@
 # https://pypi.org/project/cma/
+# TODO: Move this and other scripts to src
 import subprocess as sp
 import cma
 import os
 import numpy as np
 from tqdm import tqdm
-import time
 from typing import List
+import random
 
 NUM_ENVIRONMENTS = 4096
 
@@ -19,10 +20,19 @@ EXEC_CMD         = ""
 CONVERGE_TOL     = 1e-12
 DIM              = 6
 
+random.seed(SEED)
+
 DEBUG = False
 def printd(msg: str):
     if DEBUG:
         print(f"{msg}")
+
+# Random array of size n with values in [a, b] using set
+def genRandArr(n, a, b):
+    seen = set()
+    while len(seen) != 50:
+        seen.add(random.randint(a, b))
+    return list(seen)
 
 # Assumes we are running from .../cuda-xpbd/
 cwd = os.getcwd()
@@ -33,7 +43,8 @@ EXEC_CMD   = f"{cwd}/hop.sh release_cuda {MODEL_ID} {NUM_ENVIRONMENTS} {NUM_SUBS
 printd(cwd)
 printd(f"#{DEBUG_PATH}\n#{INP_PATH}\n#{OUT_PATH}")
 
-DEVSLASHNULL = open(os.devnull, 'w')
+# DEVSLASHNULL = open(os.devnull, 'w')
+DEVSLASHNULL = open(DEBUG_PATH, 'w')
 def fitness_distance(x) -> List[float]:
     x_flat = np.array(x).ravel()
     np.savetxt(INP_PATH, x_flat, delimiter=' ', newline=' ', fmt="%.10f")
@@ -53,6 +64,39 @@ def fitness_distance(x) -> List[float]:
 
     return objectives
 
+"""
+Takes in indices[] and runs a script with those values. Runs script with 1 environment len(indices) times
+and stores the final step in data/sample50.txt for each run.
+"""
+STEP_STARTIDX = -16
+STEP_ENDIDX   = -4
+TEST_EXEC_CMD = f"{cwd}/hop.sh debug_cuda {MODEL_ID} 1 {NUM_SUBSTEPS} {DO_WRITE} > tx.txt"
+def sample_outputs(indices: List[int], velocities: List[float]) -> None:
+    TXT_PATH = os.path.join(cwd, "tx.txt")
+
+    output = [""] * len(indices)
+    for j, idx in enumerate(indices):
+        # write current velocity
+        cur_vel = velocities[idx]
+        v_flat  = np.array(cur_vel).ravel()
+        np.savetxt(INP_PATH, v_flat, delimiter=' ', newline=' ', fmt="%.10f")
+
+        # print(f"Running {TEST_EXEC_CMD}")
+        res = sp.run(TEST_EXEC_CMD, shell=True)
+        if res.returncode != 0:
+            printd(f"# `{TEST_EXEC_CMD}` failed with exit code {res.returncode}")
+            raise RuntimeError(f"Exec cmd `{TEST_EXEC_CMD}` failed with exit code {res.returncode}")
+
+        with open(TXT_PATH, 'r') as fin:
+            lines = fin.readlines()[STEP_STARTIDX:STEP_ENDIDX]
+            output[j] = (''.join(lines))
+
+    # write output back
+    with open(TXT_PATH, 'w') as fin:
+        fin.write(''.join(output))
+
+    # print(output)
+    # exit(1)
 # GUESS_VEC = list( (goal - origin) / np.linalg.norm(goal - origin) )
 # 10 10 10 25 0 160
 # 10.4036928110 10.0484809075 10.0851058919 30.3226707817 0.2016256760 169.9435648538
@@ -101,12 +145,17 @@ while not es.stop():
             min_val = v
             min_idx = i
             best_human = ' '.join(f"{v:.10f}" for v in solns[min_idx])
+
+    # rand_50s = genRandArr(50, 0, NUM_ENVIRONMENTS - 1)
+    # sample_outputs(rand_50s, solns)
     
     print(f" Best batch idx, val = ({min_idx}, {min_val})")
     print(f"Human Readable: {best_human}")
 
     step += 1
     pbar.update(1)
+
+DEVSLASHNULL.close()
 
 print(f"### RESULTS ###")
 es.result_pretty()

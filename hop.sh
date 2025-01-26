@@ -22,6 +22,7 @@ echo "### BUILDING ###"
 
 echo "### RUNNING ###"
 if [[ $version == *"release"* ]]; then
+    # time cuda-gdb --args $EXEC_PATH -m $m -s $s -t $t -w $w
     time $EXEC_PATH -m $m -s $s -t $t -w $w
 else
     # cuda-gdb --args $EXEC_PATH -m $m -s $s -t $t

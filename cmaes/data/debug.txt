@@ -1,0 +1,187 @@
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[ 88%] Building CUDA object tests/CMakeFiles/hop.dir/hop.cu.o
+[ 94%] Linking CUDA device code CMakeFiles/hop.dir/cmake_device_link.o
+[100%] Linking CUDA executable hop
+[100%] Built target hop
+
+real	0m11.189s
+user	0m9.939s
+sys	0m1.197s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
+# Kernel Took: 2544196904
+# h_dp[0] = 23.1279
+# Trying to write times to "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/times.txt"
+# Simulation took: 2566031818
+
+real	0m2.803s
+user	0m2.592s
+sys	0m0.207s
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[100%] Built target hop
+
+real	0m0.134s
+user	0m0.058s
+sys	0m0.063s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
+# Kernel Took: 2607914294
+# h_dp[0] = 15.4814
+# Trying to write times to "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/times.txt"
+# Simulation took: 2628284081
+
+real	0m2.800s
+user	0m2.638s
+sys	0m0.158s
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[100%] Built target hop
+
+real	0m0.091s
+user	0m0.045s
+sys	0m0.046s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
+# Kernel Took: 2287675162
+# h_dp[0] = 40.867
+# Trying to write times to "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/times.txt"
+# Simulation took: 2314633797
+
+real	0m2.527s
+user	0m2.320s
+sys	0m0.201s
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[100%] Built target hop
+
+real	0m0.081s
+user	0m0.050s
+sys	0m0.031s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
+# Kernel Took: 2282761046
+# h_dp[0] = 22.1882
+# Trying to write times to "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/times.txt"
+# Simulation took: 2302089724
+
+real	0m2.499s
+user	0m2.308s
+sys	0m0.189s
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[100%] Built target hop
+
+real	0m0.085s
+user	0m0.045s
+sys	0m0.040s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
+# Kernel Took: 2330001785
+# h_dp[0] = 19.5553
+# Trying to write times to "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/times.txt"
+# Simulation took: 2350458180
+
+real	0m2.566s
+user	0m2.373s
+sys	0m0.193s
+### BUILDING ###
+[ 83%] Built target apbd-lib
+[100%] Built target hop
+
+real	0m0.077s
+user	0m0.041s
+sys	0m0.036s
+### RUNNING ###
+# model_id: 442
+# scene-count: 8192
+# substeps: 50
+# write: true
+# Body count: 11
+# Constraint count: 0
+# Gravity: [0.000000 0.000000 -980.000000]
+# Ground size: 20.000000
+# Time Step: 0.010000
+# End Time: 1.000000
+# Steps: 100
+# Substeps: 50
+# Iterations: ->5 <-25
+# Running with CUDA #
+# thread blocks: 32
+# Trying to read velocities from "/home/ugrads/a/andrewleachtx/code/cuda-xpbdpriv/cmaes/data/velocities.txt"
